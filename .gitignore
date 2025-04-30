@@ -1,0 +1,7 @@
+/nextui-sdl2
+/.idea/
+/*.iml
+*.log
+/.device_logs/
+.DS_Store
+**/.DS_Store
