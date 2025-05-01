@@ -9,7 +9,9 @@ import (
 var font, smallFont *ttf.Font
 
 func InitFonts(fontSize int, smallFontSize int) {
-	font, err := ttf.OpenFont("BPreplayBold.ttf", fontSize)
+	var err error
+
+	font, err = ttf.OpenFont("BPreplayBold.ttf", fontSize)
 	if err != nil {
 		fmt.Printf("Warning: Failed to load font, using system font: %s\n", err)
 		font, err = ttf.OpenFont("DejaVuSans.ttf", fontSize)
@@ -18,9 +20,8 @@ func InitFonts(fontSize int, smallFontSize int) {
 			os.Exit(1)
 		}
 	}
-	defer font.Close()
 
-	smallFont, err := ttf.OpenFont("BPreplay.ttf", smallFontSize)
+	smallFont, err = ttf.OpenFont("BPreplay.ttf", smallFontSize)
 	if err != nil {
 		smallFont, err = ttf.OpenFont("DejaVuSans.ttf", smallFontSize)
 		if err != nil {
@@ -28,7 +29,14 @@ func InitFonts(fontSize int, smallFontSize int) {
 			os.Exit(1)
 		}
 	}
-	defer smallFont.Close()
+}
+
+func GetFont() *ttf.Font {
+	return font
+}
+
+func GetSmallFont() *ttf.Font {
+	return smallFont
 }
 
 func CloseFonts() {

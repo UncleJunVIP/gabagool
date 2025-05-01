@@ -17,9 +17,6 @@ func init() {
 			}
 		}
 	}
-	if gameController != nil {
-		defer gameController.Close()
-	}
 }
 
 func GetGameController() *sdl.GameController {

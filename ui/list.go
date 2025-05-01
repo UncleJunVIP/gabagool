@@ -24,6 +24,7 @@ const (
 	DefaultTextPadding  int32 = 20 // Padding around text in the pill
 	DefaultInputDelay         = 200 * time.Millisecond
 	DefaultTitleSpacing int32 = 30 // Space between title and first menu item
+	DefaultTitleXMargin int32 = 10
 )
 
 type MenuSettings struct {
@@ -42,14 +43,15 @@ type MenuSettings struct {
 type ListController struct {
 	Items         []models.MenuItem
 	SelectedIndex int
+	SelectedItems map[int]bool // NEW: Track multiple selected items
+	MultiSelect   bool         // NEW: Flag to enable multi-selection mode
 	Settings      MenuSettings
 	StartY        int32
 	lastInputTime time.Time
-	OnSelect      func(index int, item *models.MenuItem) // Callback for item selection
+	OnSelect      func(index int, item *models.MenuItem)
 
-	// New fields for scrolling
-	VisibleStartIndex int // First visible item index
-	MaxVisibleItems   int // Maximum number of items that can be displayed at once
+	VisibleStartIndex int
+	MaxVisibleItems   int
 }
 
 func DefaultMenuSettings() MenuSettings {
@@ -63,34 +65,78 @@ func DefaultMenuSettings() MenuSettings {
 		Title:        "",
 		TitleAlign:   AlignLeft,
 		TitleSpacing: DefaultTitleSpacing,
+		TitleXMargin: DefaultTitleXMargin,
 	}
 }
 
 func NewListController(items []models.MenuItem, startY int32) *ListController {
-	// Find the initially selected item
+	selectedItems := make(map[int]bool)
 	selectedIndex := 0
+
+	// Just track pre-selected items and the selected index
+	// But don't force selection of any items
 	for i, item := range items {
 		if item.Selected {
 			selectedIndex = i
-			break
+			selectedItems[i] = true
 		}
 	}
 
-	// Ensure at least one item is selected
-	if len(items) > 0 {
-		items[selectedIndex].Selected = true
-	}
+	// Note: we're removing the automatic selection of the first item
+	// This allows having no items selected as a valid state
 
 	return &ListController{
 		Items:         items,
-		SelectedIndex: selectedIndex,
+		SelectedIndex: selectedIndex, // Still keep track of which item has focus
+		SelectedItems: selectedItems, // This may be empty now
+		MultiSelect:   false,
 		Settings:      DefaultMenuSettings(),
 		StartY:        startY,
 		lastInputTime: time.Now(),
 	}
 }
 
-// SetTitle sets the title text and alignment for the list
+func (lc *ListController) EnableMultiSelect(enable bool) {
+	lc.MultiSelect = enable
+
+	// When switching from multi to single and multiple items are selected
+	if !enable && len(lc.SelectedItems) > 1 {
+		// Clear all selections
+		for i := range lc.Items {
+			lc.Items[i].Selected = false
+		}
+		// Create a new map to clear all selections
+		lc.SelectedItems = make(map[int]bool)
+
+		// In single-select mode, the focused item gets selected
+		lc.Items[lc.SelectedIndex].Selected = true
+		lc.SelectedItems[lc.SelectedIndex] = true
+	}
+}
+
+func (lc *ListController) toggleSelection(index int) {
+	if index < 0 || index >= len(lc.Items) {
+		return
+	}
+
+	// Simply toggle the selection status
+	if lc.Items[index].Selected {
+		lc.Items[index].Selected = false
+		delete(lc.SelectedItems, index)
+	} else {
+		lc.Items[index].Selected = true
+		lc.SelectedItems[index] = true
+	}
+}
+
+func (lc *ListController) GetSelectedItems() []int {
+	selectedIndices := make([]int, 0, len(lc.SelectedItems))
+	for idx := range lc.SelectedItems {
+		selectedIndices = append(selectedIndices, idx)
+	}
+	return selectedIndices
+}
+
 func (lc *ListController) SetTitle(title string, alignment TextAlignment) {
 	lc.Settings.Title = title
 	lc.Settings.TitleAlign = alignment
@@ -125,11 +171,25 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	case sdl.K_DOWN:
 		lc.moveSelection(1)
 		return true
-	case sdl.K_RETURN:
+	case sdl.K_LEFT:
+		lc.moveSelection(4)
+		return true
+	case sdl.K_RIGHT:
+		lc.moveSelection(4)
+		return true
+	case sdl.K_1:
+		if lc.MultiSelect {
+			lc.toggleSelection(lc.SelectedIndex)
+		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
 		return true
+	case sdl.K_2:
+		if lc.MultiSelect {
+			lc.toggleSelection(lc.SelectedIndex)
+			return true
+		}
 	}
 	return false
 }
@@ -143,6 +203,12 @@ func (lc *ListController) handleControllerButton(button uint8) bool {
 		return true
 	case sdl.CONTROLLER_BUTTON_DPAD_DOWN:
 		lc.moveSelection(1)
+		return true
+	case sdl.CONTROLLER_BUTTON_DPAD_LEFT:
+		lc.moveSelection(4)
+		return true
+	case sdl.CONTROLLER_BUTTON_DPAD_RIGHT:
+		lc.moveSelection(4)
 		return true
 	case sdl.CONTROLLER_BUTTON_A:
 		if lc.OnSelect != nil {
@@ -158,138 +224,65 @@ func (lc *ListController) moveSelection(direction int) {
 		return
 	}
 
-	lc.Items[lc.SelectedIndex].Selected = false
-	lc.SelectedIndex = (lc.SelectedIndex + direction + len(lc.Items)) % len(lc.Items)
-	lc.Items[lc.SelectedIndex].Selected = true
+	// In multi-select mode, we don't automatically change selections when moving focus
+	if !lc.MultiSelect {
+		// In single-select mode, we deselect the previously focused item
+		lc.Items[lc.SelectedIndex].Selected = false
+		delete(lc.SelectedItems, lc.SelectedIndex)
+	}
 
-	// Scrolling logic - adjust visible area when selection moves outside of it
+	lc.SelectedIndex = (lc.SelectedIndex + direction + len(lc.Items)) % len(lc.Items)
+
+	// In single-select mode, we always mark the focused item as selected
+	if !lc.MultiSelect {
+		lc.Items[lc.SelectedIndex].Selected = true
+		lc.SelectedItems[lc.SelectedIndex] = true
+	}
+
+	// Scrolling logic
 	if lc.SelectedIndex < lc.VisibleStartIndex {
-		// Selection moved above visible area - scroll up
 		lc.VisibleStartIndex = lc.SelectedIndex
 	} else if lc.SelectedIndex >= lc.VisibleStartIndex+lc.MaxVisibleItems {
-		// Selection moved below visible area - scroll down
 		lc.VisibleStartIndex = lc.SelectedIndex - lc.MaxVisibleItems + 1
 	}
 }
 
-func (lc *ListController) Draw(renderer *sdl.Renderer, font *ttf.Font) {
-	// Calculate how many items we can display based on screen height
-	_, screenHeight, _ := renderer.GetOutputSize()
-	availableHeight := screenHeight - lc.StartY
-
-	// Calculate max visible items if not already set
-	if lc.MaxVisibleItems <= 0 {
-		lc.MaxVisibleItems = int(availableHeight / lc.Settings.Spacing)
+func (lc *ListController) Draw(renderer *sdl.Renderer) {
+	for i := range lc.Items {
+		// In multi-select mode, only the currently navigated item is focused
+		lc.Items[i].Focused = (i == lc.SelectedIndex)
 	}
 
-	// Limit MaxVisibleItems to avoid going beyond available space
-	if lc.MaxVisibleItems > len(lc.Items) {
-		lc.MaxVisibleItems = len(lc.Items)
-	}
-
-	// Ensure VisibleStartIndex is within bounds
+	// Get visible items
 	endIndex := lc.VisibleStartIndex + lc.MaxVisibleItems
 	if endIndex > len(lc.Items) {
 		endIndex = len(lc.Items)
 	}
-
-	// Draw only the visible portion of the list
 	visibleItems := lc.Items[lc.VisibleStartIndex:endIndex]
 
-	// Add scroll indicators if needed
 	drawScrollIndicators := len(lc.Items) > lc.MaxVisibleItems
 
-	DrawScrollableMenu(renderer, font, visibleItems, lc.StartY, lc.Settings,
-		lc.VisibleStartIndex, drawScrollIndicators)
-}
-
-func DrawMenu(renderer *sdl.Renderer, font *ttf.Font, menuItems []models.MenuItem, startY int32, settings MenuSettings) {
-	// Use default settings for any invalid values
-	if settings.Spacing <= 0 {
-		settings.Spacing = DefaultMenuSpacing
-	}
-	if settings.XMargin < 0 {
-		settings.XMargin = DefaultMenuXMargin
-	}
-	if settings.YMargin < 0 {
-		settings.YMargin = DefaultMenuYMargin
-	}
-	if settings.TextXPad < 0 {
-		settings.TextXPad = DefaultTextPadding
-	}
-	if settings.TextYPad < 0 {
-		settings.TextYPad = 5
-	}
-	if settings.TitleSpacing <= 0 {
-		settings.TitleSpacing = DefaultTitleSpacing
-	}
-
-	// Adjusted startY to account for title if present
-	itemStartY := startY
-
-	// Draw title if one is set
-	if settings.Title != "" {
-		// Draw the title with underline and get the new starting Y position
-		itemStartY = drawUnderlinedTitle(renderer, font, settings.Title,
-			settings.TitleAlign, startY, settings.TitleXMargin) + settings.TitleSpacing
-	}
-
-	// Draw menu items
-	for i, item := range menuItems {
-		var textSurface *sdl.Surface
-		var textColor sdl.Color
-
-		if item.Selected {
-			textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}
-		} else {
-			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	if lc.MultiSelect {
+		// Reset focused state on all items
+		for i := range lc.Items {
+			lc.Items[i].Focused = false
 		}
 
-		textSurface, err := font.RenderUTF8Blended(item.Text, textColor)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to render text: %s\n", err)
-			continue
+		// Set focused state on the current item if it's in view
+		if lc.SelectedIndex >= lc.VisibleStartIndex &&
+			lc.SelectedIndex < lc.VisibleStartIndex+lc.MaxVisibleItems {
+			focusedItemIndex := lc.SelectedIndex - lc.VisibleStartIndex
+			lc.Items[lc.VisibleStartIndex+focusedItemIndex].Focused = true
 		}
-
-		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to create texture: %s\n", err)
-			textSurface.Free()
-			continue
-		}
-
-		textWidth := textSurface.W
-		textHeight := textSurface.H
-		textSurface.Free()
-
-		// Calculate positions based on the variable spacing and margins
-		itemY := itemStartY + int32(i)*settings.Spacing
-
-		// Draw background for selected item with rounded corners
-		if item.Selected {
-			pillRect := sdl.Rect{
-				X: settings.XMargin,
-				Y: itemY,
-				W: textWidth + (settings.TextXPad * 2),
-				H: textHeight + (settings.TextYPad * 2),
-			}
-			drawRoundedRect(renderer, &pillRect, 12, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-		}
-
-		// Draw text
-		textRect := sdl.Rect{
-			X: settings.XMargin + settings.TextXPad,
-			Y: itemY + settings.YMargin,
-			W: textWidth,
-			H: textHeight,
-		}
-		renderer.Copy(textTexture, nil, &textRect)
-		textTexture.Destroy()
 	}
+
+	DrawScrollableMenu(renderer, GetFont(), visibleItems, lc.StartY, lc.Settings,
+		lc.VisibleStartIndex, drawScrollIndicators, true)
 }
 
 func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
-	startY int32, settings MenuSettings, visibleStartIndex int, showScrollIndicators bool) {
+	startY int32, settings MenuSettings, visibleStartIndex int,
+	showScrollIndicators bool, multiSelect bool) {
 
 	// Use default settings for any invalid values
 	if settings.Spacing <= 0 {
@@ -309,6 +302,9 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	}
 	if settings.TitleSpacing <= 0 {
 		settings.TitleSpacing = DefaultTitleSpacing
+	}
+	if settings.TitleXMargin < 0 {
+		settings.TitleXMargin = DefaultTitleXMargin
 	}
 
 	// Adjusted startY to account for title if present
@@ -348,14 +344,49 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	for i, item := range visibleItems {
 		var textSurface *sdl.Surface
 		var textColor sdl.Color
+		var bgColor sdl.Color
 
-		if item.Selected {
-			textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}
+		itemText := item.Text
+
+		// Different appearance for focus vs selection in multi-select mode
+		if multiSelect {
+			// Add selection indicator (checkbox)
+			if item.Selected {
+				itemText = "✓ " + itemText // Selected - show checkmark
+			} else {
+				itemText = "□ " + itemText // Not selected - show empty box
+			}
+
+			if item.Focused && item.Selected {
+				// Focused and selected
+				textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}     // Black text
+				bgColor = sdl.Color{R: 220, G: 220, B: 255, A: 255} // Light blue bg
+			} else if item.Focused {
+				// Focused but not selected
+				textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255} // White text
+				bgColor = sdl.Color{R: 100, G: 100, B: 180, A: 255}   // Darker blue bg
+			} else if item.Selected {
+				// Selected but not focused
+				textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}     // Black text
+				bgColor = sdl.Color{R: 180, G: 180, B: 180, A: 255} // Gray bg
+			} else {
+				// Neither focused nor selected
+				textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255} // White text
+				// No background
+			}
 		} else {
-			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+			// Original single-select behavior
+			if item.Selected {
+				textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}
+				bgColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+			} else {
+				textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+				// No background
+			}
 		}
 
-		textSurface, err := font.RenderUTF8Blended(item.Text, textColor)
+		// Render text
+		textSurface, err := font.RenderUTF8Blended(itemText, textColor)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to render text: %s\n", err)
 			continue
@@ -376,15 +407,15 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		// Each item's offset is based on its relative position in the visible portion
 		itemY := itemStartY + int32(i)*settings.Spacing
 
-		// Draw background for selected item with rounded corners
-		if item.Selected {
+		// Draw background for selected/focused item with rounded corners
+		if item.Selected || (multiSelect && item.Focused) {
 			pillRect := sdl.Rect{
 				X: settings.XMargin,
 				Y: itemY,
 				W: textWidth + (settings.TextXPad * 2),
 				H: textHeight + (settings.TextYPad * 2),
 			}
-			drawRoundedRect(renderer, &pillRect, 12, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			drawRoundedRect(renderer, &pillRect, 12, bgColor)
 		}
 
 		// Draw text
@@ -423,7 +454,6 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	}
 }
 
-// ScrollTo scrolls the list to make a specific index visible
 func (lc *ListController) ScrollTo(index int) {
 	if index < 0 || index >= len(lc.Items) {
 		return // Invalid index
@@ -496,7 +526,6 @@ func drawFilledCircle(renderer *sdl.Renderer, centerX, centerY, radius int32, co
 	}
 }
 
-// Add a function to draw an underlined title
 func drawUnderlinedTitle(renderer *sdl.Renderer, font *ttf.Font, title string,
 	titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
 

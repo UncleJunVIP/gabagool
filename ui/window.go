@@ -42,6 +42,8 @@ func InitWindow(title string, width, height int32, fontSize int, smallFontSize i
 }
 
 func (window Window) CloseWindow() {
+	CloseFonts()
+	CloseGameController()
 	window.Renderer.Destroy()
 	window.Window.Destroy()
 }
