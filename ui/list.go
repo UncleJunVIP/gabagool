@@ -9,24 +9,6 @@ import (
 	"time"
 )
 
-type TextAlignment int
-
-const (
-	AlignLeft TextAlignment = iota
-	AlignCenter
-	AlignRight
-)
-
-const (
-	DefaultMenuSpacing  int32 = 60
-	DefaultMenuXMargin  int32 = 40 // Left margin for the menu items
-	DefaultMenuYMargin  int32 = 5  // Top/bottom margin within each menu item
-	DefaultTextPadding  int32 = 20 // Padding around text in the pill
-	DefaultInputDelay         = 200 * time.Millisecond
-	DefaultTitleSpacing int32 = 30 // Space between title and first menu item
-	DefaultTitleXMargin int32 = 10
-)
-
 type MenuSettings struct {
 	Spacing      int32         // Vertical spacing between menu items
 	XMargin      int32         // Left margin for items and background
@@ -43,8 +25,8 @@ type MenuSettings struct {
 type ListController struct {
 	Items         []models.MenuItem
 	SelectedIndex int
-	SelectedItems map[int]bool // NEW: Track multiple selected items
-	MultiSelect   bool         // NEW: Flag to enable multi-selection mode
+	SelectedItems map[int]bool
+	MultiSelect   bool
 	ReorderMode   bool
 	Settings      MenuSettings
 	StartY        int32
@@ -53,25 +35,10 @@ type ListController struct {
 
 	VisibleStartIndex int
 	MaxVisibleItems   int
-	OnReorder         func(from, to int) // Callback after reordering
+	OnReorder         func(from, to int)
 }
 
-func DefaultMenuSettings() MenuSettings {
-	return MenuSettings{
-		Spacing:      DefaultMenuSpacing,
-		XMargin:      DefaultMenuXMargin,
-		YMargin:      DefaultMenuYMargin,
-		TextXPad:     DefaultTextPadding,
-		TextYPad:     5,
-		InputDelay:   DefaultInputDelay,
-		Title:        "",
-		TitleAlign:   AlignLeft,
-		TitleSpacing: DefaultTitleSpacing,
-		TitleXMargin: DefaultTitleXMargin,
-	}
-}
-
-func NewListController(items []models.MenuItem, startY int32) *ListController {
+func NewListController(title string, items []models.MenuItem, startY int32) *ListController {
 	selectedItems := make(map[int]bool)
 	selectedIndex := 0
 
@@ -82,21 +49,33 @@ func NewListController(items []models.MenuItem, startY int32) *ListController {
 		}
 	}
 
+	for i := range items {
+		if i == selectedIndex {
+			items[i].Selected = true
+			selectedItems[i] = true
+		} else {
+			items[i].Selected = false
+			delete(selectedItems, i)
+		}
+	}
+
+	settings := DefaultMenuSettings(title)
+
 	return &ListController{
 		Items:         items,
-		SelectedIndex: selectedIndex, // Still keep track of which item has focus
-		SelectedItems: selectedItems, // This may be empty now
+		SelectedIndex: selectedIndex,
+		SelectedItems: selectedItems,
 		MultiSelect:   false,
-		Settings:      DefaultMenuSettings(),
+		Settings:      settings,
 		StartY:        startY,
 		lastInputTime: time.Now(),
 	}
 }
 
-func (lc *ListController) EnableMultiSelect(enable bool) {
-	lc.MultiSelect = enable
+func (lc *ListController) ToggleMultiSelect() {
+	lc.MultiSelect = !lc.MultiSelect
 
-	if !enable && len(lc.SelectedItems) > 1 {
+	if !lc.MultiSelect && len(lc.SelectedItems) > 1 {
 		for i := range lc.Items {
 			lc.Items[i].Selected = false
 		}
@@ -112,23 +91,17 @@ func (lc *ListController) ToggleReorderMode() {
 	lc.ReorderMode = !lc.ReorderMode
 }
 
-// First, let's fix the MoveItemUp and MoveItemDown methods to properly swap the items
-
 func (lc *ListController) MoveItemUp() bool {
 	if !lc.ReorderMode || lc.SelectedIndex <= 0 {
 		return false
 	}
 
-	// Save the current and previous items
 	currentIndex := lc.SelectedIndex
 	prevIndex := currentIndex - 1
 
-	// Swap the items in the slice
 	lc.Items[currentIndex], lc.Items[prevIndex] = lc.Items[prevIndex], lc.Items[currentIndex]
 
-	// If we're in multi-select mode, we need to update the selection map
 	if lc.MultiSelect {
-		// Check if current was selected
 		if lc.SelectedItems[currentIndex] {
 			delete(lc.SelectedItems, currentIndex)
 			lc.SelectedItems[prevIndex] = true
@@ -138,13 +111,10 @@ func (lc *ListController) MoveItemUp() bool {
 		}
 	}
 
-	// Move the selection index up
 	lc.SelectedIndex = prevIndex
 
-	// Update scroll position if needed
 	lc.ScrollTo(lc.SelectedIndex)
 
-	// Trigger the callback if it exists
 	if lc.OnReorder != nil {
 		lc.OnReorder(currentIndex, prevIndex)
 	}
@@ -157,16 +127,12 @@ func (lc *ListController) MoveItemDown() bool {
 		return false
 	}
 
-	// Save the current and next indices
 	currentIndex := lc.SelectedIndex
 	nextIndex := currentIndex + 1
 
-	// Swap the items in the slice
 	lc.Items[currentIndex], lc.Items[nextIndex] = lc.Items[nextIndex], lc.Items[currentIndex]
 
-	// If we're in multi-select mode, we need to update the selection map
 	if lc.MultiSelect {
-		// Check if current was selected
 		if lc.SelectedItems[currentIndex] {
 			delete(lc.SelectedItems, currentIndex)
 			lc.SelectedItems[nextIndex] = true
@@ -176,13 +142,10 @@ func (lc *ListController) MoveItemDown() bool {
 		}
 	}
 
-	// Move the selection index down
 	lc.SelectedIndex = nextIndex
 
-	// Update scroll position if needed
 	lc.ScrollTo(lc.SelectedIndex)
 
-	// Trigger the callback if it exists
 	if lc.OnReorder != nil {
 		lc.OnReorder(currentIndex, nextIndex)
 	}
@@ -190,7 +153,7 @@ func (lc *ListController) MoveItemDown() bool {
 	return true
 }
 
-func (lc *ListController) toggleSelection(index int) {
+func (lc *ListController) ToggleSelection(index int) {
 	if index < 0 || index >= len(lc.Items) {
 		return
 	}
@@ -210,11 +173,6 @@ func (lc *ListController) GetSelectedItems() []int {
 		selectedIndices = append(selectedIndices, idx)
 	}
 	return selectedIndices
-}
-
-func (lc *ListController) SetTitle(title string, alignment TextAlignment) {
-	lc.Settings.Title = title
-	lc.Settings.TitleAlign = alignment
 }
 
 func (lc *ListController) HandleEvent(event sdl.Event) bool {
@@ -267,9 +225,12 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	case sdl.K_RIGHT:
 		lc.moveSelection(4)
 		return true
+	case sdl.K_0:
+		lc.ToggleMultiSelect()
+		return true
 	case sdl.K_1:
 		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
+			lc.ToggleSelection(lc.SelectedIndex)
 		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
@@ -277,7 +238,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 		return true
 	case sdl.K_2:
 		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
+			lc.ToggleSelection(lc.SelectedIndex)
 			return true
 		}
 	case sdl.K_3:
@@ -320,7 +281,7 @@ func (lc *ListController) handleControllerButton(button uint8) bool {
 		return true
 	case sdl.CONTROLLER_BUTTON_A:
 		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
+			lc.ToggleSelection(lc.SelectedIndex)
 		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
@@ -335,22 +296,18 @@ func (lc *ListController) moveSelection(direction int) {
 		return
 	}
 
-	// In multi-select mode, we don't automatically change selections when moving focus
 	if !lc.MultiSelect {
-		// In single-select mode, we deselect the previously focused item
 		lc.Items[lc.SelectedIndex].Selected = false
 		delete(lc.SelectedItems, lc.SelectedIndex)
 	}
 
 	lc.SelectedIndex = (lc.SelectedIndex + direction + len(lc.Items)) % len(lc.Items)
 
-	// In single-select mode, we always mark the focused item as selected
 	if !lc.MultiSelect {
 		lc.Items[lc.SelectedIndex].Selected = true
 		lc.SelectedItems[lc.SelectedIndex] = true
 	}
 
-	// Scrolling logic
 	if lc.SelectedIndex < lc.VisibleStartIndex {
 		lc.VisibleStartIndex = lc.SelectedIndex
 	} else if lc.SelectedIndex >= lc.VisibleStartIndex+lc.MaxVisibleItems {
@@ -359,29 +316,21 @@ func (lc *ListController) moveSelection(direction int) {
 }
 
 func (lc *ListController) Draw(renderer *sdl.Renderer) {
-	// First update the focused state
 	for i := range lc.Items {
 		lc.Items[i].Focused = (i == lc.SelectedIndex)
 	}
 
-	// Get visible items
 	endIndex := lc.VisibleStartIndex + lc.MaxVisibleItems
 	if endIndex > len(lc.Items) {
 		endIndex = len(lc.Items)
 	}
 
-	// Create a copy of the visible items so we can modify them for display without
-	// affecting the original items
 	visibleItems := make([]models.MenuItem, endIndex-lc.VisibleStartIndex)
 	for i, item := range lc.Items[lc.VisibleStartIndex:endIndex] {
-		// Make a copy of each item
 		visibleItems[i] = item
 	}
 
-	drawScrollIndicators := len(lc.Items) > lc.MaxVisibleItems
-
 	if lc.MultiSelect {
-		// Reset focused state on all items in our display copy
 		for i := range visibleItems {
 			visibleItems[i].Focused = false
 		}
@@ -394,39 +343,29 @@ func (lc *ListController) Draw(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Store original title settings to restore later
 	originalTitle := lc.Settings.Title
 	originalAlign := lc.Settings.TitleAlign
 
-	// If in reorder mode, modify the display with indicators
 	if lc.ReorderMode {
-		// Change title to indicate reorder mode
 		lc.Settings.Title = "REORDER MODE"
 		lc.Settings.TitleAlign = AlignCenter
 
-		// Add move indicators to the selected item in our display copy
 		if lc.SelectedIndex >= lc.VisibleStartIndex &&
 			lc.SelectedIndex < lc.VisibleStartIndex+lc.MaxVisibleItems {
 			selectedDisplayIndex := lc.SelectedIndex - lc.VisibleStartIndex
-			// Add a reorder indicator only to the display copy
 			visibleItems[selectedDisplayIndex].Text = "↕ " + visibleItems[selectedDisplayIndex].Text
 		}
 	}
 
-	// Draw the menu with our possibly modified display copies
-	DrawScrollableMenu(renderer, GetFont(), visibleItems, lc.StartY, lc.Settings,
-		lc.VisibleStartIndex, drawScrollIndicators, lc.MultiSelect)
+	DrawScrollableMenu(renderer, GetFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect)
 
-	// Restore original title settings
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
 }
 
 func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
-	startY int32, settings MenuSettings, visibleStartIndex int,
-	showScrollIndicators bool, multiSelect bool) {
+	startY int32, settings MenuSettings, multiSelect bool) {
 
-	// Use default settings for any invalid values
 	if settings.Spacing <= 0 {
 		settings.Spacing = DefaultMenuSpacing
 	}
@@ -449,40 +388,13 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		settings.TitleXMargin = DefaultTitleXMargin
 	}
 
-	// Adjusted startY to account for title if present
 	itemStartY := startY
 
-	// Draw title if one is set
 	if settings.Title != "" {
-		// Draw the title with underline and get the new starting Y position
-		itemStartY = drawUnderlinedTitle(renderer, font, settings.Title,
+		itemStartY = drawTitle(renderer, GetTitleFont(), settings.Title,
 			settings.TitleAlign, startY, settings.TitleXMargin) + settings.TitleSpacing
 	}
 
-	// Draw scroll up indicator if necessary
-	if showScrollIndicators && visibleStartIndex > 0 {
-		arrowUp := "▲" // Unicode up arrow
-		arrowColor := sdl.Color{R: 180, G: 180, B: 180, A: 255}
-
-		arrowSurface, err := font.RenderUTF8Blended(arrowUp, arrowColor)
-		if err == nil {
-			arrowTexture, err := renderer.CreateTextureFromSurface(arrowSurface)
-			if err == nil {
-				screenWidth, _, _ := renderer.GetOutputSize()
-				arrowRect := sdl.Rect{
-					X: screenWidth - 30,
-					Y: itemStartY - 25,
-					W: arrowSurface.W,
-					H: arrowSurface.H,
-				}
-				renderer.Copy(arrowTexture, nil, &arrowRect)
-				arrowTexture.Destroy()
-			}
-			arrowSurface.Free()
-		}
-	}
-
-	// Draw menu items
 	for i, item := range visibleItems {
 		var textSurface *sdl.Surface
 		var textColor sdl.Color
@@ -490,13 +402,11 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 
 		itemText := item.Text
 
-		// Different appearance for focus vs selection in multi-select mode
 		if multiSelect {
-			// Add selection indicator (checkbox)
 			if item.Selected {
-				itemText = "✓ " + itemText // Selected - show checkmark
+				itemText = "☑ " + itemText // Selected - show checkmark
 			} else {
-				itemText = "□ " + itemText // Not selected - show empty box
+				itemText = "☐ " + itemText // Not selected - show empty box
 			}
 
 			if item.Focused && item.Selected {
@@ -517,17 +427,19 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 				// No background
 			}
 		} else {
-			// Original single-select behavior
+			// Single-select behavior
 			if item.Selected {
 				textColor = sdl.Color{R: 0, G: 0, B: 0, A: 255}
 				bgColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+			} else if item.Focused {
+				textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+				bgColor = sdl.Color{R: 100, G: 100, B: 180, A: 255} // Highlight focused item
 			} else {
 				textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 				// No background
 			}
 		}
 
-		// Render text
 		textSurface, err := font.RenderUTF8Blended(itemText, textColor)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to render text: %s\n", err)
@@ -545,12 +457,9 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		textHeight := textSurface.H
 		textSurface.Free()
 
-		// Calculate positions based on the variable spacing and margins
-		// Each item's offset is based on its relative position in the visible portion
-		itemY := itemStartY + int32(i)*settings.Spacing
+		itemY := itemStartY + int32(i)*(textHeight+settings.TextYPad*2+settings.Spacing)
 
-		// Draw background for selected/focused item with rounded corners
-		if item.Selected || (multiSelect && item.Focused) {
+		if item.Selected || item.Focused {
 			pillRect := sdl.Rect{
 				X: settings.XMargin,
 				Y: itemY,
@@ -560,39 +469,14 @@ func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 			drawRoundedRect(renderer, &pillRect, 12, bgColor)
 		}
 
-		// Draw text
 		textRect := sdl.Rect{
 			X: settings.XMargin + settings.TextXPad,
-			Y: itemY + settings.YMargin,
+			Y: itemY + settings.TextYPad, // Adjust this to properly center text in pill
 			W: textWidth,
 			H: textHeight,
 		}
 		renderer.Copy(textTexture, nil, &textRect)
 		textTexture.Destroy()
-	}
-
-	// Draw scroll down indicator if necessary
-	if showScrollIndicators && visibleStartIndex+len(visibleItems) < len(visibleItems) {
-		arrowDown := "▼" // Unicode down arrow
-		arrowColor := sdl.Color{R: 180, G: 180, B: 180, A: 255}
-
-		arrowSurface, err := font.RenderUTF8Blended(arrowDown, arrowColor)
-		if err == nil {
-			arrowTexture, err := renderer.CreateTextureFromSurface(arrowSurface)
-			if err == nil {
-				screenWidth, _, _ := renderer.GetOutputSize()
-				lastItemY := itemStartY + int32(len(visibleItems)-1)*settings.Spacing
-				arrowRect := sdl.Rect{
-					X: screenWidth - 30,
-					Y: lastItemY + 40,
-					W: arrowSurface.W,
-					H: arrowSurface.H,
-				}
-				renderer.Copy(arrowTexture, nil, &arrowRect)
-				arrowTexture.Destroy()
-			}
-			arrowSurface.Free()
-		}
 	}
 }
 
@@ -620,10 +504,8 @@ func (lc *ListController) ScrollTo(index int) {
 }
 
 func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
-	// Set the color
 	renderer.SetDrawColor(color.R, color.G, color.B, color.A)
 
-	// Draw the middle rectangle
 	middleRect := sdl.Rect{
 		X: rect.X + radius,
 		Y: rect.Y,
@@ -632,7 +514,6 @@ func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color
 	}
 	renderer.FillRect(&middleRect)
 
-	// Draw the left and right rectangles
 	leftRect := sdl.Rect{
 		X: rect.X,
 		Y: rect.Y + radius,
@@ -648,7 +529,6 @@ func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color
 	renderer.FillRect(&leftRect)
 	renderer.FillRect(&rightRect)
 
-	// Draw the four corner circles
 	drawFilledCircle(renderer, rect.X+radius, rect.Y+radius, radius, color)
 	drawFilledCircle(renderer, rect.X+rect.W-radius, rect.Y+radius, radius, color)
 	drawFilledCircle(renderer, rect.X+radius, rect.Y+rect.H-radius, radius, color)
@@ -668,15 +548,12 @@ func drawFilledCircle(renderer *sdl.Renderer, centerX, centerY, radius int32, co
 	}
 }
 
-func drawUnderlinedTitle(renderer *sdl.Renderer, font *ttf.Font, title string,
-	titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
-
-	// Render title with white color
+func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
 	titleColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 	titleSurface, err := font.RenderUTF8Blended(title, titleColor)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to render title text: %s\n", err)
-		return startY // Return original startY if we can't render
+		return startY
 	}
 
 	titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
@@ -686,15 +563,13 @@ func drawUnderlinedTitle(renderer *sdl.Renderer, font *ttf.Font, title string,
 		return startY
 	}
 
-	// Get the width of the title and the renderer
 	titleWidth := titleSurface.W
 	titleHeight := titleSurface.H
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
-		screenWidth = 800 // Fallback width if can't get screen width
+		screenWidth = 768 // fallback width
 	}
 
-	// Calculate x position based on alignment
 	var titleX int32
 	switch titleAlign {
 	case AlignLeft:
@@ -704,10 +579,9 @@ func drawUnderlinedTitle(renderer *sdl.Renderer, font *ttf.Font, title string,
 	case AlignRight:
 		titleX = screenWidth - titleWidth - titleXMargin
 	default:
-		titleX = titleXMargin // Default to left alignment
+		titleX = titleXMargin
 	}
 
-	// Draw title
 	titleRect := sdl.Rect{
 		X: titleX,
 		Y: startY,
@@ -716,32 +590,8 @@ func drawUnderlinedTitle(renderer *sdl.Renderer, font *ttf.Font, title string,
 	}
 	renderer.Copy(titleTexture, nil, &titleRect)
 
-	// Draw underline
-	underlineY := startY + titleHeight + 2    // Small gap between text and underline
-	renderer.SetDrawColor(255, 255, 255, 255) // White color for underline
-
-	// Determine underline width based on alignment
-	var underlineX, underlineWidth int32
-
-	switch titleAlign {
-	case AlignLeft:
-		underlineX = titleX
-		underlineWidth = titleWidth
-	case AlignCenter:
-		underlineX = titleX
-		underlineWidth = titleWidth
-	case AlignRight:
-		underlineX = titleX
-		underlineWidth = titleWidth
-	}
-
-	// Draw the line
-	renderer.DrawLine(underlineX, underlineY, underlineX+underlineWidth, underlineY)
-
-	// Clean up
 	titleTexture.Destroy()
 	titleSurface.Free()
 
-	// Return the new Y position after the title and underline
-	return underlineY + 5 // Add a small gap after the underline
+	return titleHeight + 20
 }

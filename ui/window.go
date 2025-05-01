@@ -28,7 +28,7 @@ func InitWindow(title string, width, height int32, fontSize int, smallFontSize i
 		os.Exit(1)
 	}
 
-	InitFonts(fontSize, smallFontSize)
+	InitFonts(fontSize+10, fontSize, smallFontSize)
 
 	return &Window{
 		Window:        window,

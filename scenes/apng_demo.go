@@ -57,7 +57,6 @@ func (s *APNGScene) Destroy() error {
 		return nil
 	}
 
-	// Properly clean up all resources
 	if s.apngPlayer != nil {
 		err := s.apngPlayer.Destroy
 		if err != nil {

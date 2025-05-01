@@ -11,8 +11,8 @@ import (
 const (
 	WindowWidth   = 1024
 	WindowHeight  = 768
-	FontSize      = 50
-	SmallFontSize = 30
+	FontSize      = 40
+	SmallFontSize = 20
 )
 
 func main() {

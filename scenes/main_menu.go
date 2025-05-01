@@ -39,19 +39,7 @@ func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 		{"START FROM THE TOP YO!", false, false, nil},
 	}
 
-	scene.listController = ui.NewListController(menuItems, 20)
-	scene.listController.EnableMultiSelect(true)
-
-	scene.listController.Settings = ui.MenuSettings{
-		Spacing:      90,
-		XMargin:      10,
-		YMargin:      10,
-		TextXPad:     5,
-		TextYPad:     5,
-		Title:        "Mortar",
-		TitleXMargin: 30,
-		TitleSpacing: 20,
-	}
+	scene.listController = ui.NewListController("Mortar", menuItems, 20)
 
 	scene.listController.MaxVisibleItems = 7
 

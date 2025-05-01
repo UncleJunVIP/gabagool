@@ -6,33 +6,37 @@ import (
 	"os"
 )
 
-var font, smallFont *ttf.Font
+var titleFont, mainFont, smallFont *ttf.Font
 
-func InitFonts(fontSize int, smallFontSize int) {
+func InitFonts(titleSize int, fontSize int, smallFontSize int) {
 	var err error
 
-	font, err = ttf.OpenFont("BPreplayBold.ttf", fontSize)
+	titleFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", titleSize)
 	if err != nil {
-		fmt.Printf("Warning: Failed to load font, using system font: %s\n", err)
-		font, err = ttf.OpenFont("DejaVuSans.ttf", fontSize)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load fallback font: %s\n", err)
-			os.Exit(1)
-		}
+		fmt.Fprintf(os.Stderr, "Failed to load title font: %s\n", err)
+		os.Exit(1)
 	}
 
-	smallFont, err = ttf.OpenFont("BPreplay.ttf", smallFontSize)
+	mainFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", fontSize)
 	if err != nil {
-		smallFont, err = ttf.OpenFont("DejaVuSans.ttf", smallFontSize)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to load fallback small font: %s\n", err)
-			os.Exit(1)
-		}
+		fmt.Fprintf(os.Stderr, "Failed to load mmain font: %s\n", err)
+		os.Exit(1)
 	}
+
+	smallFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", smallFontSize)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load small font: %s\n", err)
+		os.Exit(1)
+	}
+
+}
+
+func GetTitleFont() *ttf.Font {
+	return titleFont
 }
 
 func GetFont() *ttf.Font {
-	return font
+	return mainFont
 }
 
 func GetSmallFont() *ttf.Font {
@@ -40,6 +44,7 @@ func GetSmallFont() *ttf.Font {
 }
 
 func CloseFonts() {
-	font.Close()
+	titleFont.Close()
+	mainFont.Close()
 	smallFont.Close()
 }
