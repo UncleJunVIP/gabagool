@@ -41,12 +41,11 @@ func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 
 	scene.listController = ui.NewListController("Mortar", menuItems, 20)
 
-	scene.listController.MaxVisibleItems = 7
-
-	// Set callback for item selection
 	scene.listController.OnSelect = func(index int, item *models.MenuItem) {
-		fmt.Printf("Selected: %s\n", item.Text)
+		fmt.Printf("YDIJ: %s\n", item.Text)
 	}
+
+	scene.listController.MaxVisibleItems = 7
 
 	return scene
 }
@@ -66,13 +65,10 @@ func (s *MenuScene) Update() error {
 }
 
 func (s *MenuScene) Render() error {
-	// Render the scene
 	s.renderer.SetDrawColor(0, 0, 0, 255)
 	s.renderer.Clear()
 
-	// Draw the list controller
-	s.listController.Draw(s.renderer) // This line was missing!
-
+	s.listController.Render(s.renderer) // This line was missing!
 	return nil
 }
 
