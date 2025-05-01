@@ -46,10 +46,10 @@ func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 		Spacing:      90,
 		XMargin:      10,
 		YMargin:      10,
-		TextXPad:     10,
-		TextYPad:     10,
+		TextXPad:     5,
+		TextYPad:     5,
 		Title:        "Mortar",
-		TitleXMargin: 20,
+		TitleXMargin: 30,
 		TitleSpacing: 20,
 	}
 

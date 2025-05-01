@@ -45,6 +45,7 @@ type ListController struct {
 	SelectedIndex int
 	SelectedItems map[int]bool // NEW: Track multiple selected items
 	MultiSelect   bool         // NEW: Flag to enable multi-selection mode
+	ReorderMode   bool
 	Settings      MenuSettings
 	StartY        int32
 	lastInputTime time.Time
@@ -52,6 +53,7 @@ type ListController struct {
 
 	VisibleStartIndex int
 	MaxVisibleItems   int
+	OnReorder         func(from, to int) // Callback after reordering
 }
 
 func DefaultMenuSettings() MenuSettings {
@@ -73,17 +75,12 @@ func NewListController(items []models.MenuItem, startY int32) *ListController {
 	selectedItems := make(map[int]bool)
 	selectedIndex := 0
 
-	// Just track pre-selected items and the selected index
-	// But don't force selection of any items
 	for i, item := range items {
 		if item.Selected {
 			selectedIndex = i
 			selectedItems[i] = true
 		}
 	}
-
-	// Note: we're removing the automatic selection of the first item
-	// This allows having no items selected as a valid state
 
 	return &ListController{
 		Items:         items,
@@ -99,19 +96,98 @@ func NewListController(items []models.MenuItem, startY int32) *ListController {
 func (lc *ListController) EnableMultiSelect(enable bool) {
 	lc.MultiSelect = enable
 
-	// When switching from multi to single and multiple items are selected
 	if !enable && len(lc.SelectedItems) > 1 {
-		// Clear all selections
 		for i := range lc.Items {
 			lc.Items[i].Selected = false
 		}
-		// Create a new map to clear all selections
+
 		lc.SelectedItems = make(map[int]bool)
 
-		// In single-select mode, the focused item gets selected
 		lc.Items[lc.SelectedIndex].Selected = true
 		lc.SelectedItems[lc.SelectedIndex] = true
 	}
+}
+
+func (lc *ListController) ToggleReorderMode() {
+	lc.ReorderMode = !lc.ReorderMode
+}
+
+// First, let's fix the MoveItemUp and MoveItemDown methods to properly swap the items
+
+func (lc *ListController) MoveItemUp() bool {
+	if !lc.ReorderMode || lc.SelectedIndex <= 0 {
+		return false
+	}
+
+	// Save the current and previous items
+	currentIndex := lc.SelectedIndex
+	prevIndex := currentIndex - 1
+
+	// Swap the items in the slice
+	lc.Items[currentIndex], lc.Items[prevIndex] = lc.Items[prevIndex], lc.Items[currentIndex]
+
+	// If we're in multi-select mode, we need to update the selection map
+	if lc.MultiSelect {
+		// Check if current was selected
+		if lc.SelectedItems[currentIndex] {
+			delete(lc.SelectedItems, currentIndex)
+			lc.SelectedItems[prevIndex] = true
+		} else if lc.SelectedItems[prevIndex] {
+			delete(lc.SelectedItems, prevIndex)
+			lc.SelectedItems[currentIndex] = true
+		}
+	}
+
+	// Move the selection index up
+	lc.SelectedIndex = prevIndex
+
+	// Update scroll position if needed
+	lc.ScrollTo(lc.SelectedIndex)
+
+	// Trigger the callback if it exists
+	if lc.OnReorder != nil {
+		lc.OnReorder(currentIndex, prevIndex)
+	}
+
+	return true
+}
+
+func (lc *ListController) MoveItemDown() bool {
+	if !lc.ReorderMode || lc.SelectedIndex >= len(lc.Items)-1 {
+		return false
+	}
+
+	// Save the current and next indices
+	currentIndex := lc.SelectedIndex
+	nextIndex := currentIndex + 1
+
+	// Swap the items in the slice
+	lc.Items[currentIndex], lc.Items[nextIndex] = lc.Items[nextIndex], lc.Items[currentIndex]
+
+	// If we're in multi-select mode, we need to update the selection map
+	if lc.MultiSelect {
+		// Check if current was selected
+		if lc.SelectedItems[currentIndex] {
+			delete(lc.SelectedItems, currentIndex)
+			lc.SelectedItems[nextIndex] = true
+		} else if lc.SelectedItems[nextIndex] {
+			delete(lc.SelectedItems, nextIndex)
+			lc.SelectedItems[currentIndex] = true
+		}
+	}
+
+	// Move the selection index down
+	lc.SelectedIndex = nextIndex
+
+	// Update scroll position if needed
+	lc.ScrollTo(lc.SelectedIndex)
+
+	// Trigger the callback if it exists
+	if lc.OnReorder != nil {
+		lc.OnReorder(currentIndex, nextIndex)
+	}
+
+	return true
 }
 
 func (lc *ListController) toggleSelection(index int) {
@@ -119,7 +195,6 @@ func (lc *ListController) toggleSelection(index int) {
 		return
 	}
 
-	// Simply toggle the selection status
 	if lc.Items[index].Selected {
 		lc.Items[index].Selected = false
 		delete(lc.SelectedItems, index)
@@ -164,6 +239,21 @@ func (lc *ListController) HandleEvent(event sdl.Event) bool {
 func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	lc.lastInputTime = time.Now()
 
+	if lc.ReorderMode {
+		switch key {
+		case sdl.K_UP:
+			return lc.MoveItemUp()
+		case sdl.K_DOWN:
+			return lc.MoveItemDown()
+		case sdl.K_ESCAPE:
+			lc.ReorderMode = false
+			return true
+		case sdl.K_RETURN:
+			lc.ReorderMode = false
+			return true
+		}
+	}
+
 	switch key {
 	case sdl.K_UP:
 		lc.moveSelection(-1)
@@ -190,12 +280,30 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 			lc.toggleSelection(lc.SelectedIndex)
 			return true
 		}
+	case sdl.K_3:
+		lc.ToggleReorderMode()
+		return true
 	}
 	return false
 }
 
 func (lc *ListController) handleControllerButton(button uint8) bool {
 	lc.lastInputTime = time.Now()
+
+	if lc.ReorderMode {
+		switch button {
+		case sdl.CONTROLLER_BUTTON_DPAD_UP:
+			return lc.MoveItemUp()
+		case sdl.CONTROLLER_BUTTON_DPAD_DOWN:
+			return lc.MoveItemDown()
+		case sdl.CONTROLLER_BUTTON_B:
+			lc.ReorderMode = false
+			return true
+		case sdl.CONTROLLER_BUTTON_A:
+			lc.ReorderMode = false
+			return true
+		}
+	}
 
 	switch button {
 	case sdl.CONTROLLER_BUTTON_DPAD_UP:
@@ -211,6 +319,9 @@ func (lc *ListController) handleControllerButton(button uint8) bool {
 		lc.moveSelection(4)
 		return true
 	case sdl.CONTROLLER_BUTTON_A:
+		if lc.MultiSelect {
+			lc.toggleSelection(lc.SelectedIndex)
+		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
@@ -248,8 +359,8 @@ func (lc *ListController) moveSelection(direction int) {
 }
 
 func (lc *ListController) Draw(renderer *sdl.Renderer) {
+	// First update the focused state
 	for i := range lc.Items {
-		// In multi-select mode, only the currently navigated item is focused
 		lc.Items[i].Focused = (i == lc.SelectedIndex)
 	}
 
@@ -258,26 +369,57 @@ func (lc *ListController) Draw(renderer *sdl.Renderer) {
 	if endIndex > len(lc.Items) {
 		endIndex = len(lc.Items)
 	}
-	visibleItems := lc.Items[lc.VisibleStartIndex:endIndex]
+
+	// Create a copy of the visible items so we can modify them for display without
+	// affecting the original items
+	visibleItems := make([]models.MenuItem, endIndex-lc.VisibleStartIndex)
+	for i, item := range lc.Items[lc.VisibleStartIndex:endIndex] {
+		// Make a copy of each item
+		visibleItems[i] = item
+	}
 
 	drawScrollIndicators := len(lc.Items) > lc.MaxVisibleItems
 
 	if lc.MultiSelect {
-		// Reset focused state on all items
-		for i := range lc.Items {
-			lc.Items[i].Focused = false
+		// Reset focused state on all items in our display copy
+		for i := range visibleItems {
+			visibleItems[i].Focused = false
 		}
 
 		// Set focused state on the current item if it's in view
 		if lc.SelectedIndex >= lc.VisibleStartIndex &&
 			lc.SelectedIndex < lc.VisibleStartIndex+lc.MaxVisibleItems {
 			focusedItemIndex := lc.SelectedIndex - lc.VisibleStartIndex
-			lc.Items[lc.VisibleStartIndex+focusedItemIndex].Focused = true
+			visibleItems[focusedItemIndex].Focused = true
 		}
 	}
 
+	// Store original title settings to restore later
+	originalTitle := lc.Settings.Title
+	originalAlign := lc.Settings.TitleAlign
+
+	// If in reorder mode, modify the display with indicators
+	if lc.ReorderMode {
+		// Change title to indicate reorder mode
+		lc.Settings.Title = "REORDER MODE"
+		lc.Settings.TitleAlign = AlignCenter
+
+		// Add move indicators to the selected item in our display copy
+		if lc.SelectedIndex >= lc.VisibleStartIndex &&
+			lc.SelectedIndex < lc.VisibleStartIndex+lc.MaxVisibleItems {
+			selectedDisplayIndex := lc.SelectedIndex - lc.VisibleStartIndex
+			// Add a reorder indicator only to the display copy
+			visibleItems[selectedDisplayIndex].Text = "↕ " + visibleItems[selectedDisplayIndex].Text
+		}
+	}
+
+	// Draw the menu with our possibly modified display copies
 	DrawScrollableMenu(renderer, GetFont(), visibleItems, lc.StartY, lc.Settings,
-		lc.VisibleStartIndex, drawScrollIndicators, true)
+		lc.VisibleStartIndex, drawScrollIndicators, lc.MultiSelect)
+
+	// Restore original title settings
+	lc.Settings.Title = originalTitle
+	lc.Settings.TitleAlign = originalAlign
 }
 
 func DrawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
