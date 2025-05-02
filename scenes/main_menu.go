@@ -51,7 +51,6 @@ func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 }
 
 func (s *MenuScene) Init() error {
-	// Any additional initialization (if needed)
 	return nil
 }
 
@@ -60,7 +59,6 @@ func (s *MenuScene) HandleEvent(event sdl.Event) bool {
 }
 
 func (s *MenuScene) Update() error {
-	// Update logic
 	return nil
 }
 
@@ -73,6 +71,5 @@ func (s *MenuScene) Render() error {
 }
 
 func (s *MenuScene) Destroy() error {
-	// Clean up resources
 	return nil
 }

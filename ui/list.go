@@ -31,6 +31,12 @@ type ListController struct {
 	VisibleStartIndex int
 	MaxVisibleItems   int
 	OnReorder         func(from, to int)
+
+	HelpLines        []string
+	ShowingHelp      bool
+	DefaultHelpLines []string
+	HelpScrollOffset int32
+	MaxHelpScroll    int32
 }
 
 func DefaultListSettings(title string) ListSettings {
@@ -78,7 +84,7 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 
 	settings := DefaultListSettings(title)
 
-	return &ListController{
+	controller := &ListController{
 		Items:         items,
 		SelectedIndex: selectedIndex,
 		SelectedItems: selectedItems,
@@ -87,6 +93,17 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 		StartY:        startY,
 		lastInputTime: time.Now(),
 	}
+
+	controller.DefaultHelpLines = []string{
+		"↑/↓: Navigate list",
+		"A: Select item",
+		"Select: Toggle multi-select mode",
+		"Start: Toggle reorder mode",
+		"Menu: Show/hide help",
+	}
+	controller.HelpLines = controller.DefaultHelpLines
+
+	return controller
 }
 
 func (lc *ListController) ToggleMultiSelect() {
@@ -237,6 +254,30 @@ func (lc *ListController) HandleEvent(event sdl.Event) bool {
 func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	lc.lastInputTime = time.Now()
 
+	// Help toggle
+	if key == sdl.K_h || key == sdl.K_QUESTION {
+		lc.ToggleHelp()
+		return true
+	}
+
+	// Handle scrolling when help is showing
+	if lc.ShowingHelp {
+		if key == sdl.K_UP {
+			lc.ScrollHelpOverlay(-1) // Scroll up
+			return true
+		}
+		if key == sdl.K_DOWN {
+			lc.ScrollHelpOverlay(1) // Scroll down
+			return true
+		}
+
+		// Any other key dismisses help
+		if key != sdl.K_UP && key != sdl.K_DOWN {
+			lc.ShowingHelp = false
+		}
+		return true
+	}
+
 	if lc.ReorderMode {
 		switch key {
 		case sdl.K_UP:
@@ -294,6 +335,29 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 
 func (lc *ListController) handleButtonPress(button uint8) bool {
 	lc.lastInputTime = time.Now()
+
+	// Add help toggle button handling (using SELECT button)
+	if button == sdl.CONTROLLER_BUTTON_BACK {
+		lc.ToggleHelp()
+		return true
+	}
+
+	// Handle scrolling when help is showing
+	if lc.ShowingHelp {
+		if button == sdl.CONTROLLER_BUTTON_DPAD_UP {
+			lc.ScrollHelpOverlay(-1) // Scroll up
+			return true
+		}
+		if button == sdl.CONTROLLER_BUTTON_DPAD_DOWN {
+			lc.ScrollHelpOverlay(1) // Scroll down
+			return true
+		}
+
+		if button != sdl.CONTROLLER_BUTTON_DPAD_UP && button != sdl.CONTROLLER_BUTTON_DPAD_DOWN {
+			lc.ShowingHelp = false
+		}
+		return true
+	}
 
 	if lc.ReorderMode {
 		switch button {
@@ -420,6 +484,12 @@ func (lc *ListController) Render(renderer *sdl.Renderer) {
 
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
+
+	lc.RenderHelpPrompt(renderer)
+
+	if lc.ShowingHelp {
+		lc.RenderHelpOverlay(renderer)
+	}
 }
 
 func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
@@ -625,6 +695,347 @@ func drawFilledCircle(renderer *sdl.Renderer, centerX, centerY, radius int32, co
 			if x*x+y*y <= radius*radius {
 				renderer.DrawPoint(centerX+x, centerY+y)
 			}
+		}
+	}
+}
+
+func (lc *ListController) ToggleHelp() {
+	lc.ShowingHelp = !lc.ShowingHelp
+	lc.HelpScrollOffset = 0 // Reset scroll position when toggling
+
+	// Update help text based on current mode
+	if lc.ShowingHelp {
+		if lc.ReorderMode {
+			lc.HelpLines = []string{
+				"REORDER MODE",
+				"↑/↓: Move item up/down",
+				"Esc/B: Cancel reordering",
+				"Enter/A: Confirm reordering",
+				"H/?: Hide help",
+			}
+		} else if lc.MultiSelect {
+			lc.HelpLines = []string{
+				"MULTI-SELECT MODE",
+				"↑/↓: Navigate list",
+				"1/A: Toggle selection",
+				"0/Y: Exit multi-select mode",
+				"H/?: Hide help",
+			}
+		} else {
+			lc.HelpLines = lc.DefaultHelpLines
+		}
+	}
+}
+
+func (lc *ListController) RenderHelpPrompt(renderer *sdl.Renderer) {
+	screenWidth, screenHeight, err := renderer.GetOutputSize()
+	if err != nil {
+		Logger.Error("Failed to get output size", "error", err)
+		return
+	}
+
+	if !lc.ShowingHelp {
+		font := GetFont()
+		promptText := "Help (Menu)"
+
+		promptSurface, err := font.RenderUTF8Blended(promptText, sdl.Color{R: 180, G: 180, B: 180, A: 200})
+		if err != nil {
+			return
+		}
+
+		promptTexture, err := renderer.CreateTextureFromSurface(promptSurface)
+		if err != nil {
+			promptSurface.Free()
+			return
+		}
+
+		padding := int32(20)
+		promptRect := sdl.Rect{
+			X: screenWidth - promptSurface.W - padding,
+			Y: screenHeight - promptSurface.H - padding,
+			W: promptSurface.W,
+			H: promptSurface.H,
+		}
+
+		renderer.Copy(promptTexture, nil, &promptRect)
+
+		promptTexture.Destroy()
+		promptSurface.Free()
+	}
+}
+
+func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
+	if !lc.ShowingHelp {
+		return
+	}
+
+	// Get screen dimensions
+	screenWidth, screenHeight, err := renderer.GetOutputSize()
+	if err != nil {
+		Logger.Error("Failed to get output size", "error", err)
+		return
+	}
+
+	// Create semi-transparent overlay for the entire screen
+	renderer.SetDrawColor(0, 0, 0, 200)
+	overlay := sdl.Rect{X: 0, Y: 0, W: screenWidth, H: screenHeight}
+	renderer.FillRect(&overlay)
+
+	font := GetFont()
+
+	// Pre-render title to get its dimensions
+	titleText := "Help"
+	titleSurface, err := font.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if err != nil {
+		Logger.Error("Failed to render title", "error", err)
+		return
+	}
+	defer titleSurface.Free()
+
+	// Pre-render dismiss text to get its dimensions
+	dismissText := "Press any key to dismiss (use ↑/↓ to scroll)"
+	if lc.MaxHelpScroll == 0 {
+		dismissText = "Press any key to dismiss"
+	}
+
+	dismissSurface, err := font.RenderUTF8Blended(dismissText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
+	if err != nil {
+		Logger.Error("Failed to render dismiss text", "error", err)
+		dismissSurface = nil
+	}
+
+	// Calculate dimensions for the dark blue content box
+	boxWidth := int32(float32(screenWidth) * 0.85) // 85% of screen width
+
+	// Calculate vertical spacing
+	titleHeight := titleSurface.H
+	titleSpacing := int32(30)      // Space between top of screen and title
+	titleToBoxSpacing := int32(20) // Space between title and content box
+
+	var dismissHeight, boxToHelpSpacing int32
+	if dismissSurface != nil {
+		dismissHeight = dismissSurface.H
+		boxToHelpSpacing = int32(30) // INCREASED space between content box and help text
+		defer dismissSurface.Free()
+	} else {
+		dismissHeight = 0
+		boxToHelpSpacing = 0
+	}
+
+	// Add extra bottom margin
+	bottomMargin := int32(40) // INCREASED bottom margin
+
+	// Calculate maximum available height for content box
+	maxBoxHeight := screenHeight - titleHeight - titleSpacing - titleToBoxSpacing - dismissHeight - boxToHelpSpacing - bottomMargin
+
+	// Set box height to 90% of available height
+	boxHeight := int32(float32(maxBoxHeight) * 0.9)
+
+	// Center the box horizontally
+	boxX := (screenWidth - boxWidth) / 2
+
+	// Position the box vertically after the title
+	titleY := titleSpacing
+	boxY := titleY + titleHeight + titleToBoxSpacing
+
+	// Draw the title
+	titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
+	if err == nil {
+		titleX := (screenWidth - titleSurface.W) / 2 // Center title
+		titleRect := sdl.Rect{X: titleX, Y: titleY, W: titleSurface.W, H: titleSurface.H}
+		renderer.Copy(titleTexture, nil, &titleRect)
+		titleTexture.Destroy()
+	}
+
+	// Draw the dark blue content box
+	renderer.SetDrawColor(30, 30, 45, 255)
+	contentBox := sdl.Rect{X: boxX, Y: boxY, W: boxWidth, H: boxHeight}
+	renderer.FillRect(&contentBox)
+
+	// Draw border for content box
+	renderer.SetDrawColor(60, 60, 90, 255)
+	renderer.DrawRect(&contentBox)
+
+	// Content padding inside the dark blue box
+	textPadding := int32(20)
+	textX := boxX + textPadding
+	textY := boxY + textPadding
+	textWidth := boxWidth - (textPadding * 2) - int32(25) // Leave room for scrollbar
+	textHeight := boxHeight - (textPadding * 2)
+
+	// Calculate total content height
+	lineHeight := int32(40) // Larger line height
+	totalContentHeight := int32(0)
+
+	// Pre-render all lines
+	lineSurfaces := make([]*sdl.Surface, len(lc.HelpLines))
+	for i, line := range lc.HelpLines {
+		surface, err := font.RenderUTF8Blended(line, sdl.Color{R: 220, G: 220, B: 220, A: 255})
+		if err != nil {
+			continue
+		}
+
+		lineSurfaces[i] = surface
+		totalContentHeight += lineHeight
+	}
+
+	// Calculate max scroll
+	if totalContentHeight > textHeight {
+		lc.MaxHelpScroll = totalContentHeight - textHeight
+	} else {
+		lc.MaxHelpScroll = 0
+	}
+
+	// Define viewport boundaries for manual clipping
+	viewportTop := textY
+	viewportBottom := textY + textHeight
+
+	// Draw the scrollable content with manual clipping
+	for i, surface := range lineSurfaces {
+		if surface == nil {
+			continue
+		}
+
+		// Calculate Y position with scroll offset
+		yPos := textY - lc.HelpScrollOffset + (int32(i) * lineHeight)
+
+		// Skip if completely outside the viewport
+		if yPos+surface.H < viewportTop || yPos > viewportBottom {
+			surface.Free()
+			continue
+		}
+
+		texture, err := renderer.CreateTextureFromSurface(surface)
+		if err != nil {
+			surface.Free()
+			continue
+		}
+
+		// For partial visibility, create a source rectangle that only shows
+		// the visible portion of the text
+		srcRect := &sdl.Rect{
+			X: 0,
+			Y: 0,
+			W: surface.W,
+			H: surface.H,
+		}
+
+		dstRect := &sdl.Rect{
+			X: textX,
+			Y: yPos,
+			W: surface.W,
+			H: surface.H,
+		}
+
+		// Handle partial visibility at top
+		if yPos < viewportTop {
+			diff := viewportTop - yPos
+			srcRect.Y = diff
+			srcRect.H = surface.H - diff
+			dstRect.Y = viewportTop
+			dstRect.H = srcRect.H
+		}
+
+		// Handle partial visibility at bottom
+		if yPos+surface.H > viewportBottom {
+			overlap := (yPos + surface.H) - viewportBottom
+			srcRect.H = surface.H - overlap
+			dstRect.H = srcRect.H
+		}
+
+		// Only render if there's something visible
+		if srcRect.H > 0 {
+			renderer.Copy(texture, srcRect, dstRect)
+		}
+
+		texture.Destroy()
+		surface.Free()
+	}
+
+	// Draw scrollbar if needed
+	if lc.MaxHelpScroll > 0 {
+		scrollbarWidth := int32(15) // Wide scrollbar
+		scrollbarHeight := textHeight
+		scrollbarX := textX + textWidth + int32(5)
+		scrollbarY := textY
+
+		// Draw scrollbar background
+		renderer.SetDrawColor(60, 60, 80, 200)
+		scrollbarBg := sdl.Rect{
+			X: scrollbarX,
+			Y: scrollbarY,
+			W: scrollbarWidth,
+			H: scrollbarHeight,
+		}
+		renderer.FillRect(&scrollbarBg)
+
+		// Calculate thumb size and position
+		thumbRatio := float32(textHeight) / float32(totalContentHeight)
+		if thumbRatio > 1.0 {
+			thumbRatio = 1.0
+		}
+
+		thumbHeight := int32(float32(scrollbarHeight) * thumbRatio)
+		if thumbHeight < 50 {
+			thumbHeight = 50 // Minimum thumb size
+		}
+
+		scrollRatio := float32(lc.HelpScrollOffset) / float32(lc.MaxHelpScroll)
+		thumbY := scrollbarY + int32(float32(scrollbarHeight-thumbHeight)*scrollRatio)
+
+		// Draw the scrollbar thumb
+		renderer.SetDrawColor(180, 180, 200, 255)
+		scrollThumb := sdl.Rect{
+			X: scrollbarX,
+			Y: thumbY,
+			W: scrollbarWidth,
+			H: thumbHeight,
+		}
+		renderer.FillRect(&scrollThumb)
+	}
+
+	// Draw dismiss text below the content box
+	if dismissSurface != nil {
+		dismissTexture, err := renderer.CreateTextureFromSurface(dismissSurface)
+		if err == nil {
+			dismissX := (screenWidth - dismissSurface.W) / 2 // Center text
+			dismissY := boxY + boxHeight + boxToHelpSpacing
+
+			dismissRect := sdl.Rect{
+				X: dismissX,
+				Y: dismissY,
+				W: dismissSurface.W,
+				H: dismissSurface.H,
+			}
+
+			renderer.Copy(dismissTexture, nil, &dismissRect)
+			dismissTexture.Destroy()
+		}
+	}
+}
+
+func (lc *ListController) SetHelpLines(lines []string) {
+	lc.DefaultHelpLines = lines
+
+	// If help is not showing, just update the default lines
+	// If help is showing, update the current display too
+	if lc.ShowingHelp && !lc.ReorderMode && !lc.MultiSelect {
+		lc.HelpLines = lc.DefaultHelpLines
+	}
+}
+
+func (lc *ListController) ScrollHelpOverlay(direction int32) {
+	scrollAmount := int32(30) // Scroll by this many pixels at once
+
+	if direction < 0 { // Scroll up
+		lc.HelpScrollOffset -= scrollAmount
+		if lc.HelpScrollOffset < 0 {
+			lc.HelpScrollOffset = 0
+		}
+	} else { // Scroll down
+		lc.HelpScrollOffset += scrollAmount
+		if lc.HelpScrollOffset > lc.MaxHelpScroll {
+			lc.HelpScrollOffset = lc.MaxHelpScroll
 		}
 	}
 }
