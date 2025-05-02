@@ -1,31 +1,38 @@
 package ui
 
 import (
-	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type Scene interface {
+	Init() error
+	Activate() error
+	Deactivate() error
+	HandleEvent(sdl.Event) bool
+	Update() error
+	Render() error
+	Destroy() error
+}
+
+type SceneManager struct {
+	scenes         map[string]Scene
+	currentScene   Scene
+	currentSceneID string
+	window         *Window
+}
+
 var sceneManagerInstance *SceneManager
 
-type Scene interface {
-	Init() error                      // Initialize scene resources
-	HandleEvent(event sdl.Event) bool // Process events, return true if handled
-	Update() error                    // Update scene logic
-	Render() error                    // Render the scene
-	Destroy() error                   // Clean up resources
-}
-type SceneManager struct {
-	scenes       map[string]Scene
-	currentScene string
-	window       *Window
-}
-
 func NewSceneManager(window *Window) *SceneManager {
-	sceneManagerInstance = &SceneManager{
-		scenes: make(map[string]Scene),
-		window: window,
+	if sceneManagerInstance != nil {
+		return sceneManagerInstance
 	}
 
+	sceneManagerInstance = &SceneManager{
+		scenes:       make(map[string]Scene),
+		currentScene: nil,
+		window:       window,
+	}
 	return sceneManagerInstance
 }
 
@@ -33,46 +40,54 @@ func GetSceneManager() *SceneManager {
 	return sceneManagerInstance
 }
 
-func (sm *SceneManager) AddScene(name string, scene Scene) {
-	sm.scenes[name] = scene
+func (sm *SceneManager) AddScene(id string, scene Scene) {
+	sm.scenes[id] = scene
 }
 
-func (sm *SceneManager) SwitchTo(name string) error {
-	if _, exists := sm.scenes[name]; !exists {
-		return fmt.Errorf("scene %s does not exist", name)
+func (sm *SceneManager) GetScene(id string) Scene {
+	return sm.scenes[id]
+}
+
+func (sm *SceneManager) SwitchTo(id string) error {
+	scene, exists := sm.scenes[id]
+	if !exists {
+		return nil
 	}
 
-	if sm.currentScene != "" {
-		if err := sm.scenes[sm.currentScene].Destroy(); err != nil {
+	if sm.currentScene != nil {
+		err := sm.currentScene.Deactivate()
+		if err != nil {
 			return err
 		}
 	}
 
-	sm.currentScene = name
-	return sm.scenes[name].Init()
+	sm.currentScene = scene
+	sm.currentSceneID = id
+
+	return scene.Activate()
 }
 
 func (sm *SceneManager) HandleEvent(event sdl.Event) bool {
-	if sm.currentScene == "" {
-		return false
+	if sm.currentScene != nil {
+		return sm.currentScene.HandleEvent(event)
 	}
-	return sm.scenes[sm.currentScene].HandleEvent(event)
+	return false
 }
 
 func (sm *SceneManager) Update() error {
-	if sm.currentScene == "" {
-		return nil
+	if sm.currentScene != nil {
+		return sm.currentScene.Update()
 	}
-	return sm.scenes[sm.currentScene].Update()
+	return nil
 }
 
 func (sm *SceneManager) Render() error {
-	if sm.currentScene == "" {
-		return nil
+	if sm.currentScene != nil {
+		return sm.currentScene.Render()
 	}
-	return sm.scenes[sm.currentScene].Render()
+	return nil
 }
 
-func (sm *SceneManager) CurrentSceneName() string {
-	return sm.currentScene
+func (sm *SceneManager) GetCurrentSceneID() string {
+	return sm.currentSceneID
 }

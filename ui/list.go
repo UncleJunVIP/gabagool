@@ -8,13 +8,19 @@ import (
 )
 
 type ListSettings struct {
-	ContentPadding Padding       // Padding inside menu items
-	Margins        Padding       // Outer margins of the entire menu
-	ItemSpacing    int32         // Vertical spacing between menu items
-	InputDelay     time.Duration // Delay between input processing
-	Title          string        // Optional title text
-	TitleAlign     TextAlignment // Title alignment (left, center, right)
-	TitleSpacing   int32         // Space between title and first item
+	ContentPadding     Padding       // Padding inside menu items
+	Margins            Padding       // Outer margins of the entire menu
+	ItemSpacing        int32         // Vertical spacing between menu items
+	InputDelay         time.Duration // Delay between input processing
+	Title              string        // Optional title text
+	TitleAlign         TextAlignment // Title alignment (left, center, right)
+	TitleSpacing       int32         // Space between title and first item
+	MultiSelectKey     sdl.Keycode   // Key to toggle multi-select mode
+	MultiSelectButton  uint8         // Controller button to toggle multi-select mode
+	ReorderKey         sdl.Keycode   // Key to toggle reorder mode
+	ReorderButton      uint8         // Controller button to toggle reorder mode
+	ToggleSelectionKey sdl.Keycode   // Key to toggle selection in multi-select mode
+	ToggleSelectionBtn uint8         // Controller button to toggle selection in multi-select mode
 }
 
 type ListController struct {
@@ -34,7 +40,6 @@ type ListController struct {
 
 	HelpLines        []string
 	ShowingHelp      bool
-	DefaultHelpLines []string
 	HelpScrollOffset int32
 	MaxHelpScroll    int32
 }
@@ -93,15 +98,6 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 		StartY:        startY,
 		lastInputTime: time.Now(),
 	}
-
-	controller.DefaultHelpLines = []string{
-		"↑/↓: Navigate list",
-		"A: Select item",
-		"Select: Toggle multi-select mode",
-		"Start: Toggle reorder mode",
-		"Menu: Show/hide help",
-	}
-	controller.HelpLines = controller.DefaultHelpLines
 
 	return controller
 }
@@ -306,10 +302,10 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	case sdl.K_RIGHT:
 		lc.moveSelection(4)
 		return true
-	case sdl.K_0:
+	case lc.Settings.MultiSelectKey:
 		lc.ToggleMultiSelect()
 		return true
-	case sdl.K_1:
+	case lc.Settings.ToggleSelectionKey:
 		if lc.MultiSelect {
 			lc.ToggleSelection(lc.SelectedIndex)
 		}
@@ -326,7 +322,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 			}
 			return true
 		}
-	case sdl.K_3:
+	case lc.Settings.ReorderKey:
 		lc.ToggleReorderMode()
 		return true
 	}
@@ -336,61 +332,53 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 func (lc *ListController) handleButtonPress(button uint8) bool {
 	lc.lastInputTime = time.Now()
 
-	// Add help toggle button handling (using SELECT button)
-	if button == sdl.CONTROLLER_BUTTON_BACK {
+	if button == BrickButton_MENU {
 		lc.ToggleHelp()
 		return true
 	}
 
-	// Handle scrolling when help is showing
 	if lc.ShowingHelp {
-		if button == sdl.CONTROLLER_BUTTON_DPAD_UP {
+		if button == BrickButton_UP {
 			lc.ScrollHelpOverlay(-1) // Scroll up
 			return true
 		}
-		if button == sdl.CONTROLLER_BUTTON_DPAD_DOWN {
+		if button == BrickButton_DOWN {
 			lc.ScrollHelpOverlay(1) // Scroll down
 			return true
 		}
 
-		if button != sdl.CONTROLLER_BUTTON_DPAD_UP && button != sdl.CONTROLLER_BUTTON_DPAD_DOWN {
-			lc.ShowingHelp = false
-		}
 		return true
 	}
 
 	if lc.ReorderMode {
 		switch button {
-		case sdl.CONTROLLER_BUTTON_DPAD_UP:
+		case BrickButton_UP:
 			return lc.MoveItemUp()
-		case sdl.CONTROLLER_BUTTON_DPAD_DOWN:
+		case BrickButton_DOWN:
 			return lc.MoveItemDown()
-		case sdl.CONTROLLER_BUTTON_B:
+		case BrickButton_B:
 			lc.ReorderMode = false
 			return true
-		case sdl.CONTROLLER_BUTTON_A:
+		case BrickButton_A:
 			lc.ReorderMode = false
 			return true
 		}
 	}
 
 	switch button {
-	case sdl.CONTROLLER_BUTTON_DPAD_UP:
+	case BrickButton_UP:
 		lc.moveSelection(-1)
 		return true
-	case sdl.CONTROLLER_BUTTON_DPAD_DOWN:
+	case BrickButton_DOWN:
 		lc.moveSelection(1)
 		return true
-	case sdl.CONTROLLER_BUTTON_DPAD_LEFT:
+	case BrickButton_LEFT:
 		lc.moveSelection(4)
 		return true
-	case sdl.CONTROLLER_BUTTON_DPAD_RIGHT:
+	case BrickButton_RIGHT:
 		lc.moveSelection(4)
 		return true
-	case sdl.K_0:
-		lc.ToggleMultiSelect()
-		return true
-	case sdl.CONTROLLER_BUTTON_A:
+	case lc.Settings.ToggleSelectionBtn:
 		if lc.MultiSelect {
 			lc.ToggleSelection(lc.SelectedIndex)
 		}
@@ -398,16 +386,10 @@ func (lc *ListController) handleButtonPress(button uint8) bool {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
 		return true
-	case sdl.CONTROLLER_BUTTON_START:
-		if lc.MultiSelect {
-			lc.ToggleSelection(lc.SelectedIndex)
-			// Add the OnSelect call here
-			if lc.OnSelect != nil {
-				lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
-			}
-			return true
-		}
-	case sdl.CONTROLLER_BUTTON_GUIDE:
+	case lc.Settings.MultiSelectButton:
+		lc.ToggleMultiSelect()
+		return true
+	case lc.Settings.ReorderButton:
 		lc.ToggleReorderMode()
 		return true
 	}
@@ -721,13 +703,15 @@ func (lc *ListController) ToggleHelp() {
 				"0/Y: Exit multi-select mode",
 				"H/?: Hide help",
 			}
-		} else {
-			lc.HelpLines = lc.DefaultHelpLines
 		}
 	}
 }
 
 func (lc *ListController) RenderHelpPrompt(renderer *sdl.Renderer) {
+	if len(lc.HelpLines) == 0 {
+		return
+	}
+
 	screenWidth, screenHeight, err := renderer.GetOutputSize()
 	if err != nil {
 		Logger.Error("Failed to get output size", "error", err)
@@ -765,7 +749,7 @@ func (lc *ListController) RenderHelpPrompt(renderer *sdl.Renderer) {
 }
 
 func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
-	if !lc.ShowingHelp {
+	if !lc.ShowingHelp || len(lc.HelpLines) == 0 {
 		return
 	}
 
@@ -1011,16 +995,6 @@ func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
 			renderer.Copy(dismissTexture, nil, &dismissRect)
 			dismissTexture.Destroy()
 		}
-	}
-}
-
-func (lc *ListController) SetHelpLines(lines []string) {
-	lc.DefaultHelpLines = lines
-
-	// If help is not showing, just update the default lines
-	// If help is showing, update the current display too
-	if lc.ShowingHelp && !lc.ReorderMode && !lc.MultiSelect {
-		lc.HelpLines = lc.DefaultHelpLines
 	}
 }
 

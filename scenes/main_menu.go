@@ -5,16 +5,19 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 	"nextui-sdl2/models"
 	"nextui-sdl2/ui"
+	"os"
 )
 
 type MenuScene struct {
 	listController *ui.ListController
 	renderer       *sdl.Renderer
+	active         bool
 }
 
 func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 	scene := &MenuScene{
 		renderer: renderer,
+		active:   false,
 	}
 
 	menuItems := []models.MenuItem{
@@ -45,6 +48,14 @@ func NewMenuScene(renderer *sdl.Renderer) *MenuScene {
 		fmt.Printf("YDIJ: %s\n", item.Text)
 	}
 
+	scene.listController.HelpLines = []string{
+		"↑/↓: Navigate list",
+		"A: Select item",
+		"Select: Toggle multi-select mode",
+		"Start: Toggle reorder mode",
+		"Menu: Show/hide help",
+	}
+
 	scene.listController.MaxVisibleItems = 7
 
 	return scene
@@ -54,19 +65,59 @@ func (s *MenuScene) Init() error {
 	return nil
 }
 
+func (s *MenuScene) Activate() error {
+	s.active = true
+	return nil
+}
+
+func (s *MenuScene) Deactivate() error {
+	s.active = false
+	return nil
+}
+
 func (s *MenuScene) HandleEvent(event sdl.Event) bool {
+	if !s.active {
+		return false
+	}
+
+	switch t := event.(type) {
+	case *sdl.ControllerButtonEvent:
+		if t.Type == sdl.CONTROLLERBUTTONDOWN {
+			switch t.Button {
+			case ui.BrickButton_START:
+				ui.GetSceneManager().SwitchTo("keyboard")
+				return true
+			case ui.BrickButton_B:
+				os.Exit(0)
+				return true
+			default:
+				return s.listController.HandleEvent(event)
+			}
+		}
+	default:
+		return s.listController.HandleEvent(event)
+	}
+
 	return s.listController.HandleEvent(event)
 }
 
 func (s *MenuScene) Update() error {
+	if !s.active {
+		return nil
+	}
+
 	return nil
 }
 
 func (s *MenuScene) Render() error {
+	if !s.active {
+		return nil
+	}
+
 	s.renderer.SetDrawColor(0, 0, 0, 255)
 	s.renderer.Clear()
 
-	s.listController.Render(s.renderer) // This line was missing!
+	s.listController.Render(s.renderer)
 	return nil
 }
 

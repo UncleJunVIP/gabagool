@@ -8,11 +8,13 @@ import (
 type KeyboardScene struct {
 	window   *ui.Window
 	keyboard *ui.VirtualKeyboard
+	active   bool
 }
 
 func NewKeyboardScene(window *ui.Window) *KeyboardScene {
 	scene := &KeyboardScene{
 		window: window,
+		active: false,
 	}
 
 	scene.keyboard = ui.CreateKeyboard(window.Width, window.Height)
@@ -20,7 +22,6 @@ func NewKeyboardScene(window *ui.Window) *KeyboardScene {
 	return scene
 }
 
-// Init initializes the scene
 func (s *KeyboardScene) Init() error {
 	s.keyboard.TextBuffer = ""
 	s.keyboard.CurrentState = ui.LowerCase
@@ -36,35 +37,38 @@ func (s *KeyboardScene) Init() error {
 	return nil
 }
 
+func (s *KeyboardScene) Activate() error {
+	s.active = true
+	s.keyboard.ResetPressedKeys()
+	return nil
+}
+
+func (s *KeyboardScene) Deactivate() error {
+	s.active = false
+	s.keyboard.ResetPressedKeys()
+	return nil
+}
+
 func (s *KeyboardScene) HandleEvent(event sdl.Event) bool {
+	if !s.active {
+		return false
+	}
+
 	switch t := event.(type) {
 	case *sdl.KeyboardEvent:
 		if t.Type == sdl.KEYDOWN {
-			s.keyboard.ProcessKeyboardInput(t.Keysym.Sym)
+			s.keyboard.HandleKeyDown(t.Keysym.Sym)
 			return true
 		}
 
 	case *sdl.ControllerButtonEvent:
 		if t.Type == sdl.CONTROLLERBUTTONDOWN {
 			switch t.Button {
-			case sdl.CONTROLLER_BUTTON_DPAD_UP:
-				s.keyboard.ProcessNavigation(3) // Up
-				return true
-			case sdl.CONTROLLER_BUTTON_DPAD_DOWN:
-				s.keyboard.ProcessNavigation(4) // Down
-				return true
-			case sdl.CONTROLLER_BUTTON_DPAD_LEFT:
-				s.keyboard.ProcessNavigation(2) // Left
-				return true
-			case sdl.CONTROLLER_BUTTON_DPAD_RIGHT:
-				s.keyboard.ProcessNavigation(1) // Right
-				return true
-			case sdl.CONTROLLER_BUTTON_A:
-				s.keyboard.ProcessSelection()
-				return true
-			case sdl.CONTROLLER_BUTTON_B:
+			case ui.BrickButton_MENU:
 				ui.GetSceneManager().SwitchTo("mainMenu")
 				return true
+			default:
+				s.keyboard.HandleButtonPress(t.Button) // TODO clean this
 			}
 		}
 
@@ -92,11 +96,20 @@ func (s *KeyboardScene) HandleEvent(event sdl.Event) bool {
 }
 
 func (s *KeyboardScene) Update() error {
+	// Only update if the scene is active
+	if !s.active {
+		return nil
+	}
 	return nil
 }
 
 // Render draws the scene
 func (s *KeyboardScene) Render() error {
+	// Only render if the scene is active
+	if !s.active {
+		return nil
+	}
+
 	s.window.Renderer.SetDrawColor(20, 20, 20, 255)
 	s.window.Renderer.Clear()
 

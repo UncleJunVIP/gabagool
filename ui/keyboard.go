@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
+	"time"
 )
 
 type Key struct {
@@ -33,6 +34,12 @@ type VirtualKeyboard struct {
 	KeyboardRect     sdl.Rect
 	SelectedKeyIndex int
 	SelectedSpecial  int
+
+	// Cursor properties
+	CursorPosition  int           // Position in TextBuffer
+	CursorVisible   bool          // For blinking effect
+	LastCursorBlink time.Time     // To control blinking timing
+	CursorBlinkRate time.Duration // How fast the cursor blinks
 }
 
 func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
@@ -42,6 +49,10 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		CurrentState:     LowerCase,
 		SelectedKeyIndex: 0,
 		SelectedSpecial:  0,
+		CursorPosition:   0,
+		CursorVisible:    true,
+		LastCursorBlink:  time.Now(),
+		CursorBlinkRate:  500 * time.Millisecond, // Blink every 500ms
 	}
 
 	keyboardWidth := (windowWidth * 85) / 100
@@ -190,7 +201,6 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 	return kb
 }
 
-// ProcessNavigation handles navigation via keyboard or controller
 func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 	// Reset all pressed keys to fix lingering highlights
 	kb.ResetPressedKeys()
@@ -383,14 +393,85 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 	}
 }
 
-// ResetPressedKeys resets all pressed keys
+func (kb *VirtualKeyboard) MoveCursor(direction int) {
+	if direction > 0 { // Move right
+		if kb.CursorPosition < len(kb.TextBuffer) {
+			kb.CursorPosition++
+		}
+	} else { // Move left
+		if kb.CursorPosition > 0 {
+			kb.CursorPosition--
+		}
+	}
+
+	kb.CursorVisible = true
+	kb.LastCursorBlink = time.Now()
+}
+
+func (kb *VirtualKeyboard) UpdateCursorBlink() {
+	if time.Since(kb.LastCursorBlink) > kb.CursorBlinkRate {
+		kb.CursorVisible = !kb.CursorVisible
+		kb.LastCursorBlink = time.Now()
+	}
+}
+
 func (kb *VirtualKeyboard) ResetPressedKeys() {
 	for i := range kb.Keys {
 		kb.Keys[i].IsPressed = false
 	}
 }
 
-// ProcessSelection handles selection via keyboard or controller
+func (kb *VirtualKeyboard) HandleButtonPress(button uint8) {
+	switch button {
+	case BrickButton_UP:
+		kb.ProcessNavigation(3)
+	case BrickButton_DOWN:
+		kb.ProcessNavigation(4)
+	case BrickButton_LEFT:
+		kb.ProcessNavigation(2)
+	case BrickButton_RIGHT:
+		kb.ProcessNavigation(1)
+	case BrickButton_A:
+		kb.ProcessSelection()
+	case BrickButton_B:
+		if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
+			textRunes := []rune(kb.TextBuffer)
+			before := string(textRunes[:kb.CursorPosition-1])
+			after := string(textRunes[kb.CursorPosition:])
+			kb.TextBuffer = before + after
+			kb.CursorPosition--
+
+			kb.CursorVisible = true
+			kb.LastCursorBlink = time.Now()
+		}
+	case BrickButton_L1:
+		kb.MoveCursor(-1)
+	case BrickButton_R1:
+		kb.MoveCursor(1)
+	case BrickButton_SELECT:
+		kb.ShiftPressed = !kb.ShiftPressed
+		if kb.ShiftPressed {
+			kb.CurrentState = UpperCase
+		} else {
+			kb.CurrentState = LowerCase
+		}
+	case BrickButton_F1, BrickButton_F2:
+		if kb.CursorPosition == len(kb.TextBuffer) {
+			kb.TextBuffer += " "
+		} else {
+			textRunes := []rune(kb.TextBuffer)
+			before := string(textRunes[:kb.CursorPosition])
+			after := string(textRunes[kb.CursorPosition:])
+			kb.TextBuffer = before + " " + after
+		}
+		kb.CursorPosition++
+
+		kb.CursorVisible = true
+		kb.LastCursorBlink = time.Now()
+	}
+}
+
+// ProcessSelection - Updated to handle cursor position
 func (kb *VirtualKeyboard) ProcessSelection() {
 	totalKeys := len(kb.Keys)
 
@@ -407,19 +488,48 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 			keyValue = kb.Keys[kb.SelectedKeyIndex].LowerValue
 		}
 
-		kb.TextBuffer += keyValue
+		// Insert at cursor position instead of appending
+		if kb.CursorPosition == len(kb.TextBuffer) {
+			kb.TextBuffer += keyValue
+		} else {
+			// Split text at cursor position and insert the new character
+			textRunes := []rune(kb.TextBuffer)
+			before := string(textRunes[:kb.CursorPosition])
+			after := string(textRunes[kb.CursorPosition:])
+			kb.TextBuffer = before + keyValue + after
+		}
+		kb.CursorPosition += len([]rune(keyValue))
 	} else {
 		// Special key
 		switch kb.SelectedSpecial {
 		case 1: // Backspace
-			if len(kb.TextBuffer) > 0 {
-				runeText := []rune(kb.TextBuffer)
-				kb.TextBuffer = string(runeText[:len(runeText)-1])
+			if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition-1])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + after
+				kb.CursorPosition--
 			}
 		case 2: // Enter
-			kb.TextBuffer += "\n"
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += "\n"
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + "\n" + after
+			}
+			kb.CursorPosition++
 		case 3: // Space
-			kb.TextBuffer += " "
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += " "
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + " " + after
+			}
+			kb.CursorPosition++
 		case 4: // Shift
 			kb.ShiftPressed = !kb.ShiftPressed
 			if kb.ShiftPressed {
@@ -429,14 +539,20 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 			}
 		}
 	}
+
+	kb.CursorVisible = true
+	kb.LastCursorBlink = time.Now()
 }
 
-func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
+func (kb *VirtualKeyboard) HandleKeyDown(keyCode sdl.Keycode) {
 	switch keyCode {
 	case sdl.K_BACKSPACE:
-		if len(kb.TextBuffer) > 0 {
-			runeText := []rune(kb.TextBuffer)
-			kb.TextBuffer = string(runeText[:len(runeText)-1])
+		if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
+			textRunes := []rune(kb.TextBuffer)
+			before := string(textRunes[:kb.CursorPosition-1])
+			after := string(textRunes[kb.CursorPosition:])
+			kb.TextBuffer = before + after
+			kb.CursorPosition--
 		}
 		return
 
@@ -444,7 +560,15 @@ func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
 		if kb.SelectedKeyIndex >= 0 || kb.SelectedSpecial > 0 {
 			kb.ProcessSelection()
 		} else {
-			kb.TextBuffer += "\n"
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += "\n"
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + "\n" + after
+			}
+			kb.CursorPosition++
 		}
 		return
 
@@ -452,7 +576,15 @@ func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
 		if kb.SelectedKeyIndex >= 0 || kb.SelectedSpecial > 0 {
 			kb.ProcessSelection()
 		} else {
-			kb.TextBuffer += " "
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += " "
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + " " + after
+			}
+			kb.CursorPosition++
 		}
 		return
 
@@ -477,6 +609,14 @@ func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
 	case sdl.K_RIGHT:
 		kb.ProcessNavigation(1)
 		return
+
+	// Add cursor movement with keyboard
+	case sdl.K_HOME:
+		kb.CursorPosition = 0
+		return
+	case sdl.K_END:
+		kb.CursorPosition = len(kb.TextBuffer)
+		return
 	}
 
 	var r rune
@@ -487,7 +627,16 @@ func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
 		} else {
 			r = rune(keyCode - sdl.K_a + 'a')
 		}
-		kb.TextBuffer += string(r)
+
+		if kb.CursorPosition == len(kb.TextBuffer) {
+			kb.TextBuffer += string(r)
+		} else {
+			textRunes := []rune(kb.TextBuffer)
+			before := string(textRunes[:kb.CursorPosition])
+			after := string(textRunes[kb.CursorPosition:])
+			kb.TextBuffer = before + string(r) + after
+		}
+		kb.CursorPosition++
 
 	case keyCode >= sdl.K_0 && keyCode <= sdl.K_9:
 		if kb.ShiftPressed {
@@ -498,24 +647,52 @@ func (kb *VirtualKeyboard) ProcessKeyboardInput(keyCode sdl.Keycode) {
 			} else {
 				idx = idx - 1
 			}
-			kb.TextBuffer += symbols[idx]
+
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += symbols[idx]
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + symbols[idx] + after
+			}
+			kb.CursorPosition++
 		} else {
 			r = rune(keyCode - sdl.K_0 + '0')
-			kb.TextBuffer += string(r)
+			if kb.CursorPosition == len(kb.TextBuffer) {
+				kb.TextBuffer += string(r)
+			} else {
+				textRunes := []rune(kb.TextBuffer)
+				before := string(textRunes[:kb.CursorPosition])
+				after := string(textRunes[kb.CursorPosition:])
+				kb.TextBuffer = before + string(r) + after
+			}
+			kb.CursorPosition++
 		}
 	}
+
+	// Reset cursor blink when typing
+	kb.CursorVisible = true
+	kb.LastCursorBlink = time.Now()
 }
 
+// Render - Updated to show the blinking cursor without text bouncing
 func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
+	// Update cursor blinking state
+	kb.UpdateCursorBlink()
+
 	renderer.SetDrawColor(40, 40, 40, 255)
 	renderer.FillRect(&kb.TextInputRect)
 	renderer.SetDrawColor(80, 80, 80, 255)
 	renderer.DrawRect(&kb.TextInputRect)
 
+	// Text rendering
+	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+
+	// Render the text buffer without modification
 	if kb.TextBuffer != "" {
-		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-		textSurface, _ := font.RenderUTF8BlendedWrapped(kb.TextBuffer, textColor, int(kb.TextInputRect.W-20))
-		if textSurface != nil {
+		textSurface, err := font.RenderUTF8BlendedWrapped(kb.TextBuffer, textColor, int(kb.TextInputRect.W-20))
+		if err == nil && textSurface != nil {
 			textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
 			textRect := sdl.Rect{
 				X: kb.TextInputRect.X + 10,
@@ -524,11 +701,77 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 				H: textSurface.H,
 			}
 			renderer.Copy(textTexture, nil, &textRect)
+
+			// If cursor is visible, render it as a separate element
+			if kb.CursorVisible {
+				// Find cursor position in pixels
+				cursorX, cursorY := kb.TextInputRect.X+10, kb.TextInputRect.Y+10
+
+				// Measure text width up to cursor position
+				if kb.CursorPosition > 0 {
+					cursorText := string([]rune(kb.TextBuffer)[:kb.CursorPosition])
+					measureSurface, _ := font.RenderUTF8Blended(cursorText, textColor)
+					if measureSurface != nil {
+						// Handle line wrapping - we need to find which line we're on
+						lineHeight := int32(font.Height())
+						fullLines := 0
+						lastLinebreak := 0
+
+						// Count newlines before cursor position
+						for i, char := range cursorText {
+							if char == '\n' {
+								fullLines++
+								lastLinebreak = i + 1
+							}
+						}
+
+						// Get text after last linebreak
+						lineText := cursorText
+						if lastLinebreak > 0 {
+							lineText = cursorText[lastLinebreak:]
+						}
+
+						lineSurface, _ := font.RenderUTF8Blended(lineText, textColor)
+						if lineSurface != nil {
+							cursorX = kb.TextInputRect.X + 10 + lineSurface.W
+							cursorY = kb.TextInputRect.Y + 10 + int32(fullLines)*lineHeight
+							lineSurface.Free()
+						}
+
+						measureSurface.Free()
+					}
+				}
+
+				// Draw cursor as a thin vertical line
+				renderer.SetDrawColor(255, 255, 255, 255)
+				cursorRect := sdl.Rect{
+					X: cursorX,
+					Y: cursorY,
+					W: 2,
+					H: int32(font.Height()),
+				}
+				renderer.FillRect(&cursorRect)
+			}
+
 			textSurface.Free()
 			textTexture.Destroy()
 		}
+	} else {
+		// If no text but cursor is visible, draw it at start position
+		if kb.CursorVisible {
+			renderer.SetDrawColor(255, 255, 255, 255)
+			cursorRect := sdl.Rect{
+				X: kb.TextInputRect.X + 10,
+				Y: kb.TextInputRect.Y + 10,
+				W: 2,
+				H: int32(font.Height()),
+			}
+			renderer.FillRect(&cursorRect)
+		}
 	}
 
+	// Render the rest of the keyboard (unchanged)
+	// ... rest of the rendering code
 	for i, key := range kb.Keys {
 		if key.IsPressed || i == kb.SelectedKeyIndex {
 			renderer.SetDrawColor(100, 100, 200, 255)
@@ -550,7 +793,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 			keyText = key.LowerValue
 		}
 
-		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 		textSurface, _ := font.RenderUTF8Blended(keyText, textColor)
 		if textSurface != nil {
 			textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
@@ -566,6 +808,10 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		}
 	}
 
+	// Render special keys (unchanged)
+	// ... (keep all the existing special key rendering code)
+
+	// Backspace
 	if kb.SelectedSpecial == 1 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {
@@ -575,7 +821,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.SetDrawColor(120, 120, 120, 255)
 	renderer.DrawRect(&kb.BackspaceRect)
 
-	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 	textSurface, _ := font.RenderUTF8Blended("␡", textColor)
 	if textSurface != nil {
 		textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
@@ -590,6 +835,7 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		textTexture.Destroy()
 	}
 
+	// Enter
 	if kb.SelectedSpecial == 2 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {
@@ -613,6 +859,7 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		textTexture.Destroy()
 	}
 
+	// Space
 	if kb.SelectedSpecial == 3 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {
@@ -622,6 +869,7 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.SetDrawColor(120, 120, 120, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
+	// Shift
 	if kb.ShiftPressed || kb.SelectedSpecial == 4 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {

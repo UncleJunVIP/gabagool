@@ -3,27 +3,17 @@ package ui
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
-	"log/slog"
 	"os"
 )
 
-var Logger *slog.Logger
 var GameControllers []*sdl.GameController
 
 func init() {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
-	handler := slog.NewTextHandler(os.Stderr, opts)
-	Logger = slog.New(handler)
-
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_GAMECONTROLLER); err != nil {
-		Logger.Error("Failed to initialize SDL", "error", err)
 		os.Exit(1)
 	}
 
 	if err := ttf.Init(); err != nil {
-		Logger.Error("Failed to initialize TTF", "error", err)
 		os.Exit(1)
 	}
 
@@ -34,8 +24,6 @@ func init() {
 			controller := sdl.GameControllerOpen(i)
 			if controller != nil {
 				GameControllers = append(GameControllers, controller)
-				name := sdl.GameControllerNameForIndex(i)
-				Logger.Info("Found gamepad", "name", name)
 			}
 		}
 	}
