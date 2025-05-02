@@ -11,7 +11,6 @@ var Logger *slog.Logger
 var GameControllers []*sdl.GameController
 
 func init() {
-	// Configure the logger
 	opts := &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}

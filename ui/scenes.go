@@ -5,6 +5,8 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+var sceneManagerInstance *SceneManager
+
 type Scene interface {
 	Init() error                      // Initialize scene resources
 	HandleEvent(event sdl.Event) bool // Process events, return true if handled
@@ -12,7 +14,6 @@ type Scene interface {
 	Render() error                    // Render the scene
 	Destroy() error                   // Clean up resources
 }
-
 type SceneManager struct {
 	scenes       map[string]Scene
 	currentScene string
@@ -20,10 +21,16 @@ type SceneManager struct {
 }
 
 func NewSceneManager(window *Window) *SceneManager {
-	return &SceneManager{
+	sceneManagerInstance = &SceneManager{
 		scenes: make(map[string]Scene),
 		window: window,
 	}
+
+	return sceneManagerInstance
+}
+
+func GetSceneManager() *SceneManager {
+	return sceneManagerInstance
 }
 
 func (sm *SceneManager) AddScene(name string, scene Scene) {
