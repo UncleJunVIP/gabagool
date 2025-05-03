@@ -13,6 +13,6 @@ RUN go mod download
 
 # Then copy the rest of the code
 COPY . .
-RUN go build -v
+RUN go build -gcflags="all=-N -l" -v
 
 CMD ["/bin/bash"]

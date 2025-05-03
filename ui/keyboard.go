@@ -45,6 +45,8 @@ type VirtualKeyboard struct {
 	ShowingHelp      bool
 	HelpScrollOffset int32
 	MaxHelpScroll    int32
+
+	OnEnterPressed func(text string)
 }
 
 func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
@@ -218,6 +220,10 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 	}
 
 	return kb
+}
+
+func (kb *VirtualKeyboard) SetOnEnterCallback(callback func(text string)) {
+	kb.OnEnterPressed = callback
 }
 
 func (kb *VirtualKeyboard) ToggleHelp() {
@@ -720,6 +726,11 @@ func (kb *VirtualKeyboard) HandleButtonPress(button uint8) {
 
 		kb.CursorVisible = true
 		kb.LastCursorBlink = time.Now()
+
+	case BrickButton_START:
+		if kb.OnEnterPressed != nil {
+			kb.OnEnterPressed(kb.TextBuffer)
+		}
 	}
 }
 

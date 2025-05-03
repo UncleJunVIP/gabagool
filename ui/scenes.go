@@ -91,3 +91,18 @@ func (sm *SceneManager) Render() error {
 func (sm *SceneManager) GetCurrentSceneID() string {
 	return sm.currentSceneID
 }
+
+func (sm *SceneManager) DestroyScene(name string) error {
+	scene, exists := sm.scenes[name]
+	if !exists {
+		return nil
+	}
+
+	res := scene.Destroy()
+	if res != nil {
+		return res
+	}
+
+	delete(sm.scenes, name)
+	return nil
+}

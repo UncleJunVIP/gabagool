@@ -24,8 +24,24 @@ func main() {
 	menuScene := scenes.NewMenuScene(window.Renderer)
 	sceneManager.AddScene("mainMenu", menuScene)
 
-	keyboardScene := scenes.NewKeyboardScene(window)
-	sceneManager.AddScene("keyboard", keyboardScene)
+	downloadScene := scenes.NewDownloadScene(window)
+
+	var downloads []scenes.Download
+	downloads = append(downloads, scenes.Download{
+		URL:         "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Color/Pokemon%20-%20Crystal%20Version%20%28USA%2C%20Europe%29%20%28Rev%201%29.zip",
+		Location:    "/mnt/SDCARD/Roms/2) Game Boy Color (GBC)/Pokemon - Crystal Version (USA).zip",
+		DisplayName: "Pokémon - Crystal Version",
+	})
+
+	downloads = append(downloads, scenes.Download{
+		URL:         "https://myrient.erista.me/files/No-Intro/Nintendo%20-%20Game%20Boy%20Color/Pokemon%20-%20Gold%20Version%20%28USA%2C%20Europe%29%20%28SGB%20Enhanced%29%20%28GB%20Compatible%29.zip",
+		Location:    "/mnt/SDCARD/Roms/2) Game Boy Color (GBC)/Pokemon - Gold Version (USA).zip",
+		DisplayName: "Pokémon - Gold Version",
+	})
+
+	downloadScene.SetDownloads(downloads)
+
+	sceneManager.AddScene("download", downloadScene)
 
 	sceneManager.SwitchTo("mainMenu")
 
@@ -41,13 +57,6 @@ func main() {
 				if t.Type == sdl.KEYDOWN && t.Keysym.Sym == sdl.K_ESCAPE {
 					running = false
 				} else if t.Type == sdl.KEYDOWN && t.Keysym.Sym == sdl.K_SPACE {
-					switch sceneManager.GetCurrentSceneID() {
-					case "mainMenu":
-						sceneManager.SwitchTo("keyboard")
-					case "keyboard":
-						sceneManager.SwitchTo("mainMenu")
-					}
-				} else {
 					sceneManager.HandleEvent(event)
 				}
 
