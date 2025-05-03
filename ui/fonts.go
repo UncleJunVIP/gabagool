@@ -11,19 +11,19 @@ var titleFont, mainFont, smallFont *ttf.Font
 func InitFonts(titleSize int, fontSize int, smallFontSize int) {
 	var err error
 
-	titleFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", titleSize)
+	titleFont, err = ttf.OpenFont("CFPG.ttf", titleSize)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load title font: %s\n", err)
 		os.Exit(1)
 	}
 
-	mainFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", fontSize)
+	mainFont, err = ttf.OpenFont("CFPG.ttf", fontSize)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load mmain font: %s\n", err)
 		os.Exit(1)
 	}
 
-	smallFont, err = ttf.OpenFont("CrossdresserFutoPopGothic-q28Gr.ttf", smallFontSize)
+	smallFont, err = ttf.OpenFont("CFPG.ttf", smallFontSize)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load small font: %s\n", err)
 		os.Exit(1)

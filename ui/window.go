@@ -20,7 +20,7 @@ const (
 	DefaultWindowWidth  = int32(1024)
 	DefaultWindowHeight = int32(768)
 	FontSize            = 40
-	SmallFontSize       = 20
+	SmallFontSize       = 30
 )
 
 func InitWindow(title string) *Window {
@@ -31,12 +31,13 @@ func InitWindow(title string) *Window {
 	height := DefaultWindowHeight
 
 	if err == nil {
-		width = int32(float32(displayMode.W) * 0.8)
-		height = int32(float32(displayMode.H) * 0.8)
+		width = displayMode.W
+		height = displayMode.H
 	} else {
 		fmt.Fprintf(os.Stderr, "Failed to get display mode: %s\n", err)
 	}
 
+	Logger.Info("Window size", "width", width, "height", height)
 	return InitWindowWithSize(title, width, height, FontSize, SmallFontSize)
 }
 

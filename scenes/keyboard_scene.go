@@ -64,7 +64,7 @@ func (s *KeyboardScene) HandleEvent(event sdl.Event) bool {
 	case *sdl.ControllerButtonEvent:
 		if t.Type == sdl.CONTROLLERBUTTONDOWN {
 			switch t.Button {
-			case ui.BrickButton_MENU:
+			case ui.BrickButton_Y:
 				ui.GetSceneManager().SwitchTo("mainMenu")
 				return true
 			default:
