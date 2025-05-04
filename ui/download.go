@@ -2,10 +2,10 @@ package ui
 
 import (
 	"fmt"
+	"github.com/UncleJunVIP/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/models"
 	"io"
 	"net/http"
-	"nextui-sdl2/internal"
-	"nextui-sdl2/models"
 	"os"
 	"path/filepath"
 	"time"
@@ -13,17 +13,15 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// DownloadReturn contains the result of a download operation
 type DownloadReturn struct {
-	CompletedDownloads []models.Download // List of downloads that completed successfully
-	FailedDownloads    []models.Download // List of downloads that failed
-	Errors             []error           // List of errors that occurred during download
-	LastPressedKey     sdl.Keycode       // Last pressed keyboard key
-	LastPressedBtn     uint8             // Last pressed controller button
-	Cancelled          bool              // Whether the download was cancelled by the user
+	CompletedDownloads []models.Download
+	FailedDownloads    []models.Download
+	Errors             []error
+	LastPressedKey     sdl.Keycode
+	LastPressedBtn     uint8
+	Cancelled          bool
 }
 
-// BlockingDownloadManager handles downloading files in a blocking manner
 type BlockingDownloadManager struct {
 	window            *internal.Window
 	downloads         []models.Download
@@ -38,13 +36,11 @@ type BlockingDownloadManager struct {
 	downloadDone      chan bool
 	cancellationError error
 
-	// Progress bar settings
 	progressBarWidth  int32
 	progressBarHeight int32
 	progressBarX      int32
 	progressBarY      int32
 
-	// Help text
 	helpLines        []string
 	showingHelp      bool
 	helpScrollOffset int32
@@ -54,7 +50,6 @@ type BlockingDownloadManager struct {
 func NewBlockingDownloadManager(downloads []models.Download) *BlockingDownloadManager {
 	window := internal.GetWindow()
 
-	// Calculate progress bar dimensions and position
 	progressBarWidth := window.Width * 3 / 4 // 75% of screen width
 	progressBarHeight := int32(30)
 	progressBarX := (window.Width - progressBarWidth) / 2
@@ -84,7 +79,6 @@ func NewBlockingDownloadManager(downloads []models.Download) *BlockingDownloadMa
 	}
 }
 
-// StartDownload begins downloading the current file in the queue
 func (dm *BlockingDownloadManager) startDownload() {
 	if dm.currentIndex >= len(dm.downloads) {
 		return
@@ -93,7 +87,6 @@ func (dm *BlockingDownloadManager) startDownload() {
 	download := dm.downloads[dm.currentIndex]
 
 	if dm.isDownloading {
-		// Cancel current download if one is in progress
 		close(dm.cancelDownload)
 		dm.cancelDownload = make(chan struct{})
 	}
@@ -105,11 +98,9 @@ func (dm *BlockingDownloadManager) startDownload() {
 	dm.downloadComplete = false
 	dm.downloadError = nil
 
-	// Start download in a goroutine
 	go dm.downloadFile(download.URL, download.Location)
 }
 
-// downloadFile downloads a file from the URL to the specified location
 func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
@@ -127,7 +118,6 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 		return
 	}
 
-	// Execute request
 	client := &http.Client{
 		Timeout: 30 * time.Second,
 	}
@@ -140,7 +130,6 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 	}
 	defer resp.Body.Close()
 
-	// Check server response
 	if resp.StatusCode != http.StatusOK {
 		dm.downloadError = fmt.Errorf("bad status: %s", resp.Status)
 		dm.isDownloading = false
@@ -148,10 +137,8 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 		return
 	}
 
-	// Get file size for progress calculation
 	dm.totalSize = resp.ContentLength
 
-	// Create output file
 	out, err := os.Create(filePath)
 	if err != nil {
 		dm.downloadError = err
@@ -161,7 +148,6 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 	}
 	defer out.Close()
 
-	// Create a custom reader to track progress
 	reader := &progressReader{
 		reader: resp.Body,
 		onProgress: func(bytesRead int64) {
@@ -172,7 +158,6 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 		},
 	}
 
-	// Copy data with progress updates and cancellation support
 	done := make(chan error, 1)
 	go func() {
 		_, err := io.Copy(out, reader)
@@ -191,7 +176,6 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 			dm.downloadDone <- true
 		}
 	case <-dm.cancelDownload:
-		// Download cancelled
 		dm.downloadError = fmt.Errorf("download cancelled")
 		dm.isDownloading = false
 		dm.downloadDone <- false
@@ -213,13 +197,10 @@ func (r *progressReader) Read(p []byte) (n int, err error) {
 	return
 }
 
-// Render draws the download manager UI
 func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
-	// Clear screen
 	renderer.SetDrawColor(20, 20, 20, 255)
 	renderer.Clear()
 
-	// Draw title
 	titleFont := internal.GetTitleFont()
 	titleText := "Download Manager"
 	titleSurface, err := titleFont.RenderUTF8Solid(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
@@ -238,7 +219,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		titleSurface.Free()
 	}
 
-	// Draw download counts
 	font := internal.GetSmallFont()
 	progressText := fmt.Sprintf("Download %d of %d", dm.currentIndex+1, len(dm.downloads))
 	progressSurface, err := font.RenderUTF8Solid(progressText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
@@ -257,7 +237,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		progressSurface.Free()
 	}
 
-	// Draw current file name
 	if dm.currentIndex < len(dm.downloads) {
 		font := internal.GetFont()
 		var displayText string
@@ -284,7 +263,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Draw progress bar background
 	renderer.SetDrawColor(50, 50, 50, 255)
 	progressBarBg := sdl.Rect{
 		X: dm.progressBarX,
@@ -294,7 +272,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 	}
 	renderer.FillRect(&progressBarBg)
 
-	// Draw progress bar fill
 	progressWidth := int32(float64(dm.progressBarWidth) * dm.downloadProgress)
 	if progressWidth > 0 {
 		renderer.SetDrawColor(100, 150, 255, 255)
@@ -307,7 +284,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		renderer.FillRect(&progressBarFill)
 	}
 
-	// Draw percentage text
 	percentText := fmt.Sprintf("%.1f%%", dm.downloadProgress*100)
 	if dm.totalSize > 0 {
 		downloadedMB := float64(dm.downloadedSize) / 1048576.0 // Convert to MB
@@ -331,7 +307,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		percentSurface.Free()
 	}
 
-	// Draw error message if there is one
 	if dm.downloadError != nil {
 		errorText := fmt.Sprintf("Error: %s", dm.downloadError.Error())
 		errorSurface, err := font.RenderUTF8Solid(errorText, sdl.Color{R: 255, G: 100, B: 100, A: 255})
@@ -351,7 +326,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Draw control help at the bottom
 	helpText := "B: Cancel Download | Y: Cancel All | Menu: Help"
 	helpSurface, err := font.RenderUTF8Solid(helpText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
 	if err == nil {
@@ -369,21 +343,17 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		helpSurface.Free()
 	}
 
-	// If help mode is active, render the help overlay
 	if dm.showingHelp {
 		dm.renderHelpOverlay(renderer)
 	}
 }
 
-// toggleHelp toggles the help display
 func (dm *BlockingDownloadManager) toggleHelp() {
 	dm.showingHelp = !dm.showingHelp
 	dm.helpScrollOffset = 0
 }
 
-// renderHelpOverlay draws the help overlay
 func (dm *BlockingDownloadManager) renderHelpOverlay(renderer *sdl.Renderer) {
-	// Add semi-transparent overlay
 	renderer.SetDrawColor(0, 0, 0, 200)
 	overlay := sdl.Rect{X: 0, Y: 0, W: dm.window.Width, H: dm.window.Height}
 	renderer.FillRect(&overlay)
@@ -407,7 +377,6 @@ func (dm *BlockingDownloadManager) renderHelpOverlay(renderer *sdl.Renderer) {
 		titleSurface.Free()
 	}
 
-	// Draw help text
 	font := internal.GetFont()
 	lineHeight := int32(30)
 	startY := dm.window.Height/6 + lineHeight*2
@@ -431,7 +400,6 @@ func (dm *BlockingDownloadManager) renderHelpOverlay(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Draw dismiss message
 	dismissText := "Press any key to dismiss"
 	dismissSurface, err := font.RenderUTF8Solid(dismissText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
 	if err == nil {
@@ -450,7 +418,6 @@ func (dm *BlockingDownloadManager) renderHelpOverlay(renderer *sdl.Renderer) {
 	}
 }
 
-// NewBlockingDownload starts a download process and blocks until completion
 func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 	downloadManager := NewBlockingDownloadManager(downloads)
 
@@ -470,7 +437,6 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	// Start first download
 	downloadManager.startDownload()
 
 	running := true
@@ -496,7 +462,6 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 					}
 
 					if e.Keysym.Sym == sdl.K_ESCAPE {
-						// Cancel current download
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})
@@ -519,20 +484,17 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 					}
 
 					if e.Button == BrickButton_B {
-						// Cancel current download
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})
 							downloadManager.cancellationError = fmt.Errorf("download cancelled by user (B button)")
 
-							// Add current download to failed downloads
 							if downloadManager.currentIndex < len(downloadManager.downloads) {
 								result.FailedDownloads = append(result.FailedDownloads,
 									downloadManager.downloads[downloadManager.currentIndex])
 								result.Errors = append(result.Errors, downloadManager.cancellationError)
 							}
 
-							// Move to next download
 							downloadManager.currentIndex++
 							if downloadManager.currentIndex < len(downloadManager.downloads) {
 								downloadManager.startDownload()
@@ -541,7 +503,6 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 							}
 						}
 					} else if e.Button == BrickButton_Y {
-						// Cancel all downloads
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})
@@ -549,7 +510,6 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 						running = false
 						result.Cancelled = true
 
-						// Add remaining downloads to failed downloads
 						for i := downloadManager.currentIndex; i < len(downloadManager.downloads); i++ {
 							result.FailedDownloads = append(result.FailedDownloads, downloadManager.downloads[i])
 							result.Errors = append(result.Errors, fmt.Errorf("download cancelled by user (Y button)"))
@@ -561,42 +521,33 @@ func NewBlockingDownload(downloads []models.Download) (DownloadReturn, error) {
 			}
 		}
 
-		// Check if download finished
 		select {
 		case success := <-downloadManager.downloadDone:
 			if success {
-				// Add to completed downloads
 				result.CompletedDownloads = append(result.CompletedDownloads,
 					downloadManager.downloads[downloadManager.currentIndex])
 
-				// Move to next download
 				downloadManager.currentIndex++
 				if downloadManager.currentIndex < len(downloadManager.downloads) {
 					downloadManager.startDownload()
 				} else {
-					// All downloads complete
 					running = false
 				}
 			} else {
-				// Add to failed downloads
 				result.FailedDownloads = append(result.FailedDownloads,
 					downloadManager.downloads[downloadManager.currentIndex])
 				result.Errors = append(result.Errors, downloadManager.downloadError)
 
-				// Move to next download
 				downloadManager.currentIndex++
 				if downloadManager.currentIndex < len(downloadManager.downloads) {
 					downloadManager.startDownload()
 				} else {
-					// All downloads attempted
 					running = false
 				}
 			}
 		default:
-			// Continue
 		}
 
-		// Render UI
 		downloadManager.render(renderer)
 		renderer.Present()
 

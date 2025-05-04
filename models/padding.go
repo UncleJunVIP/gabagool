@@ -1,4 +1,4 @@
-package ui
+package models
 
 type Padding struct {
 	Top    int32

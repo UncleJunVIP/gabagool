@@ -1,9 +1,9 @@
 package ui
 
 import (
+	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
-	"nextui-sdl2/internal"
 	"time"
 )
 
@@ -36,10 +36,10 @@ type VirtualKeyboard struct {
 	SelectedKeyIndex int
 	SelectedSpecial  int
 
-	CursorPosition  int           // Position in TextBuffer
-	CursorVisible   bool          // For blinking effect
-	LastCursorBlink time.Time     // To control blinking timing
-	CursorBlinkRate time.Duration // How fast the cursor blinks
+	CursorPosition  int
+	CursorVisible   bool
+	LastCursorBlink time.Time
+	CursorBlinkRate time.Duration
 
 	HelpLines        []string
 	ShowingHelp      bool
@@ -57,7 +57,7 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		CursorPosition:   0,
 		CursorVisible:    true,
 		LastCursorBlink:  time.Now(),
-		CursorBlinkRate:  500 * time.Millisecond, // Blink every 500ms
+		CursorBlinkRate:  500 * time.Millisecond,
 		HelpLines: []string{
 			"Navigation: D-Pad",
 			"Move Cursor: L1/R1 Buttons",
@@ -198,7 +198,6 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		x += keyWidth + keySpacing
 	}
 
-	// Add enter key
 	kb.EnterRect = sdl.Rect{
 		X: x,
 		Y: y + keyHeight + keySpacing,
@@ -206,7 +205,6 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		H: keyHeight,
 	}
 
-	// Add space bar - center it in the bottom row
 	spaceBarWidth := keyWidth * 6
 	spaceBarX := startX + (keyboardWidth-spaceBarWidth)/2
 
@@ -253,7 +251,7 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 						break
 					} else if e.Keysym.Sym == sdl.K_ESCAPE {
 						running = false
-						result = initialText // Return original text on escape
+						result = initialText
 						break
 					}
 				}
@@ -268,20 +266,16 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 						break
 					} else if e.Button == BrickButton_Y {
 						running = false
-						result = initialText // Return original text on Y button
+						result = ""
 						break
 					}
 				}
 
-			case *sdl.ControllerAxisEvent:
-				// Handle controller joystick/axis movement if needed
-				//kb.HandleControllerAxis(e.Axis, e.Value)
 			}
 		}
 
 		kb.UpdateCursorBlink()
 
-		// Clear the renderer before rendering the keyboard
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
@@ -289,7 +283,7 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 
 		renderer.Present()
 
-		sdl.Delay(16) // Cap at ~60fps
+		sdl.Delay(16)
 	}
 
 	return result, err
@@ -340,12 +334,10 @@ func (kb *VirtualKeyboard) RenderHelpPrompt(renderer *sdl.Renderer, font *ttf.Fo
 func (kb *VirtualKeyboard) ScrollHelpOverlay(direction int32) {
 	newOffset := kb.HelpScrollOffset + direction
 
-	// Prevent scrolling past the beginning
 	if newOffset < 0 {
 		newOffset = 0
 	}
 
-	// Prevent scrolling past the end
 	if newOffset > kb.MaxHelpScroll {
 		newOffset = kb.MaxHelpScroll
 	}
@@ -354,17 +346,12 @@ func (kb *VirtualKeyboard) ScrollHelpOverlay(direction int32) {
 }
 
 func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
-	// Reset all pressed keys to fix lingering highlights
 	kb.ResetPressedKeys()
 
-	// Define all keys including special keys as a grid
-	// This helps us organize the keyboard layout for easier navigation
 	var keyGrid [][]interface{}
 
-	// Row 1: 1-0 and delete
 	row1 := make([]interface{}, 0)
 
-	// Find all number keys (row 1)
 	numKeys := make([]Key, 0)
 	for i := range kb.Keys {
 		// Assume number keys are in the top row (lowest Y value)
@@ -373,50 +360,41 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 		}
 	}
 
-	// Add all number keys to row 1
 	for i := range numKeys {
 		row1 = append(row1, i) // Store index of key
 	}
 
-	// Add backspace (special key 1) to row 1
 	row1 = append(row1, "backspace")
 	keyGrid = append(keyGrid, row1)
 
-	// Row 2: qwertyuiop
 	row2 := make([]interface{}, 0)
 	for i := 10; i < 20 && i < len(kb.Keys); i++ {
 		row2 = append(row2, i)
 	}
 	keyGrid = append(keyGrid, row2)
 
-	// Row 3: asdfghjkl
 	row3 := make([]interface{}, 0)
 	for i := 20; i < 29 && i < len(kb.Keys); i++ {
 		row3 = append(row3, i)
 	}
 	keyGrid = append(keyGrid, row3)
 
-	// Row 4: Shift, zxcvbnm, Enter
 	row4 := make([]interface{}, 0)
-	row4 = append(row4, "shift") // Shift (special key 4)
+	row4 = append(row4, "shift")
 	for i := 29; i < 36 && i < len(kb.Keys); i++ {
 		row4 = append(row4, i)
 	}
-	row4 = append(row4, "enter") // Enter (special key 2)
+	row4 = append(row4, "enter")
 	keyGrid = append(keyGrid, row4)
 
-	// Row 5: Space
 	row5 := make([]interface{}, 0)
-	row5 = append(row5, "space") // Space (special key 3)
+	row5 = append(row5, "space")
 	keyGrid = append(keyGrid, row5)
 
-	// Find current position in grid
 	currentRow := -1
 	currentCol := -1
 
-	// Check if a special key is selected
 	if kb.SelectedSpecial > 0 {
-		// Convert special key index to name
 		var specialKeyName string
 		switch kb.SelectedSpecial {
 		case 1:
@@ -429,7 +407,6 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 			specialKeyName = "shift"
 		}
 
-		// Find this special key in the grid
 		for r, row := range keyGrid {
 			for c, key := range row {
 				if str, ok := key.(string); ok && str == specialKeyName {
@@ -443,7 +420,6 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 			}
 		}
 	} else if kb.SelectedKeyIndex >= 0 {
-		// Find the regular key in the grid
 		for r, row := range keyGrid {
 			for c, key := range row {
 				if idx, ok := key.(int); ok && idx == kb.SelectedKeyIndex {
@@ -458,7 +434,6 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 		}
 	}
 
-	// If no current selection, start at the top-left
 	if currentRow < 0 || currentCol < 0 {
 		if len(keyGrid) > 0 && len(keyGrid[0]) > 0 {
 			currentRow = 0
@@ -472,7 +447,6 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 		}
 	}
 
-	// Determine next position based on direction
 	newRow := currentRow
 	newCol := currentCol
 
@@ -518,18 +492,14 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 		}
 	}
 
-	// Update selected key based on new position
 	if newRow >= 0 && newRow < len(keyGrid) && newCol >= 0 && newCol < len(keyGrid[newRow]) {
 		selectedKey := keyGrid[newRow][newCol]
 
-		// Update the selection based on the type of key
 		if idx, ok := selectedKey.(int); ok {
-			// It's a regular key
 			kb.SelectedKeyIndex = idx
 			kb.SelectedSpecial = 0
 			kb.Keys[kb.SelectedKeyIndex].IsPressed = true
 		} else if str, ok := selectedKey.(string); ok {
-			// It's a special key
 			kb.SelectedKeyIndex = -1
 			switch str {
 			case "backspace":
@@ -660,7 +630,6 @@ func (kb *VirtualKeyboard) HandleKeyDown(keyCode sdl.Keycode) {
 		kb.ProcessNavigation(1)
 		return
 
-	// Add cursor movement with keyboard
 	case sdl.K_HOME:
 		kb.CursorPosition = 0
 		return
@@ -721,7 +690,6 @@ func (kb *VirtualKeyboard) HandleKeyDown(keyCode sdl.Keycode) {
 		}
 	}
 
-	// Reset cursor blink when typing
 	kb.CursorVisible = true
 	kb.LastCursorBlink = time.Now()
 }
@@ -867,7 +835,6 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 		}
 	}
 
-	// Reset cursor blink when typing
 	kb.CursorVisible = true
 	kb.LastCursorBlink = time.Now()
 }
@@ -1036,7 +1003,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		textTexture.Destroy()
 	}
 
-	// Space
 	if kb.SelectedSpecial == 3 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {
@@ -1046,7 +1012,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.SetDrawColor(120, 120, 120, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
-	// Shift
 	if kb.ShiftPressed || kb.SelectedSpecial == 4 {
 		renderer.SetDrawColor(100, 100, 200, 255)
 	} else {
@@ -1073,7 +1038,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 	kb.RenderHelpPrompt(renderer, internal.GetSmallFont())
 
 	if kb.ShowingHelp {
-		// Create semi-transparent overlay
 		overlayRect := sdl.Rect{
 			X: 0,
 			Y: 0,
@@ -1083,22 +1047,18 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		renderer.SetDrawColor(0, 0, 0, 200) // Black with alpha
 		renderer.FillRect(&overlayRect)
 
-		// Calculate help box dimensions
-		helpWidth := int32(overlayRect.W * 80 / 100)
-		helpHeight := int32(overlayRect.H * 80 / 100)
+		helpWidth := overlayRect.W * 80 / 100
+		helpHeight := overlayRect.H * 80 / 100
 		helpX := (overlayRect.W - helpWidth) / 2
 		helpY := (overlayRect.H - helpHeight) / 2
 		helpRect := sdl.Rect{X: helpX, Y: helpY, W: helpWidth, H: helpHeight}
 
-		// Draw help box background
 		renderer.SetDrawColor(40, 40, 40, 255)
 		renderer.FillRect(&helpRect)
 
-		// Draw help box border
 		renderer.SetDrawColor(120, 120, 120, 255)
 		renderer.DrawRect(&helpRect)
 
-		// Draw "Keyboard Help" title
 		titleText := "Keyboard Help"
 		titleColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 		titleSurface, err := font.RenderUTF8Blended(titleText, titleColor)
@@ -1115,11 +1075,9 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 			titleTexture.Destroy()
 		}
 
-		// Draw help content
 		contentY := helpY + 80
 		lineHeight := int32(font.Height() + 10)
 
-		// Calculate max scroll based on content height and visible area
 		totalContentHeight := lineHeight * int32(len(kb.HelpLines))
 		visibleContentHeight := helpHeight - 120 // Account for padding and title
 		kb.MaxHelpScroll = int32(0)
@@ -1128,7 +1086,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 			kb.MaxHelpScroll = (totalContentHeight - visibleContentHeight) / lineHeight
 		}
 
-		// Draw help lines
 		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 		startLine := kb.HelpScrollOffset
 		endLine := startLine + (visibleContentHeight / lineHeight)
@@ -1155,10 +1112,8 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 			}
 		}
 
-		// Draw scroll indicators if needed
 		if kb.MaxHelpScroll > 0 {
 			if kb.HelpScrollOffset > 0 {
-				// Draw up arrow
 				upArrow := "▲ More"
 				arrowSurface, _ := font.RenderUTF8Blended(upArrow, textColor)
 				if arrowSurface != nil {
@@ -1176,7 +1131,6 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 			}
 
 			if kb.HelpScrollOffset < kb.MaxHelpScroll {
-				// Draw down arrow
 				downArrow := "▼ More"
 				arrowSurface, _ := font.RenderUTF8Blended(downArrow, textColor)
 				if arrowSurface != nil {

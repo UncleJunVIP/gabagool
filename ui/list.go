@@ -1,27 +1,27 @@
 package ui
 
 import (
+	"github.com/UncleJunVIP/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/models"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
-	"nextui-sdl2/internal"
-	"nextui-sdl2/models"
 	"time"
 )
 
 type ListSettings struct {
-	ContentPadding     Padding                // Padding inside menu items
-	Margins            Padding                // Outer margins of the entire menu
-	ItemSpacing        int32                  // Vertical spacing between menu items
-	InputDelay         time.Duration          // Delay between input processing
-	Title              string                 // Optional title text
-	TitleAlign         internal.TextAlignment // Title alignment (left, center, right)
-	TitleSpacing       int32                  // Space between title and first item
-	MultiSelectKey     sdl.Keycode            // Key to toggle multi-select mode
-	MultiSelectButton  uint8                  // Controller button to toggle multi-select mode
-	ReorderKey         sdl.Keycode            // Key to toggle reorder mode
-	ReorderButton      uint8                  // Controller button to toggle reorder mode
-	ToggleSelectionKey sdl.Keycode            // Key to toggle selection in multi-select mode
-	ToggleSelectionBtn uint8                  // Controller button to toggle selection in multi-select mode
+	ContentPadding     models.Padding
+	Margins            models.Padding
+	ItemSpacing        int32
+	InputDelay         time.Duration
+	Title              string
+	TitleAlign         internal.TextAlignment
+	TitleSpacing       int32
+	MultiSelectKey     sdl.Keycode
+	MultiSelectButton  uint8
+	ReorderKey         sdl.Keycode
+	ReorderButton      uint8
+	ToggleSelectionKey sdl.Keycode
+	ToggleSelectionBtn uint8
 }
 
 type ListController struct {
@@ -47,13 +47,13 @@ type ListController struct {
 
 func DefaultListSettings(title string) ListSettings {
 	return ListSettings{
-		ContentPadding: Padding{
+		ContentPadding: models.Padding{
 			Top:    5,
 			Right:  10,
 			Bottom: 5,
 			Left:   10,
 		},
-		Margins: Padding{
+		Margins: models.Padding{
 			Top:    10,
 			Right:  10,
 			Bottom: 10,
@@ -108,7 +108,7 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 	renderer := window.Renderer
 
 	listController := NewListController(title, items, startY)
-	listController.MaxVisibleItems = 7 // Adjust as needed
+	listController.MaxVisibleItems = 7
 
 	running := true
 	result := models.ListReturn{
@@ -165,7 +165,6 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 			}
 		}
 
-		// Clear the renderer before rendering the list
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
@@ -173,7 +172,7 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 
 		renderer.Present()
 
-		sdl.Delay(16) // Cap at ~60fps
+		sdl.Delay(16)
 	}
 
 	return result, err
@@ -560,12 +559,12 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 
 	if settings.ContentPadding.Left <= 0 && settings.ContentPadding.Right <= 0 &&
 		settings.ContentPadding.Top <= 0 && settings.ContentPadding.Bottom <= 0 {
-		settings.ContentPadding = HVPadding(internal.DefaultTextPadding, 5)
+		settings.ContentPadding = models.HVPadding(internal.DefaultTextPadding, 5)
 	}
 
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
 		settings.Margins.Top <= 0 && settings.Margins.Bottom <= 0 {
-		settings.Margins = UniformPadding(10)
+		settings.Margins = models.UniformPadding(10)
 	}
 
 	if settings.TitleSpacing <= 0 {

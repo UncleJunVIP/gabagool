@@ -1,4 +1,4 @@
-module nextui-sdl2
+module github.com/UncleJunVIP/gabagool
 
 go 1.24
 

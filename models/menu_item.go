@@ -10,9 +10,9 @@ type MenuItem struct {
 }
 
 type ListReturn struct {
-	SelectedIndex  int         // Index of the selected item
-	SelectedItem   *MenuItem   // Pointer to the selected item
-	LastPressedKey sdl.Keycode // Last pressed keyboard key
-	LastPressedBtn uint8       // Last pressed controller button
-	Cancelled      bool        // Whether the selection was cancelled
+	SelectedIndex  int
+	SelectedItem   *MenuItem
+	LastPressedKey sdl.Keycode
+	LastPressedBtn uint8
+	Cancelled      bool
 }
