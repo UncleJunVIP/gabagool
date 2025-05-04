@@ -1,37 +1,28 @@
-package ui
+package internal
 
 import (
 	"github.com/veandco/go-sdl2/sdl"
+	"nextui-sdl2/internal/types"
 )
 
-type Scene interface {
-	Init() error
-	Activate() error
-	Deactivate() error
-	HandleEvent(sdl.Event) bool
-	Update() error
-	Render() error
-	Destroy() error
-}
-
 type SceneManager struct {
-	scenes         map[string]Scene
-	currentScene   Scene
+	scenes         map[string]types.Scene
+	currentScene   types.Scene
 	currentSceneID string
 	window         *Window
 }
 
 var sceneManagerInstance *SceneManager
 
-func NewSceneManager(window *Window) *SceneManager {
+func NewSceneManager() *SceneManager {
 	if sceneManagerInstance != nil {
 		return sceneManagerInstance
 	}
 
 	sceneManagerInstance = &SceneManager{
-		scenes:       make(map[string]Scene),
+		scenes:       make(map[string]types.Scene),
 		currentScene: nil,
-		window:       window,
+		window:       GetWindow(),
 	}
 	return sceneManagerInstance
 }
@@ -40,11 +31,11 @@ func GetSceneManager() *SceneManager {
 	return sceneManagerInstance
 }
 
-func (sm *SceneManager) AddScene(id string, scene Scene) {
+func (sm *SceneManager) AddScene(id string, scene types.Scene) {
 	sm.scenes[id] = scene
 }
 
-func (sm *SceneManager) GetScene(id string) Scene {
+func (sm *SceneManager) GetScene(id string) types.Scene {
 	return sm.scenes[id]
 }
 

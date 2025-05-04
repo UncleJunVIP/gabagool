@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"nextui-sdl2/internal"
 	"nextui-sdl2/ui"
 	"os"
 	"path/filepath"
@@ -19,7 +20,7 @@ type Download struct {
 }
 
 type DownloadScene struct {
-	window *ui.Window
+	window *internal.Window
 
 	fileName         string
 	displayName      string
@@ -49,7 +50,7 @@ type DownloadScene struct {
 	currentIndex  int
 }
 
-func NewDownloadScene(window *ui.Window) *DownloadScene {
+func NewDownloadScene(window *internal.Window) *DownloadScene {
 	// Calculate progress bar dimensions and position
 	progressBarWidth := window.Width * 3 / 4 // 75% of screen width
 	progressBarHeight := int32(30)
@@ -209,7 +210,7 @@ func (s *DownloadScene) downloadFile(url, fileName string) {
 			s.downloadDone <- true
 
 			// Log the download completion
-			ui.Logger.Info("Download complete",
+			internal.Logger.Info("Download complete",
 				"index", s.currentIndex,
 				"file", s.fileName)
 
@@ -218,7 +219,7 @@ func (s *DownloadScene) downloadFile(url, fileName string) {
 				s.currentIndex++
 				// Start the next download directly
 				nextDownload := s.downloadQueue[s.currentIndex]
-				ui.Logger.Info("Starting next download directly",
+				internal.Logger.Info("Starting next download directly",
 					"index", s.currentIndex,
 					"file", nextDownload.Location)
 
@@ -299,7 +300,7 @@ func (s *DownloadScene) Update() error {
 	// If we're not downloading but have a completed download and there are more items to download
 	if !s.isDownloading && s.downloadComplete && s.currentIndex < len(s.downloadQueue)-1 {
 		// Log the state before starting next download
-		ui.Logger.Info("Starting next download",
+		internal.Logger.Info("Starting next download",
 			"current", s.currentIndex,
 			"total", len(s.downloadQueue),
 			"completed", s.downloadComplete)
@@ -330,7 +331,7 @@ func (s *DownloadScene) Render() error {
 	renderer.Clear()
 
 	// Draw title
-	titleFont := ui.GetTitleFont()
+	titleFont := internal.GetTitleFont()
 	titleText := "Download Manager"
 	titleSurface, err := titleFont.RenderUTF8Solid(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err == nil {
@@ -350,7 +351,7 @@ func (s *DownloadScene) Render() error {
 
 	// Draw progress info (current/total downloads)
 	if len(s.downloadQueue) > 0 {
-		font := ui.GetSmallFont()
+		font := internal.GetSmallFont()
 		progressText := fmt.Sprintf("Download %d of %d", s.currentIndex+1, len(s.downloadQueue))
 		progressSurface, err := font.RenderUTF8Solid(progressText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
 		if err == nil {
@@ -371,7 +372,7 @@ func (s *DownloadScene) Render() error {
 
 	// Draw file name
 	if s.fileName != "" {
-		font := ui.GetFont()
+		font := internal.GetFont()
 		var displayText string
 		if s.displayName != "" {
 			displayText = s.displayName
@@ -428,7 +429,7 @@ func (s *DownloadScene) Render() error {
 
 	// Draw progress percentage
 	if s.isDownloading || s.downloadComplete {
-		font := ui.GetSmallFont()
+		font := internal.GetSmallFont()
 
 		var progressText string
 		if s.totalSize > 0 {
@@ -476,7 +477,7 @@ func (s *DownloadScene) Render() error {
 	}
 
 	if statusText != "" {
-		font := ui.GetFont()
+		font := internal.GetFont()
 		statusSurface, err := font.RenderUTF8Solid(statusText, statusColor)
 		if err == nil {
 			statusTexture, err := renderer.CreateTextureFromSurface(statusSurface)
@@ -504,7 +505,7 @@ func (s *DownloadScene) Render() error {
 		instructionsText = "Press B to continue"
 	}
 
-	font := ui.GetSmallFont()
+	font := internal.GetSmallFont()
 	instructionsSurface, err := font.RenderUTF8Solid(instructionsText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
 	if err == nil {
 		instructionsTexture, err := renderer.CreateTextureFromSurface(instructionsSurface)
@@ -541,7 +542,7 @@ func (s *DownloadScene) HandleEvent(event sdl.Event) bool {
 					return true
 				} else {
 					// Go back to main menu if not downloading
-					ui.GetSceneManager().SwitchTo("mainMenu")
+					internal.GetSceneManager().SwitchTo("mainMenu")
 					return true
 				}
 			case sdl.K_b: // Add keyboard B key support
@@ -550,7 +551,7 @@ func (s *DownloadScene) HandleEvent(event sdl.Event) bool {
 					s.cancelDownload = make(chan struct{})
 					return true
 				} else if s.downloadComplete {
-					ui.GetSceneManager().SwitchTo("mainMenu")
+					internal.GetSceneManager().SwitchTo("mainMenu")
 					return true
 				}
 			}
@@ -566,10 +567,10 @@ func (s *DownloadScene) HandleEvent(event sdl.Event) bool {
 					s.cancelDownload = make(chan struct{})
 					return true
 				} else if s.downloadComplete {
-					ui.GetSceneManager().SwitchTo("mainMenu")
+					internal.GetSceneManager().SwitchTo("mainMenu")
 					return true
 				} else {
-					ui.GetSceneManager().SwitchTo("mainMenu")
+					internal.GetSceneManager().SwitchTo("mainMenu")
 					return true
 				}
 			}

@@ -2,16 +2,17 @@ package scenes
 
 import (
 	"github.com/veandco/go-sdl2/sdl"
+	"nextui-sdl2/internal"
 	"nextui-sdl2/ui"
 )
 
 type KeyboardScene struct {
-	window   *ui.Window
+	window   *internal.Window
 	keyboard *ui.VirtualKeyboard
 	active   bool
 }
 
-func NewKeyboardScene(window *ui.Window) *KeyboardScene {
+func NewKeyboardScene(window *internal.Window) *KeyboardScene {
 	scene := &KeyboardScene{
 		window: window,
 		active: false,
@@ -65,7 +66,7 @@ func (s *KeyboardScene) HandleEvent(event sdl.Event) bool {
 		if t.Type == sdl.CONTROLLERBUTTONDOWN {
 			switch t.Button {
 			case ui.BrickButton_Y:
-				ui.GetSceneManager().SwitchTo("mainMenu")
+				internal.GetSceneManager().SwitchTo("mainMenu")
 				return true
 			default:
 				s.keyboard.HandleButtonPress(t.Button) // TODO clean this
@@ -113,7 +114,7 @@ func (s *KeyboardScene) Render() error {
 	s.window.Renderer.SetDrawColor(20, 20, 20, 255)
 	s.window.Renderer.Clear()
 
-	s.keyboard.Render(s.window.Renderer, ui.GetFont())
+	s.keyboard.Render(s.window.Renderer, internal.GetFont())
 
 	return nil
 }

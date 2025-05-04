@@ -1,4 +1,4 @@
-package ui
+package internal
 
 import (
 	"fmt"
@@ -68,7 +68,6 @@ func InitWindowWithSize(title string, width, height int32, fontSize int, smallFo
 
 func (window Window) CloseWindow() {
 	CloseFonts()
-	CloseGameController()
 	window.Renderer.Destroy()
 	window.Window.Destroy()
 }

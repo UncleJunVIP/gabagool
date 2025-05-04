@@ -1,19 +1,25 @@
-package ui
+package internal
 
 import (
+	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"os"
 )
 
-var GameControllers []*sdl.GameController
+var window *Window
+var gameControllers []*sdl.GameController
 
-func init() {
+func Init(applicationName string) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_GAMECONTROLLER); err != nil {
 		os.Exit(1)
 	}
 
 	if err := ttf.Init(); err != nil {
+		os.Exit(1)
+	}
+
+	if err := InitLogger(fmt.Sprintf("%s.log", applicationName)); err != nil {
 		os.Exit(1)
 	}
 
@@ -23,14 +29,21 @@ func init() {
 		if sdl.IsGameController(i) {
 			controller := sdl.GameControllerOpen(i)
 			if controller != nil {
-				GameControllers = append(GameControllers, controller)
+				gameControllers = append(gameControllers, controller)
 			}
 		}
 	}
+
+	window = InitWindow(applicationName)
+}
+
+func GetWindow() *Window {
+	return window
 }
 
 func SDLCleanup() {
-	for _, controller := range GameControllers {
+	window.CloseWindow()
+	for _, controller := range gameControllers {
 		controller.Close()
 	}
 	ttf.Quit()

@@ -3,6 +3,7 @@ package scenes
 import (
 	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
+	"nextui-sdl2/internal"
 	"nextui-sdl2/models"
 	"nextui-sdl2/ui"
 	"os"
@@ -66,15 +67,12 @@ func (s *MenuScene) Init() error {
 }
 
 func (s *MenuScene) Activate() error {
-	keyboardScene := NewKeyboardScene(s.renderer.Window())
-	ui.GetSceneManager().AddScene("keyboard", keyboardScene)
-
 	s.active = true
 	return nil
 }
 
 func (s *MenuScene) Deactivate() error {
-	ui.GetSceneManager().DestroyScene("keyboard")
+	internal.GetSceneManager().DestroyScene("keyboard")
 	s.active = false
 	return nil
 }
@@ -89,10 +87,10 @@ func (s *MenuScene) HandleEvent(event sdl.Event) bool {
 		if t.Type == sdl.CONTROLLERBUTTONDOWN {
 			switch t.Button {
 			case ui.BrickButton_START:
-				ui.GetSceneManager().SwitchTo("download")
+				internal.GetSceneManager().SwitchTo("download")
 				return true
 			case ui.BrickButton_X:
-				ui.GetSceneManager().SwitchTo("keyboard")
+				internal.GetSceneManager().SwitchTo("keyboard")
 				return true
 			case ui.BrickButton_B:
 				os.Exit(0)

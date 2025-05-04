@@ -3,24 +3,25 @@ package ui
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
+	"nextui-sdl2/internal"
 	"nextui-sdl2/models"
 	"time"
 )
 
 type ListSettings struct {
-	ContentPadding     Padding       // Padding inside menu items
-	Margins            Padding       // Outer margins of the entire menu
-	ItemSpacing        int32         // Vertical spacing between menu items
-	InputDelay         time.Duration // Delay between input processing
-	Title              string        // Optional title text
-	TitleAlign         TextAlignment // Title alignment (left, center, right)
-	TitleSpacing       int32         // Space between title and first item
-	MultiSelectKey     sdl.Keycode   // Key to toggle multi-select mode
-	MultiSelectButton  uint8         // Controller button to toggle multi-select mode
-	ReorderKey         sdl.Keycode   // Key to toggle reorder mode
-	ReorderButton      uint8         // Controller button to toggle reorder mode
-	ToggleSelectionKey sdl.Keycode   // Key to toggle selection in multi-select mode
-	ToggleSelectionBtn uint8         // Controller button to toggle selection in multi-select mode
+	ContentPadding     Padding                // Padding inside menu items
+	Margins            Padding                // Outer margins of the entire menu
+	ItemSpacing        int32                  // Vertical spacing between menu items
+	InputDelay         time.Duration          // Delay between input processing
+	Title              string                 // Optional title text
+	TitleAlign         internal.TextAlignment // Title alignment (left, center, right)
+	TitleSpacing       int32                  // Space between title and first item
+	MultiSelectKey     sdl.Keycode            // Key to toggle multi-select mode
+	MultiSelectButton  uint8                  // Controller button to toggle multi-select mode
+	ReorderKey         sdl.Keycode            // Key to toggle reorder mode
+	ReorderButton      uint8                  // Controller button to toggle reorder mode
+	ToggleSelectionKey sdl.Keycode            // Key to toggle selection in multi-select mode
+	ToggleSelectionBtn uint8                  // Controller button to toggle selection in multi-select mode
 }
 
 type ListController struct {
@@ -58,11 +59,11 @@ func DefaultListSettings(title string) ListSettings {
 			Bottom: 10,
 			Left:   10,
 		},
-		ItemSpacing:  DefaultMenuSpacing,
-		InputDelay:   DefaultInputDelay,
+		ItemSpacing:  internal.DefaultMenuSpacing,
+		InputDelay:   internal.DefaultInputDelay,
 		Title:        title,
-		TitleAlign:   AlignLeft,
-		TitleSpacing: DefaultTitleSpacing,
+		TitleAlign:   internal.AlignLeft,
+		TitleSpacing: internal.DefaultTitleSpacing,
 	}
 }
 
@@ -100,6 +101,82 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 	}
 
 	return controller
+}
+
+func NewBlockingList(title string, items []models.MenuItem, startY int32) (models.ListReturn, error) {
+	window := internal.GetWindow()
+	renderer := window.Renderer
+
+	listController := NewListController(title, items, startY)
+	listController.MaxVisibleItems = 7 // Adjust as needed
+
+	running := true
+	result := models.ListReturn{
+		SelectedIndex:  -1,
+		SelectedItem:   nil,
+		LastPressedKey: 0,
+		LastPressedBtn: 0,
+		Cancelled:      true,
+	}
+	var err error
+
+	for running {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch e := event.(type) {
+			case *sdl.QuitEvent:
+				running = false
+				err = sdl.GetError()
+
+			case *sdl.KeyboardEvent:
+				if e.Type == sdl.KEYDOWN {
+					result.LastPressedKey = e.Keysym.Sym
+
+					if e.Keysym.Sym == sdl.K_RETURN {
+						running = false
+						result.SelectedIndex = listController.SelectedIndex
+						result.SelectedItem = &items[listController.SelectedIndex]
+						result.Cancelled = false
+						break
+					} else if e.Keysym.Sym == sdl.K_ESCAPE {
+						running = false
+						break
+					}
+
+					listController.HandleEvent(event)
+				}
+
+			case *sdl.ControllerButtonEvent:
+				if e.Type == sdl.CONTROLLERBUTTONDOWN {
+					result.LastPressedBtn = e.Button
+
+					if e.Button == BrickButton_START || e.Button == BrickButton_A {
+						running = false
+						result.SelectedIndex = listController.SelectedIndex
+						result.SelectedItem = &items[listController.SelectedIndex]
+						result.Cancelled = false
+						break
+					} else if e.Button == BrickButton_Y || e.Button == BrickButton_B {
+						running = false
+						break
+					}
+
+					listController.HandleEvent(event)
+				}
+			}
+		}
+
+		// Clear the renderer before rendering the list
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+
+		listController.Render(renderer)
+
+		renderer.Present()
+
+		sdl.Delay(16) // Cap at ~60fps
+	}
+
+	return result, err
 }
 
 func (lc *ListController) ToggleMultiSelect() {
@@ -453,7 +530,7 @@ func (lc *ListController) Render(renderer *sdl.Renderer) {
 
 	if lc.ReorderMode {
 		lc.Settings.Title = "REORDER MODE"
-		lc.Settings.TitleAlign = AlignCenter
+		lc.Settings.TitleAlign = internal.AlignCenter
 
 		if lc.SelectedIndex >= lc.VisibleStartIndex &&
 			lc.SelectedIndex < lc.VisibleStartIndex+lc.MaxVisibleItems {
@@ -462,7 +539,7 @@ func (lc *ListController) Render(renderer *sdl.Renderer) {
 		}
 	}
 
-	drawScrollableMenu(renderer, GetFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect)
+	drawScrollableMenu(renderer, internal.GetFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect)
 
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
@@ -478,12 +555,12 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	startY int32, settings ListSettings, multiSelect bool) {
 
 	if settings.ItemSpacing <= 0 {
-		settings.ItemSpacing = DefaultMenuSpacing
+		settings.ItemSpacing = internal.DefaultMenuSpacing
 	}
 
 	if settings.ContentPadding.Left <= 0 && settings.ContentPadding.Right <= 0 &&
 		settings.ContentPadding.Top <= 0 && settings.ContentPadding.Bottom <= 0 {
-		settings.ContentPadding = HVPadding(DefaultTextPadding, 5)
+		settings.ContentPadding = HVPadding(internal.DefaultTextPadding, 5)
 	}
 
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
@@ -492,13 +569,13 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	}
 
 	if settings.TitleSpacing <= 0 {
-		settings.TitleSpacing = DefaultTitleSpacing
+		settings.TitleSpacing = internal.DefaultTitleSpacing
 	}
 
 	itemStartY := startY
 
 	if settings.Title != "" {
-		itemStartY = drawTitle(renderer, GetTitleFont(), settings.Title,
+		itemStartY = drawTitle(renderer, internal.GetTitleFont(), settings.Title,
 			settings.TitleAlign, startY, settings.Margins.Left) + settings.TitleSpacing
 	}
 
@@ -549,13 +626,13 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 
 		textSurface, err := font.RenderUTF8Blended(itemText, textColor)
 		if err != nil {
-			Logger.Error("Failed to render text", "error", err)
+			internal.Logger.Error("Failed to render text", "error", err)
 			continue
 		}
 
 		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
 		if err != nil {
-			Logger.Error("Failed to create texture", "error", err)
+			internal.Logger.Error("Failed to create texture", "error", err)
 			textSurface.Free()
 			continue
 		}
@@ -588,17 +665,17 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	}
 }
 
-func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
+func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign internal.TextAlignment, startY int32, titleXMargin int32) int32 {
 	titleColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 	titleSurface, err := font.RenderUTF8Blended(title, titleColor)
 	if err != nil {
-		Logger.Error("Failed to render title text", "error", err)
+		internal.Logger.Error("Failed to render title text", "error", err)
 		return startY
 	}
 
 	titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 	if err != nil {
-		Logger.Error("Failed to create title texture", "error", err)
+		internal.Logger.Error("Failed to create title texture", "error", err)
 		titleSurface.Free()
 		return startY
 	}
@@ -612,11 +689,11 @@ func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign 
 
 	var titleX int32
 	switch titleAlign {
-	case AlignLeft:
+	case internal.AlignLeft:
 		titleX = titleXMargin
-	case AlignCenter:
+	case internal.AlignCenter:
 		titleX = (screenWidth - titleWidth) / 2
-	case AlignRight:
+	case internal.AlignRight:
 		titleX = screenWidth - titleWidth - titleXMargin
 	default:
 		titleX = titleXMargin
@@ -714,12 +791,12 @@ func (lc *ListController) RenderHelpPrompt(renderer *sdl.Renderer) {
 
 	screenWidth, screenHeight, err := renderer.GetOutputSize()
 	if err != nil {
-		Logger.Error("Failed to get output size", "error", err)
+		internal.Logger.Error("Failed to get output size", "error", err)
 		return
 	}
 
 	if !lc.ShowingHelp {
-		font := GetFont()
+		font := internal.GetFont()
 		promptText := "Help (Menu)"
 
 		promptSurface, err := font.RenderUTF8Blended(promptText, sdl.Color{R: 180, G: 180, B: 180, A: 200})
@@ -756,7 +833,7 @@ func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
 	// Get screen dimensions
 	screenWidth, screenHeight, err := renderer.GetOutputSize()
 	if err != nil {
-		Logger.Error("Failed to get output size", "error", err)
+		internal.Logger.Error("Failed to get output size", "error", err)
 		return
 	}
 
@@ -765,13 +842,13 @@ func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
 	overlay := sdl.Rect{X: 0, Y: 0, W: screenWidth, H: screenHeight}
 	renderer.FillRect(&overlay)
 
-	font := GetFont()
+	font := internal.GetFont()
 
 	// Pre-render title to get its dimensions
 	titleText := "Help"
 	titleSurface, err := font.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err != nil {
-		Logger.Error("Failed to render title", "error", err)
+		internal.Logger.Error("Failed to render title", "error", err)
 		return
 	}
 	defer titleSurface.Free()
@@ -784,7 +861,7 @@ func (lc *ListController) RenderHelpOverlay(renderer *sdl.Renderer) {
 
 	dismissSurface, err := font.RenderUTF8Blended(dismissText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
 	if err != nil {
-		Logger.Error("Failed to render dismiss text", "error", err)
+		internal.Logger.Error("Failed to render dismiss text", "error", err)
 		dismissSurface = nil
 	}
 

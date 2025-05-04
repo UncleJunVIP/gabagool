@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
+	"nextui-sdl2/internal"
 	"time"
 )
 
@@ -35,7 +36,6 @@ type VirtualKeyboard struct {
 	SelectedKeyIndex int
 	SelectedSpecial  int
 
-	// Cursor properties
 	CursorPosition  int           // Position in TextBuffer
 	CursorVisible   bool          // For blinking effect
 	LastCursorBlink time.Time     // To control blinking timing
@@ -45,8 +45,6 @@ type VirtualKeyboard struct {
 	ShowingHelp      bool
 	HelpScrollOffset int32
 	MaxHelpScroll    int32
-
-	OnEnterPressed func(text string)
 }
 
 func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
@@ -222,8 +220,79 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 	return kb
 }
 
-func (kb *VirtualKeyboard) SetOnEnterCallback(callback func(text string)) {
-	kb.OnEnterPressed = callback
+func NewBlockingKeyboard(initialText string) (string, error) {
+	window := internal.GetWindow()
+	renderer := window.Renderer
+	font := internal.GetFont()
+
+	kb := CreateKeyboard(window.Width, window.Height)
+
+	if initialText != "" {
+		kb.TextBuffer = initialText
+		kb.CursorPosition = len(initialText)
+	}
+
+	running := true
+	var result string
+	var err error
+
+	for running {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch e := event.(type) {
+			case *sdl.QuitEvent:
+				running = false
+				err = sdl.GetError()
+
+			case *sdl.KeyboardEvent:
+				if e.Type == sdl.KEYDOWN {
+					kb.HandleKeyDown(e.Keysym.Sym)
+
+					if e.Keysym.Sym == sdl.K_RETURN {
+						running = false
+						result = kb.TextBuffer
+						break
+					} else if e.Keysym.Sym == sdl.K_ESCAPE {
+						running = false
+						result = initialText // Return original text on escape
+						break
+					}
+				}
+
+			case *sdl.ControllerButtonEvent:
+				if e.Type == sdl.CONTROLLERBUTTONDOWN {
+					kb.HandleButtonPress(e.Button)
+
+					if e.Button == BrickButton_START {
+						running = false
+						result = kb.TextBuffer
+						break
+					} else if e.Button == BrickButton_Y {
+						running = false
+						result = initialText // Return original text on Y button
+						break
+					}
+				}
+
+			case *sdl.ControllerAxisEvent:
+				// Handle controller joystick/axis movement if needed
+				//kb.HandleControllerAxis(e.Axis, e.Value)
+			}
+		}
+
+		kb.UpdateCursorBlink()
+
+		// Clear the renderer before rendering the keyboard
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+
+		kb.Render(renderer, font)
+
+		renderer.Present()
+
+		sdl.Delay(16) // Cap at ~60fps
+	}
+
+	return result, err
 }
 
 func (kb *VirtualKeyboard) ToggleHelp() {
@@ -727,10 +796,6 @@ func (kb *VirtualKeyboard) HandleButtonPress(button uint8) {
 		kb.CursorVisible = true
 		kb.LastCursorBlink = time.Now()
 
-	case BrickButton_START:
-		if kb.OnEnterPressed != nil {
-			kb.OnEnterPressed(kb.TextBuffer)
-		}
 	}
 }
 
@@ -1005,7 +1070,7 @@ func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
 		textTexture.Destroy()
 	}
 
-	kb.RenderHelpPrompt(renderer, GetSmallFont())
+	kb.RenderHelpPrompt(renderer, internal.GetSmallFont())
 
 	if kb.ShowingHelp {
 		// Create semi-transparent overlay
