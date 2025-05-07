@@ -121,7 +121,6 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 	result := models.ListReturn{
 		SelectedIndex:  -1,
 		SelectedItem:   nil,
-		LastPressedKey: 0,
 		LastPressedBtn: 0,
 		Cancelled:      true,
 	}
@@ -136,7 +135,6 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 
 			case *sdl.KeyboardEvent:
 				if e.Type == sdl.KEYDOWN {
-					result.LastPressedKey = e.Keysym.Sym
 
 					if e.Keysym.Sym == sdl.K_RETURN {
 						running = false
