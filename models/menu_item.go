@@ -1,7 +1,5 @@
 package models
 
-import "github.com/veandco/go-sdl2/sdl"
-
 type MenuItem struct {
 	Text     string
 	Selected bool
@@ -12,7 +10,6 @@ type MenuItem struct {
 type ListReturn struct {
 	SelectedIndex  int
 	SelectedItem   *MenuItem
-	LastPressedKey sdl.Keycode
 	LastPressedBtn uint8
 	Cancelled      bool
 }

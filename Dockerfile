@@ -6,12 +6,10 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /build
 
-# Copy only go.mod and go.sum first for better caching
 COPY go.mod go.sum* ./
-# Use go mod download instead of go get
+
 RUN go mod download
 
-# Then copy the rest of the code
 COPY . .
 RUN go build -gcflags="all=-N -l" -v
 

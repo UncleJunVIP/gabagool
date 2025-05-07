@@ -19,8 +19,8 @@ type Window struct {
 const (
 	DefaultWindowWidth  = int32(1024)
 	DefaultWindowHeight = int32(768)
-	FontSize            = 40
-	SmallFontSize       = 30
+	FontSize            = 50
+	SmallFontSize       = 40
 )
 
 func InitWindow(title string) *Window {
@@ -38,7 +38,7 @@ func InitWindow(title string) *Window {
 	}
 
 	Logger.Info("Window size", "width", width, "height", height)
-	return InitWindowWithSize(title, width, height, FontSize, SmallFontSize)
+	return InitWindowWithSize(title, 1024, 768, FontSize, SmallFontSize)
 }
 
 func InitWindowWithSize(title string, width, height int32, fontSize int, smallFontSize int) *Window {

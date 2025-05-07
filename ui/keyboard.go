@@ -41,10 +41,20 @@ type VirtualKeyboard struct {
 	LastCursorBlink time.Time
 	CursorBlinkRate time.Duration
 
-	HelpLines        []string
-	ShowingHelp      bool
-	HelpScrollOffset int32
-	MaxHelpScroll    int32
+	helpOverlay *HelpOverlay
+	ShowingHelp bool
+}
+
+var defaultKeyboardHelpLines = []string{
+	"Keyboard Controls:",
+	"• D-Pad: Navigate between keys",
+	"• A: Type the selected key",
+	"• B: Backspace",
+	"• X: Space",
+	"• L1 / R1: Move cursor within text",
+	"• Select: Toggle Shift (uppercase/symbols)",
+	"• Y: Exit keyboard without saving",
+	"• Start: Enter (confirm input)",
 }
 
 func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
@@ -58,21 +68,11 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		CursorVisible:    true,
 		LastCursorBlink:  time.Now(),
 		CursorBlinkRate:  500 * time.Millisecond,
-		HelpLines: []string{
-			"Navigation: D-Pad",
-			"Move Cursor: L1/R1 Buttons",
-			"Select / Type: A Button",
-			"Backspace: B Button",
-			"Shift: Select Button",
-			"Space: X Button",
-			"Enter: Start Button",
-			"Exit Keyboard: Y Button",
-			"Show / Hide Help: Menu Button",
-		},
 		ShowingHelp:      false,
-		HelpScrollOffset: 0,
-		MaxHelpScroll:    0,
 	}
+
+	// Create and configure the help overlay
+	kb.helpOverlay = NewHelpOverlay(defaultKeyboardHelpLines)
 
 	keyboardWidth := (windowWidth * 85) / 100
 	keyboardHeight := (windowHeight * 85) / 100
@@ -245,11 +245,11 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 				if e.Type == sdl.KEYDOWN {
 					kb.HandleKeyDown(e.Keysym.Sym)
 
-					if e.Keysym.Sym == sdl.K_RETURN {
+					if e.Keysym.Sym == sdl.K_RETURN && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
 						break
-					} else if e.Keysym.Sym == sdl.K_ESCAPE {
+					} else if e.Keysym.Sym == sdl.K_ESCAPE && !kb.ShowingHelp {
 						running = false
 						result = initialText
 						break
@@ -260,11 +260,11 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 				if e.Type == sdl.CONTROLLERBUTTONDOWN {
 					kb.HandleButtonPress(e.Button)
 
-					if e.Button == BrickButton_START {
+					if e.Button == BrickButton_START && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
 						break
-					} else if e.Button == BrickButton_Y {
+					} else if e.Button == BrickButton_Y && !kb.ShowingHelp {
 						running = false
 						result = ""
 						break
@@ -290,59 +290,18 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 }
 
 func (kb *VirtualKeyboard) ToggleHelp() {
-	kb.ShowingHelp = !kb.ShowingHelp
-	kb.HelpScrollOffset = 0
+	if kb.helpOverlay == nil {
+		kb.helpOverlay = NewHelpOverlay(defaultKeyboardHelpLines)
+	}
+
+	kb.helpOverlay.Toggle()
+	kb.ShowingHelp = kb.helpOverlay.ShowingHelp
 }
 
-func (kb *VirtualKeyboard) RenderHelpPrompt(renderer *sdl.Renderer, font *ttf.Font) {
-	_, screenHeight, err := renderer.GetOutputSize()
-	if err != nil {
-		return
+func (kb *VirtualKeyboard) ScrollHelpOverlay(direction int) {
+	if kb.helpOverlay != nil {
+		kb.helpOverlay.Scroll(direction)
 	}
-
-	if !kb.ShowingHelp {
-		promptText := "Help (Menu)"
-
-		promptColor := sdl.Color{R: 180, G: 180, B: 180, A: 200}
-		promptSurface, err := font.RenderUTF8Blended(promptText, promptColor)
-		if err != nil {
-			return
-		}
-
-		promptTexture, err := renderer.CreateTextureFromSurface(promptSurface)
-		if err != nil {
-			promptSurface.Free()
-			return
-		}
-
-		padding := int32(20)
-
-		promptRect := sdl.Rect{
-			X: padding,
-			Y: screenHeight - promptSurface.H - padding,
-			W: promptSurface.W,
-			H: promptSurface.H,
-		}
-
-		renderer.Copy(promptTexture, nil, &promptRect)
-
-		promptTexture.Destroy()
-		promptSurface.Free()
-	}
-}
-
-func (kb *VirtualKeyboard) ScrollHelpOverlay(direction int32) {
-	newOffset := kb.HelpScrollOffset + direction
-
-	if newOffset < 0 {
-		newOffset = 0
-	}
-
-	if newOffset > kb.MaxHelpScroll {
-		newOffset = kb.MaxHelpScroll
-	}
-
-	kb.HelpScrollOffset = newOffset
 }
 
 func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
@@ -515,6 +474,35 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 	}
 }
 
+func (kb *VirtualKeyboard) Backspace() {
+	if kb.CursorPosition > 0 {
+		if kb.CursorPosition < len(kb.TextBuffer) {
+			kb.TextBuffer = kb.TextBuffer[:kb.CursorPosition-1] + kb.TextBuffer[kb.CursorPosition:]
+		} else {
+			kb.TextBuffer = kb.TextBuffer[:len(kb.TextBuffer)-1]
+		}
+		kb.CursorPosition--
+	}
+}
+
+func (kb *VirtualKeyboard) InsertSpace() {
+	if kb.CursorPosition < len(kb.TextBuffer) {
+		kb.TextBuffer = kb.TextBuffer[:kb.CursorPosition] + " " + kb.TextBuffer[kb.CursorPosition:]
+	} else {
+		kb.TextBuffer += " "
+	}
+	kb.CursorPosition++
+}
+
+func (kb *VirtualKeyboard) ToggleShift() {
+	kb.ShiftPressed = !kb.ShiftPressed
+	if kb.ShiftPressed {
+		kb.CurrentState = UpperCase
+	} else {
+		kb.CurrentState = LowerCase
+	}
+}
+
 func (kb *VirtualKeyboard) MoveCursor(direction int) {
 	if direction > 0 { // Move right
 		if kb.CursorPosition < len(kb.TextBuffer) {
@@ -543,227 +531,132 @@ func (kb *VirtualKeyboard) ResetPressedKeys() {
 	}
 }
 
-func (kb *VirtualKeyboard) HandleKeyDown(keyCode sdl.Keycode) {
-	if keyCode == sdl.K_h || keyCode == sdl.K_QUESTION {
+func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
+	// Handle help toggle
+	if key == sdl.K_h || key == sdl.K_QUESTION {
 		kb.ToggleHelp()
-		return
+		return true
 	}
 
+	// If help is showing, handle navigation and closing
 	if kb.ShowingHelp {
-		if keyCode == sdl.K_UP {
-			kb.ScrollHelpOverlay(-1) // Scroll up
-			return
+		if key == sdl.K_UP {
+			kb.ScrollHelpOverlay(-1)
+			return true
 		}
-		if keyCode == sdl.K_DOWN {
-			kb.ScrollHelpOverlay(1) // Scroll down
-			return
+		if key == sdl.K_DOWN {
+			kb.ScrollHelpOverlay(1)
+			return true
 		}
 
-		if keyCode != sdl.K_UP && keyCode != sdl.K_DOWN {
+		// Any other key closes help
+		if key != sdl.K_UP && key != sdl.K_DOWN {
 			kb.ShowingHelp = false
+			return true
 		}
-		return
+		return true
 	}
 
-	switch keyCode {
+	// Handle other keyboard controls
+	switch key {
+	case sdl.K_UP, sdl.K_DOWN, sdl.K_LEFT, sdl.K_RIGHT:
+		direction := 0
+		switch key {
+		case sdl.K_UP:
+			direction = 3
+		case sdl.K_DOWN:
+			direction = 4
+		case sdl.K_LEFT:
+			direction = 2
+		case sdl.K_RIGHT:
+			direction = 1
+		}
+		kb.ProcessNavigation(direction)
+		return true
+
+	case sdl.K_RETURN, sdl.K_SPACE:
+		kb.ProcessSelection()
+		return true
+
 	case sdl.K_BACKSPACE:
-		if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
-			textRunes := []rune(kb.TextBuffer)
-			before := string(textRunes[:kb.CursorPosition-1])
-			after := string(textRunes[kb.CursorPosition:])
-			kb.TextBuffer = before + after
-			kb.CursorPosition--
-		}
-		return
-
-	case sdl.K_RETURN:
-		if kb.SelectedKeyIndex >= 0 || kb.SelectedSpecial > 0 {
-			kb.ProcessSelection()
-		} else {
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += "\n"
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + "\n" + after
-			}
-			kb.CursorPosition++
-		}
-		return
-
-	case sdl.K_SPACE:
-		if kb.SelectedKeyIndex >= 0 || kb.SelectedSpecial > 0 {
-			kb.ProcessSelection()
-		} else {
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += " "
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + " " + after
-			}
-			kb.CursorPosition++
-		}
-		return
+		kb.Backspace()
+		return true
 
 	case sdl.K_LSHIFT, sdl.K_RSHIFT:
-		kb.ShiftPressed = !kb.ShiftPressed
-		if kb.ShiftPressed {
-			kb.CurrentState = UpperCase
-		} else {
-			kb.CurrentState = LowerCase
-		}
-		return
+		kb.ToggleShift()
+		return true
 
-	case sdl.K_UP:
-		kb.ProcessNavigation(3)
-		return
-	case sdl.K_DOWN:
-		kb.ProcessNavigation(4)
-		return
-	case sdl.K_LEFT:
-		kb.ProcessNavigation(2)
-		return
-	case sdl.K_RIGHT:
-		kb.ProcessNavigation(1)
-		return
-
-	case sdl.K_HOME:
-		kb.CursorPosition = 0
-		return
-	case sdl.K_END:
-		kb.CursorPosition = len(kb.TextBuffer)
-		return
+	default:
+		return false
 	}
-
-	var r rune
-	switch {
-	case keyCode >= sdl.K_a && keyCode <= sdl.K_z:
-		if kb.CurrentState == UpperCase {
-			r = rune(keyCode - sdl.K_a + 'A')
-		} else {
-			r = rune(keyCode - sdl.K_a + 'a')
-		}
-
-		if kb.CursorPosition == len(kb.TextBuffer) {
-			kb.TextBuffer += string(r)
-		} else {
-			textRunes := []rune(kb.TextBuffer)
-			before := string(textRunes[:kb.CursorPosition])
-			after := string(textRunes[kb.CursorPosition:])
-			kb.TextBuffer = before + string(r) + after
-		}
-		kb.CursorPosition++
-
-	case keyCode >= sdl.K_0 && keyCode <= sdl.K_9:
-		if kb.ShiftPressed {
-			symbols := []string{")", "!", "@", "#", "$", "%", "^", "&", "*", "("}
-			idx := int(keyCode - sdl.K_0)
-			if idx == 0 {
-				idx = 9
-			} else {
-				idx = idx - 1
-			}
-
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += symbols[idx]
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + symbols[idx] + after
-			}
-			kb.CursorPosition++
-		} else {
-			r = rune(keyCode - sdl.K_0 + '0')
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += string(r)
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + string(r) + after
-			}
-			kb.CursorPosition++
-		}
-	}
-
-	kb.CursorVisible = true
-	kb.LastCursorBlink = time.Now()
 }
 
-func (kb *VirtualKeyboard) HandleButtonPress(button uint8) {
+func (kb *VirtualKeyboard) HandleButtonPress(button uint8) bool {
+	// Handle help toggle
 	if button == BrickButton_MENU {
 		kb.ToggleHelp()
-		return
+		return true
 	}
 
+	// If help is showing, handle navigation and closing
 	if kb.ShowingHelp {
 		if button == BrickButton_UP {
 			kb.ScrollHelpOverlay(-1)
-			return
+			return true
 		}
 		if button == BrickButton_DOWN {
 			kb.ScrollHelpOverlay(1)
-			return
+			return true
 		}
 
+		// Any other button closes help
 		kb.ShowingHelp = false
-		return
+		return true
 	}
 
+	// Handle other controller buttons
 	switch button {
-	case BrickButton_UP:
-		kb.ProcessNavigation(3)
-	case BrickButton_DOWN:
-		kb.ProcessNavigation(4)
-	case BrickButton_LEFT:
-		kb.ProcessNavigation(2)
-	case BrickButton_RIGHT:
-		kb.ProcessNavigation(1)
+	case BrickButton_UP, BrickButton_DOWN, BrickButton_LEFT, BrickButton_RIGHT:
+		direction := 0
+		switch button {
+		case BrickButton_UP:
+			direction = 3
+		case BrickButton_DOWN:
+			direction = 4
+		case BrickButton_LEFT:
+			direction = 2
+		case BrickButton_RIGHT:
+			direction = 1
+		}
+		kb.ProcessNavigation(direction)
+		return true
+
 	case BrickButton_A:
 		kb.ProcessSelection()
-	case BrickButton_B:
-		// Fix: Delete at cursor position instead of at the end
-		if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
-			textRunes := []rune(kb.TextBuffer)
-			before := string(textRunes[:kb.CursorPosition-1])
-			after := string(textRunes[kb.CursorPosition:])
-			kb.TextBuffer = before + after
-			kb.CursorPosition--
+		return true
 
-			// Reset cursor blink when deleting
-			kb.CursorVisible = true
-			kb.LastCursorBlink = time.Now()
-		}
+	case BrickButton_B:
+		kb.Backspace()
+		return true
+
+	case BrickButton_X:
+		kb.InsertSpace()
+		return true
+
+	case BrickButton_SELECT:
+		kb.ToggleShift()
+		return true
 
 	case BrickButton_L1:
 		kb.MoveCursor(-1)
+		return true
+
 	case BrickButton_R1:
 		kb.MoveCursor(1)
-	case BrickButton_SELECT:
-		kb.ShiftPressed = !kb.ShiftPressed
-		if kb.ShiftPressed {
-			kb.CurrentState = UpperCase
-		} else {
-			kb.CurrentState = LowerCase
-		}
-	case BrickButton_X:
-		if kb.CursorPosition == len(kb.TextBuffer) {
-			kb.TextBuffer += " "
-		} else {
-			textRunes := []rune(kb.TextBuffer)
-			before := string(textRunes[:kb.CursorPosition])
-			after := string(textRunes[kb.CursorPosition:])
-			kb.TextBuffer = before + " " + after
-		}
-		kb.CursorPosition++
+		return true
 
-		kb.CursorVisible = true
-		kb.LastCursorBlink = time.Now()
-
+	default:
+		return false
 	}
 }
 
@@ -840,312 +733,299 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 }
 
 func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
-	kb.UpdateCursorBlink()
+	// Only render the keyboard if help isn't showing
+	if !kb.ShowingHelp {
+		kb.renderKeyboard(renderer, font)
+	}
 
-	renderer.SetDrawColor(40, 40, 40, 255)
+	// Draw the help overlay if it's active
+	if kb.ShowingHelp && kb.helpOverlay != nil {
+		kb.helpOverlay.Render(renderer, internal.GetSmallFont())
+	} else {
+		// Only show the help prompt when help is not visible
+		kb.renderHelpPrompt(renderer, font)
+	}
+}
+
+func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font) {
+	// Render text input box
+	renderer.SetDrawColor(50, 50, 50, 255)
 	renderer.FillRect(&kb.TextInputRect)
-	renderer.SetDrawColor(80, 80, 80, 255)
+
+	renderer.SetDrawColor(200, 200, 200, 255)
 	renderer.DrawRect(&kb.TextInputRect)
 
-	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-
+	// Render text
 	if kb.TextBuffer != "" {
-		textSurface, err := font.RenderUTF8BlendedWrapped(kb.TextBuffer, textColor, int(kb.TextInputRect.W-20))
-		if err == nil && textSurface != nil {
-			textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
-			textRect := sdl.Rect{
-				X: kb.TextInputRect.X + 10,
-				Y: kb.TextInputRect.Y + 10,
-				W: textSurface.W,
-				H: textSurface.H,
-			}
-			renderer.Copy(textTexture, nil, &textRect)
-
-			if kb.CursorVisible {
-				cursorX, cursorY := kb.TextInputRect.X+10, kb.TextInputRect.Y+10
-
-				if kb.CursorPosition > 0 {
-					cursorText := string([]rune(kb.TextBuffer)[:kb.CursorPosition])
-					measureSurface, _ := font.RenderUTF8Blended(cursorText, textColor)
-					if measureSurface != nil {
-						lineHeight := int32(font.Height())
-						fullLines := 0
-						lastLinebreak := 0
-
-						for i, char := range cursorText {
-							if char == '\n' {
-								fullLines++
-								lastLinebreak = i + 1
-							}
-						}
-
-						lineText := cursorText
-						if lastLinebreak > 0 {
-							lineText = cursorText[lastLinebreak:]
-						}
-
-						lineSurface, _ := font.RenderUTF8Blended(lineText, textColor)
-						if lineSurface != nil {
-							cursorX = kb.TextInputRect.X + 10 + lineSurface.W
-							cursorY = kb.TextInputRect.Y + 10 + int32(fullLines)*lineHeight
-							lineSurface.Free()
-						}
-
-						measureSurface.Free()
-					}
-				}
-
-				renderer.SetDrawColor(255, 255, 255, 255)
-				cursorRect := sdl.Rect{
-					X: cursorX,
-					Y: cursorY,
-					W: 2,
-					H: int32(font.Height()),
-				}
-				renderer.FillRect(&cursorRect)
-			}
-
-			textSurface.Free()
-			textTexture.Destroy()
+		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+		textSurface, err := font.RenderUTF8Blended(kb.TextBuffer, textColor)
+		if err != nil {
+			internal.Logger.Error("Failed to render text",
+				"error", err)
+			return
 		}
-	} else {
+
+		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+		if err != nil {
+			internal.Logger.Error("Failed to create texture from surface",
+				"error", err)
+			textSurface.Free()
+			return
+		}
+
+		var textWidth, textHeight = textSurface.W, textSurface.H
+
+		// Calculate cursor position
+		var cursorX int32
+		if kb.CursorPosition > 0 {
+			// Measure text up to cursor
+			cursorText := kb.TextBuffer[:kb.CursorPosition]
+			cursorSurface, err := font.RenderUTF8Blended(cursorText, textColor)
+			if err == nil {
+				cursorX = cursorSurface.W
+				cursorSurface.Free()
+			}
+		}
+
+		padding := int32(10)
+		textRect := sdl.Rect{
+			X: kb.TextInputRect.X + padding,
+			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-textHeight)/2,
+			W: textWidth,
+			H: textHeight,
+		}
+
+		renderer.Copy(textTexture, nil, &textRect)
+
+		// Draw cursor if it's visible
 		if kb.CursorVisible {
 			renderer.SetDrawColor(255, 255, 255, 255)
 			cursorRect := sdl.Rect{
-				X: kb.TextInputRect.X + 10,
-				Y: kb.TextInputRect.Y + 10,
+				X: textRect.X + cursorX,
+				Y: textRect.Y,
 				W: 2,
-				H: int32(font.Height()),
+				H: textHeight,
 			}
 			renderer.FillRect(&cursorRect)
 		}
+
+		textTexture.Destroy()
+		textSurface.Free()
+	} else if kb.CursorVisible {
+		// If no text, just draw the cursor at the start
+		padding := int32(10)
+		placeholderHeight := int32(20) // Assuming some height for the cursor
+		cursorRect := sdl.Rect{
+			X: kb.TextInputRect.X + padding,
+			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-placeholderHeight)/2,
+			W: 2,
+			H: placeholderHeight,
+		}
+		renderer.SetDrawColor(255, 255, 255, 255)
+		renderer.FillRect(&cursorRect)
 	}
 
+	// Render each key
 	for i, key := range kb.Keys {
-		if key.IsPressed || i == kb.SelectedKeyIndex {
-			renderer.SetDrawColor(100, 100, 200, 255)
-		} else {
-			renderer.SetDrawColor(60, 60, 60, 255)
+		bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
+		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+
+		if i == kb.SelectedKeyIndex {
+			bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
+			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+		} else if key.IsPressed {
+			bgColor = sdl.Color{R: 80, G: 80, B: 120, A: 255}
 		}
+
+		renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
 		renderer.FillRect(&key.Rect)
 
-		renderer.SetDrawColor(120, 120, 120, 255)
+		renderer.SetDrawColor(70, 70, 80, 255)
 		renderer.DrawRect(&key.Rect)
 
-		var keyText string
-
-		if i < 10 && kb.ShiftPressed {
-			keyText = key.SymbolValue
-		} else if kb.CurrentState == UpperCase {
-			keyText = key.UpperValue
-		} else {
-			keyText = key.LowerValue
-		}
-
-		textSurface, _ := font.RenderUTF8Blended(keyText, textColor)
-		if textSurface != nil {
-			textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
-			textRect := sdl.Rect{
-				X: key.Rect.X + (key.Rect.W-textSurface.W)/2,
-				Y: key.Rect.Y + (key.Rect.H-textSurface.H)/2,
-				W: textSurface.W,
-				H: textSurface.H,
+		// Determine which text value to use based on shift state
+		keyVal := key.LowerValue
+		if kb.CurrentState == UpperCase {
+			if i < 10 && kb.ShiftPressed { // For the top row numbers
+				keyVal = key.SymbolValue
+			} else {
+				keyVal = key.UpperValue
 			}
-			renderer.Copy(textTexture, nil, &textRect)
-			textSurface.Free()
-			textTexture.Destroy()
 		}
+
+		textSurface, err := font.RenderUTF8Blended(keyVal, textColor)
+		if err != nil {
+			internal.Logger.Error("Failed to render key text",
+				"error", err)
+			continue
+		}
+
+		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+		if err != nil {
+			internal.Logger.Error("Failed to create texture from surface",
+				"error", err)
+			textSurface.Free()
+			continue
+		}
+
+		textRect := sdl.Rect{
+			X: key.Rect.X + (key.Rect.W-textSurface.W)/2,
+			Y: key.Rect.Y + (key.Rect.H-textSurface.H)/2,
+			W: textSurface.W,
+			H: textSurface.H,
+		}
+
+		renderer.Copy(textTexture, nil, &textRect)
+
+		textTexture.Destroy()
+		textSurface.Free()
 	}
 
+	// Render special keys
+	// Backspace key
+	backspaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 1 {
-		renderer.SetDrawColor(100, 100, 200, 255)
-	} else {
-		renderer.SetDrawColor(60, 60, 60, 255)
+		backspaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
 	}
+
+	renderer.SetDrawColor(backspaceBgColor.R, backspaceBgColor.G, backspaceBgColor.B, backspaceBgColor.A)
 	renderer.FillRect(&kb.BackspaceRect)
-	renderer.SetDrawColor(120, 120, 120, 255)
+
+	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.BackspaceRect)
 
-	textSurface, _ := font.RenderUTF8Blended("⌫", textColor)
-	if textSurface != nil {
-		textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
-		textRect := sdl.Rect{
-			X: kb.BackspaceRect.X + (kb.BackspaceRect.W-textSurface.W)/2,
-			Y: kb.BackspaceRect.Y + (kb.BackspaceRect.H-textSurface.H)/2,
-			W: textSurface.W,
-			H: textSurface.H,
+	backspaceText := "⌫"
+	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	backspaceSurface, err := font.RenderUTF8Blended(backspaceText, textColor)
+	if err == nil {
+		backspaceTexture, err := renderer.CreateTextureFromSurface(backspaceSurface)
+		if err == nil {
+			backspaceRect := sdl.Rect{
+				X: kb.BackspaceRect.X + (kb.BackspaceRect.W-backspaceSurface.W)/2,
+				Y: kb.BackspaceRect.Y + (kb.BackspaceRect.H-backspaceSurface.H)/2,
+				W: backspaceSurface.W,
+				H: backspaceSurface.H,
+			}
+			renderer.Copy(backspaceTexture, nil, &backspaceRect)
+			backspaceTexture.Destroy()
 		}
-		renderer.Copy(textTexture, nil, &textRect)
-		textSurface.Free()
-		textTexture.Destroy()
+		backspaceSurface.Free()
 	}
 
+	// Enter key
+	enterBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 2 {
-		renderer.SetDrawColor(100, 100, 200, 255)
-	} else {
-		renderer.SetDrawColor(60, 60, 60, 255)
+		enterBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
 	}
+
+	renderer.SetDrawColor(enterBgColor.R, enterBgColor.G, enterBgColor.B, enterBgColor.A)
 	renderer.FillRect(&kb.EnterRect)
-	renderer.SetDrawColor(120, 120, 120, 255)
+
+	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.EnterRect)
 
-	textSurface, _ = font.RenderUTF8Blended("⏎", textColor)
-	if textSurface != nil {
-		textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
-		textRect := sdl.Rect{
-			X: kb.EnterRect.X + (kb.EnterRect.W-textSurface.W)/2,
-			Y: kb.EnterRect.Y + (kb.EnterRect.H-textSurface.H)/2,
-			W: textSurface.W,
-			H: textSurface.H,
+	enterText := "↵"
+	enterSurface, err := font.RenderUTF8Blended(enterText, textColor)
+	if err == nil {
+		enterTexture, err := renderer.CreateTextureFromSurface(enterSurface)
+		if err == nil {
+			enterRect := sdl.Rect{
+				X: kb.EnterRect.X + (kb.EnterRect.W-enterSurface.W)/2,
+				Y: kb.EnterRect.Y + (kb.EnterRect.H-enterSurface.H)/2,
+				W: enterSurface.W,
+				H: enterSurface.H,
+			}
+			renderer.Copy(enterTexture, nil, &enterRect)
+			enterTexture.Destroy()
 		}
-		renderer.Copy(textTexture, nil, &textRect)
-		textSurface.Free()
-		textTexture.Destroy()
+		enterSurface.Free()
 	}
 
+	// Space key
+	spaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 3 {
-		renderer.SetDrawColor(100, 100, 200, 255)
-	} else {
-		renderer.SetDrawColor(60, 60, 60, 255)
+		spaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
 	}
+
+	renderer.SetDrawColor(spaceBgColor.R, spaceBgColor.G, spaceBgColor.B, spaceBgColor.A)
 	renderer.FillRect(&kb.SpaceRect)
-	renderer.SetDrawColor(120, 120, 120, 255)
+
+	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
-	if kb.ShiftPressed || kb.SelectedSpecial == 4 {
-		renderer.SetDrawColor(100, 100, 200, 255)
-	} else {
-		renderer.SetDrawColor(60, 60, 60, 255)
+	// Draw a line to represent space
+	lineWidth := kb.SpaceRect.W / 3
+	lineHeight := int32(4)
+	lineRect := sdl.Rect{
+		X: kb.SpaceRect.X + (kb.SpaceRect.W-lineWidth)/2,
+		Y: kb.SpaceRect.Y + (kb.SpaceRect.H-lineHeight)/2,
+		W: lineWidth,
+		H: lineHeight,
 	}
+	renderer.SetDrawColor(255, 255, 255, 255)
+	renderer.FillRect(&lineRect)
+
+	// Shift key
+	shiftBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
+	if kb.SelectedSpecial == 4 || kb.CurrentState == UpperCase {
+		shiftBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
+	}
+
+	renderer.SetDrawColor(shiftBgColor.R, shiftBgColor.G, shiftBgColor.B, shiftBgColor.A)
 	renderer.FillRect(&kb.ShiftRect)
-	renderer.SetDrawColor(120, 120, 120, 255)
+
+	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.ShiftRect)
 
-	textSurface, _ = font.RenderUTF8Blended("⇧", textColor)
-	if textSurface != nil {
-		textTexture, _ := renderer.CreateTextureFromSurface(textSurface)
-		textRect := sdl.Rect{
-			X: kb.ShiftRect.X + (kb.ShiftRect.W-textSurface.W)/2,
-			Y: kb.ShiftRect.Y + (kb.ShiftRect.H-textSurface.H)/2,
-			W: textSurface.W,
-			H: textSurface.H,
+	shiftText := "⇧"
+	shiftSurface, err := font.RenderUTF8Blended(shiftText, textColor)
+	if err == nil {
+		shiftTexture, err := renderer.CreateTextureFromSurface(shiftSurface)
+		if err == nil {
+			shiftRect := sdl.Rect{
+				X: kb.ShiftRect.X + (kb.ShiftRect.W-shiftSurface.W)/2,
+				Y: kb.ShiftRect.Y + (kb.ShiftRect.H-shiftSurface.H)/2,
+				W: shiftSurface.W,
+				H: shiftSurface.H,
+			}
+			renderer.Copy(shiftTexture, nil, &shiftRect)
+			shiftTexture.Destroy()
 		}
-		renderer.Copy(textTexture, nil, &textRect)
-		textSurface.Free()
-		textTexture.Destroy()
+		shiftSurface.Free()
+	}
+}
+
+func (kb *VirtualKeyboard) renderHelpPrompt(renderer *sdl.Renderer, font *ttf.Font) {
+	_, screenHeight, err := renderer.GetOutputSize()
+	if err != nil {
+		return
 	}
 
-	kb.RenderHelpPrompt(renderer, internal.GetSmallFont())
+	promptText := "Help (Menu)"
 
-	if kb.ShowingHelp {
-		overlayRect := sdl.Rect{
-			X: 0,
-			Y: 0,
-			W: renderer.GetViewport().W,
-			H: renderer.GetViewport().H,
-		}
-		renderer.SetDrawColor(0, 0, 0, 200) // Black with alpha
-		renderer.FillRect(&overlayRect)
-
-		helpWidth := overlayRect.W * 80 / 100
-		helpHeight := overlayRect.H * 80 / 100
-		helpX := (overlayRect.W - helpWidth) / 2
-		helpY := (overlayRect.H - helpHeight) / 2
-		helpRect := sdl.Rect{X: helpX, Y: helpY, W: helpWidth, H: helpHeight}
-
-		renderer.SetDrawColor(40, 40, 40, 255)
-		renderer.FillRect(&helpRect)
-
-		renderer.SetDrawColor(120, 120, 120, 255)
-		renderer.DrawRect(&helpRect)
-
-		titleText := "Keyboard Help"
-		titleColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-		titleSurface, err := font.RenderUTF8Blended(titleText, titleColor)
-		if err == nil && titleSurface != nil {
-			titleTexture, _ := renderer.CreateTextureFromSurface(titleSurface)
-			titleRect := sdl.Rect{
-				X: helpX + (helpWidth-titleSurface.W)/2,
-				Y: helpY + 20,
-				W: titleSurface.W,
-				H: titleSurface.H,
-			}
-			renderer.Copy(titleTexture, nil, &titleRect)
-			titleSurface.Free()
-			titleTexture.Destroy()
-		}
-
-		contentY := helpY + 80
-		lineHeight := int32(font.Height() + 10)
-
-		totalContentHeight := lineHeight * int32(len(kb.HelpLines))
-		visibleContentHeight := helpHeight - 120 // Account for padding and title
-		kb.MaxHelpScroll = int32(0)
-
-		if totalContentHeight > visibleContentHeight {
-			kb.MaxHelpScroll = (totalContentHeight - visibleContentHeight) / lineHeight
-		}
-
-		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-		startLine := kb.HelpScrollOffset
-		endLine := startLine + (visibleContentHeight / lineHeight)
-
-		if endLine > int32(len(kb.HelpLines)) {
-			endLine = int32(len(kb.HelpLines))
-		}
-
-		for i := startLine; i < endLine; i++ {
-			if i >= 0 && int(i) < len(kb.HelpLines) {
-				lineSurface, err := font.RenderUTF8Blended(kb.HelpLines[i], textColor)
-				if err == nil && lineSurface != nil {
-					lineTexture, _ := renderer.CreateTextureFromSurface(lineSurface)
-					lineRect := sdl.Rect{
-						X: helpX + 30,
-						Y: contentY + (i-startLine)*lineHeight,
-						W: lineSurface.W,
-						H: lineSurface.H,
-					}
-					renderer.Copy(lineTexture, nil, &lineRect)
-					lineSurface.Free()
-					lineTexture.Destroy()
-				}
-			}
-		}
-
-		if kb.MaxHelpScroll > 0 {
-			if kb.HelpScrollOffset > 0 {
-				upArrow := "▲ More"
-				arrowSurface, _ := font.RenderUTF8Blended(upArrow, textColor)
-				if arrowSurface != nil {
-					arrowTexture, _ := renderer.CreateTextureFromSurface(arrowSurface)
-					arrowRect := sdl.Rect{
-						X: helpX + helpWidth - arrowSurface.W - 20,
-						Y: helpY + 30,
-						W: arrowSurface.W,
-						H: arrowSurface.H,
-					}
-					renderer.Copy(arrowTexture, nil, &arrowRect)
-					arrowSurface.Free()
-					arrowTexture.Destroy()
-				}
-			}
-
-			if kb.HelpScrollOffset < kb.MaxHelpScroll {
-				downArrow := "▼ More"
-				arrowSurface, _ := font.RenderUTF8Blended(downArrow, textColor)
-				if arrowSurface != nil {
-					arrowTexture, _ := renderer.CreateTextureFromSurface(arrowSurface)
-					arrowRect := sdl.Rect{
-						X: helpX + helpWidth - arrowSurface.W - 20,
-						Y: helpY + helpHeight - arrowSurface.H - 30,
-						W: arrowSurface.W,
-						H: arrowSurface.H,
-					}
-					renderer.Copy(arrowTexture, nil, &arrowRect)
-					arrowSurface.Free()
-					arrowTexture.Destroy()
-				}
-			}
-		}
+	promptColor := sdl.Color{R: 180, G: 180, B: 180, A: 200}
+	promptSurface, err := font.RenderUTF8Blended(promptText, promptColor)
+	if err != nil {
+		return
 	}
+
+	promptTexture, err := renderer.CreateTextureFromSurface(promptSurface)
+	if err != nil {
+		promptSurface.Free()
+		return
+	}
+
+	padding := int32(20)
+
+	promptRect := sdl.Rect{
+		X: padding,
+		Y: screenHeight - promptSurface.H - padding,
+		W: promptSurface.W,
+		H: promptSurface.H,
+	}
+
+	renderer.Copy(promptTexture, nil, &promptRect)
+
+	promptTexture.Destroy()
+	promptSurface.Free()
 }

@@ -164,11 +164,6 @@ func (c *ConfirmationScreen) handleControllerButton(button uint8) bool {
 		c.resultSet = true
 		c.visible = false
 		return true
-	case sdl.CONTROLLER_BUTTON_B:
-		c.result = false
-		c.resultSet = true
-		c.visible = false
-		return true
 	}
 
 	return false
@@ -312,7 +307,6 @@ func (c *ConfirmationScreen) Render() {
 
 	c.renderButton(yesX, buttonsY, buttonWidth, buttonHeight, c.yesText, c.yesSelected)
 
-	c.renderControlHints(centerX-int32(200), h-int32(40), int32(400))
 }
 
 func (c *ConfirmationScreen) renderButton(x, y, width, height int32, text string, selected bool) {
@@ -356,31 +350,6 @@ func (c *ConfirmationScreen) renderButton(x, y, width, height int32, text string
 	textX := x + (width-textWidth)/2
 	textY := buttonY + (height-textHeight)/2
 	c.renderer.Copy(texture, nil, &sdl.Rect{X: textX, Y: textY, W: textWidth, H: textHeight})
-}
-
-func (c *ConfirmationScreen) renderControlHints(x, y, width int32) {
-	hints := "← → to navigate   A/Enter to confirm   B/Esc to cancel"
-	hintColor := sdl.Color{R: 180, G: 180, B: 180, A: 255}
-
-	surface, err := c.font.RenderUTF8Blended(hints, hintColor)
-	if err != nil {
-		return
-	}
-	defer surface.Free()
-
-	texture, err := c.renderer.CreateTextureFromSurface(surface)
-	if err != nil {
-		return
-	}
-	defer texture.Destroy()
-
-	_, _, textWidth, textHeight, err := texture.Query()
-	if err != nil {
-		return
-	}
-
-	hintX := x + (width-textWidth)/2
-	c.renderer.Copy(texture, nil, &sdl.Rect{X: hintX, Y: y, W: textWidth, H: textHeight})
 }
 
 func NewBlockingConfirmation(message string, options ...ConfirmOption) (bool, error) {
