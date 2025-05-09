@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"os"
@@ -16,10 +15,6 @@ func Init(applicationName string) {
 	}
 
 	if err := ttf.Init(); err != nil {
-		os.Exit(1)
-	}
-
-	if err := InitLogger(fmt.Sprintf("%s.log", applicationName)); err != nil {
 		os.Exit(1)
 	}
 

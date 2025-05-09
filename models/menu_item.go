@@ -8,8 +8,10 @@ type MenuItem struct {
 }
 
 type ListReturn struct {
-	SelectedIndex  int
-	SelectedItem   *MenuItem
-	LastPressedBtn uint8
-	Cancelled      bool
+	SelectedIndex   int
+	SelectedItem    *MenuItem
+	SelectedIndices []int
+	SelectedItems   []*MenuItem
+	LastPressedBtn  uint8
+	Cancelled       bool
 }

@@ -19,8 +19,8 @@ type Window struct {
 const (
 	DefaultWindowWidth  = int32(1024)
 	DefaultWindowHeight = int32(768)
-	FontSize            = 50
-	SmallFontSize       = 40
+	FontSize            = 40
+	SmallFontSize       = 30
 )
 
 func InitWindow(title string) *Window {
@@ -30,15 +30,17 @@ func InitWindow(title string) *Window {
 	width := DefaultWindowWidth
 	height := DefaultWindowHeight
 
-	if err == nil {
+	if os.Getenv("DEVELOPMENT") == "true" {
+		width = DefaultWindowWidth
+		height = DefaultWindowHeight
+	} else if err == nil {
 		width = displayMode.W
 		height = displayMode.H
 	} else {
 		fmt.Fprintf(os.Stderr, "Failed to get display mode: %s\n", err)
 	}
 
-	Logger.Info("Window size", "width", width, "height", height)
-	return InitWindowWithSize(title, 1024, 768, FontSize, SmallFontSize)
+	return InitWindowWithSize(title, width, height, FontSize, SmallFontSize)
 }
 
 func InitWindowWithSize(title string, width, height int32, fontSize int, smallFontSize int) *Window {

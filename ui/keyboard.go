@@ -2,6 +2,8 @@ package ui
 
 import (
 	"github.com/UncleJunVIP/gabagool/internal"
+	"github.com/patrickhuber/go-types"
+	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"time"
@@ -218,7 +220,7 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 	return kb
 }
 
-func NewBlockingKeyboard(initialText string) (string, error) {
+func NewBlockingKeyboard(initialText string) (types.Option[string], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 	font := internal.GetFont()
@@ -232,6 +234,7 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 
 	running := true
 	var result string
+	var exitType int
 	var err error
 
 	for running {
@@ -248,10 +251,12 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 					if e.Keysym.Sym == sdl.K_RETURN && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
+						exitType = 0
 						break
 					} else if e.Keysym.Sym == sdl.K_ESCAPE && !kb.ShowingHelp {
 						running = false
 						result = initialText
+						exitType = 1
 						break
 					}
 				}
@@ -263,10 +268,12 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 					if e.Button == BrickButton_START && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
+						exitType = 0
 						break
 					} else if e.Button == BrickButton_Y && !kb.ShowingHelp {
 						running = false
 						result = ""
+						exitType = 1
 						break
 					}
 				}
@@ -286,7 +293,11 @@ func NewBlockingKeyboard(initialText string) (string, error) {
 		sdl.Delay(16)
 	}
 
-	return result, err
+	if err != nil || exitType == 1 {
+		return option.None[string](), err
+	}
+
+	return option.Some[string](result), nil
 }
 
 func (kb *VirtualKeyboard) ToggleHelp() {
@@ -533,7 +544,7 @@ func (kb *VirtualKeyboard) ResetPressedKeys() {
 
 func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
 	// Handle help toggle
-	if key == sdl.K_h || key == sdl.K_QUESTION {
+	if key == sdl.K_h {
 		kb.ToggleHelp()
 		return true
 	}
@@ -574,11 +585,11 @@ func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
 		kb.ProcessNavigation(direction)
 		return true
 
-	case sdl.K_RETURN, sdl.K_SPACE:
+	case sdl.K_a:
 		kb.ProcessSelection()
 		return true
 
-	case sdl.K_BACKSPACE:
+	case sdl.K_b:
 		kb.Backspace()
 		return true
 
@@ -760,15 +771,11 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 		textSurface, err := font.RenderUTF8Blended(kb.TextBuffer, textColor)
 		if err != nil {
-			internal.Logger.Error("Failed to render text",
-				"error", err)
 			return
 		}
 
 		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
 		if err != nil {
-			internal.Logger.Error("Failed to create texture from surface",
-				"error", err)
 			textSurface.Free()
 			return
 		}
@@ -855,15 +862,11 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 		textSurface, err := font.RenderUTF8Blended(keyVal, textColor)
 		if err != nil {
-			internal.Logger.Error("Failed to render key text",
-				"error", err)
 			continue
 		}
 
 		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
 		if err != nil {
-			internal.Logger.Error("Failed to create texture from surface",
-				"error", err)
 			textSurface.Free()
 			continue
 		}

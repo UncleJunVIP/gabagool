@@ -3,6 +3,8 @@ package ui
 import (
 	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/UncleJunVIP/gabagool/models"
+	"github.com/patrickhuber/go-types"
+	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"math"
@@ -20,20 +22,20 @@ type textScrollData struct {
 }
 
 type ListSettings struct {
-	Margins            models.Padding
-	ItemSpacing        int32
-	InputDelay         time.Duration
-	Title              string
-	TitleAlign         internal.TextAlignment
-	TitleSpacing       int32
-	MultiSelectKey     sdl.Keycode
-	MultiSelectButton  uint8
-	ReorderKey         sdl.Keycode
-	ReorderButton      uint8
-	ToggleSelectionKey sdl.Keycode
-	ToggleSelectionBtn uint8
-	ScrollSpeed        float32 // Speed of scrolling animation in pixels per second
-	ScrollPauseTime    int     // How long to pause at edges (in frames)
+	Margins           models.Padding
+	ItemSpacing       int32
+	InputDelay        time.Duration
+	Title             string
+	TitleAlign        internal.TextAlignment
+	TitleSpacing      int32
+	MultiSelectKey    sdl.Keycode
+	MultiSelectButton uint8
+	ReorderKey        sdl.Keycode
+	ReorderButton     uint8
+	ScrollSpeed       float32
+	ScrollPauseTime   int
+	FooterText        string
+	FooterTextColor   sdl.Color
 }
 
 type ListController struct {
@@ -51,6 +53,9 @@ type ListController struct {
 	MaxVisibleItems   int
 	OnReorder         func(from, to int)
 
+	EnableAction bool
+
+	HelpEnabled bool
 	helpOverlay *HelpOverlay
 	ShowingHelp bool
 
@@ -74,14 +79,15 @@ func DefaultListSettings(title string) ListSettings {
 		TitleSpacing:    internal.DefaultTitleSpacing,
 		ScrollSpeed:     150.0, // pixels per second
 		ScrollPauseTime: 25,    // frames to pause at edges
+		FooterText:      "",    // Empty by default
+		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
 	}
 }
 
-func NewListController(title string, items []models.MenuItem, startY int32) *ListController {
+func NewListController(title string, items []models.MenuItem) *ListController {
 	selectedItems := make(map[int]bool)
 	selectedIndex := 0
 
-	// Find any pre-selected item
 	for i, item := range items {
 		if item.Selected {
 			selectedIndex = i
@@ -89,7 +95,6 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 		}
 	}
 
-	// Reset all selections and set only the selected index
 	for i := range items {
 		items[i].Selected = (i == selectedIndex)
 		if items[i].Selected {
@@ -103,19 +108,31 @@ func NewListController(title string, items []models.MenuItem, startY int32) *Lis
 		SelectedItems:  selectedItems,
 		MultiSelect:    false,
 		Settings:       DefaultListSettings(title),
-		StartY:         startY,
+		StartY:         20,
 		lastInputTime:  time.Now(),
-		itemScrollData: make(map[int]*textScrollData), // Initialize scroll data map
+		itemScrollData: make(map[int]*textScrollData),
 	}
 }
 
-func NewBlockingList(title string, items []models.MenuItem, startY int32) (models.ListReturn, error) {
+func NewBlockingList(title string, items []models.MenuItem, footerText string, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	listController := NewListController(title, items, startY)
+	listController := NewListController(title, items)
 
 	listController.MaxVisibleItems = 8
+	listController.EnableAction = enableAction
+	listController.Settings.FooterText = footerText
+
+	if enableMultiSelect {
+		listController.Settings.MultiSelectKey = sdl.K_SPACE
+		listController.Settings.MultiSelectButton = BrickButton_SELECT
+	}
+
+	if enableReordering {
+		listController.Settings.ReorderKey = sdl.K_SPACE
+		listController.Settings.ReorderButton = BrickButton_SELECT
+	}
 
 	running := true
 	result := models.ListReturn{
@@ -136,14 +153,40 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 			case *sdl.KeyboardEvent:
 				if e.Type == sdl.KEYDOWN {
 
-					if e.Keysym.Sym == sdl.K_RETURN {
+					if e.Keysym.Sym == sdl.K_RETURN && listController.MultiSelect {
+						running = false
+						selectedIndices := listController.GetSelectedItems()
+
+						// Populate the result with multiple selections
+						if len(selectedIndices) > 0 {
+							// Set the primary selection for backward compatibility
+							result.SelectedIndex = selectedIndices[0]
+							result.SelectedItem = &items[selectedIndices[0]]
+
+							// Set all selections
+							result.SelectedIndices = selectedIndices
+							result.SelectedItems = make([]*models.MenuItem, len(selectedIndices))
+							for i, idx := range selectedIndices {
+								result.SelectedItems[i] = &items[idx]
+							}
+
+							result.Cancelled = false
+						}
+						break
+					} else if e.Keysym.Sym == sdl.K_a && listController.MultiSelect {
+						listController.HandleEvent(event)
+					} else if e.Keysym.Sym == sdl.K_a && !listController.MultiSelect {
 						running = false
 						result.SelectedIndex = listController.SelectedIndex
 						result.SelectedItem = &items[listController.SelectedIndex]
+						result.SelectedIndices = []int{listController.SelectedIndex}
+						result.SelectedItems = []*models.MenuItem{&items[listController.SelectedIndex]}
 						result.Cancelled = false
 						break
-					} else if e.Keysym.Sym == sdl.K_ESCAPE {
+					} else if e.Keysym.Sym == sdl.K_b {
 						running = false
+						result.SelectedIndex = -1
+						result.Cancelled = true
 						break
 					}
 
@@ -154,10 +197,35 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 				if e.Type == sdl.CONTROLLERBUTTONDOWN {
 					result.LastPressedBtn = e.Button
 
-					if e.Button == BrickButton_A {
+					if e.Button == BrickButton_START && listController.MultiSelect {
+						running = false
+						selectedIndices := listController.GetSelectedItems()
+
+						// Populate the result with multiple selections
+						if len(selectedIndices) > 0 {
+							// Set the primary selection for backward compatibility
+							result.SelectedIndex = selectedIndices[0]
+							result.SelectedItem = &items[selectedIndices[0]]
+
+							// Set all selections
+							result.SelectedIndices = selectedIndices
+							result.SelectedItems = make([]*models.MenuItem, len(selectedIndices))
+							for i, idx := range selectedIndices {
+								result.SelectedItems[i] = &items[idx]
+							}
+
+							result.Cancelled = false
+
+						}
+						break
+					} else if e.Button == BrickButton_A && listController.MultiSelect {
+						listController.HandleEvent(event)
+					} else if e.Button == BrickButton_A && !listController.MultiSelect {
 						running = false
 						result.SelectedIndex = listController.SelectedIndex
 						result.SelectedItem = &items[listController.SelectedIndex]
+						result.SelectedIndices = []int{listController.SelectedIndex}
+						result.SelectedItems = []*models.MenuItem{&items[listController.SelectedIndex]}
 						result.Cancelled = false
 						break
 					} else if e.Button == BrickButton_B {
@@ -181,7 +249,11 @@ func NewBlockingList(title string, items []models.MenuItem, startY int32) (model
 		sdl.Delay(16)
 	}
 
-	return result, err
+	if err != nil || result.Cancelled {
+		return option.None[models.ListReturn](), err
+	}
+
+	return option.Some(result), nil
 }
 
 func (lc *ListController) ToggleMultiSelect() {
@@ -328,7 +400,7 @@ func (lc *ListController) HandleEvent(event sdl.Event) bool {
 func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	lc.lastInputTime = time.Now()
 
-	if key == sdl.K_h || key == sdl.K_QUESTION {
+	if key == sdl.K_h {
 		lc.ToggleHelp()
 		return true
 	}
@@ -372,7 +444,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 		lc.moveSelection(1)
 		return true
 	case sdl.K_LEFT:
-		lc.moveSelection(4)
+		lc.moveSelection(-4)
 		return true
 	case sdl.K_RIGHT:
 		lc.moveSelection(4)
@@ -380,7 +452,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	case lc.Settings.MultiSelectKey:
 		lc.ToggleMultiSelect()
 		return true
-	case lc.Settings.ToggleSelectionKey:
+	case sdl.K_a:
 		if lc.MultiSelect {
 			lc.ToggleSelection(lc.SelectedIndex)
 		}
@@ -388,7 +460,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
 		return true
-	case sdl.K_2:
+	case sdl.K_z:
 		if lc.MultiSelect {
 			lc.ToggleSelection(lc.SelectedIndex)
 			if lc.OnSelect != nil {
@@ -447,12 +519,12 @@ func (lc *ListController) handleButtonPress(button uint8) bool {
 		lc.moveSelection(1)
 		return true
 	case BrickButton_LEFT:
-		lc.moveSelection(4)
+		lc.moveSelection(-4)
 		return true
 	case BrickButton_RIGHT:
 		lc.moveSelection(4)
 		return true
-	case lc.Settings.ToggleSelectionBtn:
+	case BrickButton_A:
 		if lc.MultiSelect {
 			lc.ToggleSelection(lc.SelectedIndex)
 		}
@@ -620,13 +692,11 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 
 		textSurface, err := font.RenderUTF8Blended(itemText, textColor)
 		if err != nil {
-			internal.Logger.Error("Failed to render text", "error", err)
 			continue
 		}
 
 		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
 		if err != nil {
-			internal.Logger.Error("Failed to create texture", "error", err)
 			textSurface.Free()
 			continue
 		}
@@ -700,6 +770,46 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		}
 
 		textTexture.Destroy()
+	}
+
+	if settings.FooterText != "" || controller.MultiSelect {
+		_, screenHeight, err := renderer.GetOutputSize()
+
+		footerText := settings.FooterText
+
+		if controller.MultiSelect {
+			footerText = "A Add / Remove | Select Cancel | Start Confirm"
+		}
+
+		// Render the footer text
+		footerSurface, err := internal.GetSmallFont().RenderUTF8Blended(
+			footerText,
+			settings.FooterTextColor,
+		)
+		if err != nil {
+			return
+		}
+
+		footerTexture, err := renderer.CreateTextureFromSurface(footerSurface)
+		if err != nil {
+			footerSurface.Free()
+			return
+		}
+
+		footerWidth := footerSurface.W
+		footerHeight := footerSurface.H
+		footerSurface.Free()
+
+		// Position in the bottom left with some padding
+		footerRect := sdl.Rect{
+			X: settings.Margins.Left,
+			Y: screenHeight - footerHeight - settings.Margins.Bottom,
+			W: footerWidth,
+			H: footerHeight,
+		}
+
+		renderer.Copy(footerTexture, nil, &footerRect)
+		footerTexture.Destroy()
 	}
 }
 
@@ -811,13 +921,11 @@ func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign 
 	titleColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 	titleSurface, err := font.RenderUTF8Blended(title, titleColor)
 	if err != nil {
-		internal.Logger.Error("Failed to render title text", "error", err)
 		return startY
 	}
 
 	titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 	if err != nil {
-		internal.Logger.Error("Failed to create title texture", "error", err)
 		titleSurface.Free()
 		return startY
 	}
@@ -955,6 +1063,10 @@ func drawFilledCorner(renderer *sdl.Renderer, centerX, centerY, radius int32, co
 }
 
 func (lc *ListController) ToggleHelp() {
+	if !lc.HelpEnabled {
+		return
+	}
+
 	if lc.helpOverlay == nil {
 		helpLines := defaultListHelpLines
 
@@ -965,7 +1077,6 @@ func (lc *ListController) ToggleHelp() {
 	lc.ShowingHelp = lc.helpOverlay.ShowingHelp
 }
 
-// ScrollHelpOverlay scrolls the help overlay text
 func (lc *ListController) ScrollHelpOverlay(direction int) {
 	if lc.helpOverlay != nil {
 		lc.helpOverlay.Scroll(direction)

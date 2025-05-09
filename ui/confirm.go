@@ -26,6 +26,7 @@ type ConfirmationScreen struct {
 	debounceTime  time.Duration
 	lastInput     time.Time
 }
+type ConfirmOption func(*ConfirmationScreen)
 
 const (
 	DirectionNone = iota
@@ -53,6 +54,57 @@ func NewConfirmationScreen(message string) *ConfirmationScreen {
 		debounceTime:  time.Millisecond * 200,
 		lastInput:     time.Now(),
 	}
+}
+
+func NewBlockingConfirmation(message string, options ...ConfirmOption) (bool, error) {
+	window := internal.GetWindow()
+	renderer := window.Renderer
+
+	conf := NewConfirmationScreen(message)
+
+	for _, option := range options {
+		option(conf)
+	}
+
+	running := true
+	var result bool
+	var err error
+
+	conf.Show()
+
+	for running {
+		start := time.Now()
+
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch event.(type) {
+			case *sdl.QuitEvent:
+				running = false
+				err = sdl.GetError()
+				return false, err
+
+			default:
+				conf.HandleEvent(event)
+			}
+
+			if conf.resultSet {
+				result = conf.result
+				running = false
+				break
+			}
+		}
+
+		deltaTime := float64(time.Since(start).Milliseconds()) / 1000.0
+		conf.Update(deltaTime)
+
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+		conf.Render()
+		renderer.Present()
+
+		sdl.Delay(16) // ~60fps
+	}
+
+	return result, err
 }
 
 func (c *ConfirmationScreen) Show() {
@@ -351,59 +403,6 @@ func (c *ConfirmationScreen) renderButton(x, y, width, height int32, text string
 	textY := buttonY + (height-textHeight)/2
 	c.renderer.Copy(texture, nil, &sdl.Rect{X: textX, Y: textY, W: textWidth, H: textHeight})
 }
-
-func NewBlockingConfirmation(message string, options ...ConfirmOption) (bool, error) {
-	window := internal.GetWindow()
-	renderer := window.Renderer
-
-	conf := NewConfirmationScreen(message)
-
-	for _, option := range options {
-		option(conf)
-	}
-
-	running := true
-	var result bool
-	var err error
-
-	conf.Show()
-
-	for running {
-		start := time.Now()
-
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch event.(type) {
-			case *sdl.QuitEvent:
-				running = false
-				err = sdl.GetError()
-				return false, err
-
-			default:
-				conf.HandleEvent(event)
-			}
-
-			if conf.resultSet {
-				result = conf.result
-				running = false
-				break
-			}
-		}
-
-		deltaTime := float64(time.Since(start).Milliseconds()) / 1000.0
-		conf.Update(deltaTime)
-
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
-		conf.Render()
-		renderer.Present()
-
-		sdl.Delay(16) // ~60fps
-	}
-
-	return result, err
-}
-
-type ConfirmOption func(*ConfirmationScreen)
 
 func WithYesNoText(yesText, noText string) ConfirmOption {
 	return func(c *ConfirmationScreen) {
