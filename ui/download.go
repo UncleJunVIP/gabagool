@@ -355,7 +355,7 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		}
 
 		currentDownloadIndex := dm.currentIndex + 1
-		if currentDownloadIndex < len(dm.downloads) {
+		if currentDownloadIndex > len(dm.downloads) {
 			currentDownloadIndex = len(dm.downloads)
 		}
 

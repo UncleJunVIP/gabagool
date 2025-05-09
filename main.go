@@ -196,8 +196,6 @@ func main() {
 
 	res, err := ui.NewBlockingKeyboard("Hello world")
 	if err != nil {
-		internal.Logger.Error("Failed to create blocking keyboard",
-			"error", err)
 	}
 
 	fmt.Println(res)
