@@ -124,22 +124,10 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})
-							downloadManager.cancellationError = fmt.Errorf("download cancelled by user (B button)")
-
-							if downloadManager.currentIndex < len(downloadManager.downloads) {
-								result.FailedDownloads = append(result.FailedDownloads,
-									downloadManager.downloads[downloadManager.currentIndex])
-								result.Errors = append(result.Errors, downloadManager.cancellationError)
-							}
-
-							downloadManager.currentIndex++
-							if downloadManager.currentIndex < len(downloadManager.downloads) {
-								downloadManager.startDownload()
-							} else {
-								allDownloadsComplete = true
-								downloadManager.downloadComplete = true
-							}
+							downloadManager.cancellationError = fmt.Errorf("download cancelled by user")
 						}
+						result.Cancelled = true
+						downloadManager.downloadComplete = true
 					} else if e.Button == BrickButton_Y {
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
