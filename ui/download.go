@@ -4,12 +4,10 @@ import (
 	"fmt"
 	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/UncleJunVIP/gabagool/models"
-	"github.com/veandco/go-sdl2/ttf"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -59,20 +57,17 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 	}
 
 	if len(downloads) == 0 {
-		return result, nil // Nothing to download
+		return result, nil
 	}
 
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	// Render the initial screen before starting download
 	downloadManager.render(renderer)
 	renderer.Present()
 
-	// Add a small delay to ensure UI is visible before download starts
 	sdl.Delay(100)
 
-	// Start download after the first render
 	downloadManager.startDownload()
 
 	running := true
@@ -93,7 +88,6 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 				if e.Type == sdl.KEYDOWN {
 					result.LastPressedKey = e.Keysym.Sym
 
-					// Exit on key press if all downloads are complete
 					if allDownloadsComplete {
 						running = false
 						continue
@@ -114,7 +108,6 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 				if e.Type == sdl.CONTROLLERBUTTONDOWN {
 					result.LastPressedBtn = e.Button
 
-					// Exit on button press if all downloads are complete
 					if allDownloadsComplete {
 						running = false
 						continue
@@ -155,7 +148,7 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 				if downloadManager.currentIndex < len(downloadManager.downloads) {
 					downloadManager.startDownload()
 				} else {
-					// Mark downloads as complete instead of exiting immediately
+
 					allDownloadsComplete = true
 				}
 			} else {
@@ -167,7 +160,7 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 				if downloadManager.currentIndex < len(downloadManager.downloads) {
 					downloadManager.startDownload()
 				} else {
-					// Mark downloads as complete instead of exiting immediately
+
 					allDownloadsComplete = true
 				}
 			}
@@ -178,7 +171,7 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 
 		renderer.Present()
 
-		sdl.Delay(16) // Cap at ~60fps
+		sdl.Delay(16)
 	}
 
 	return result, err
@@ -187,7 +180,7 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 func NewBlockingDownloadManager(downloads []models.Download, headers map[string]string) *BlockingDownloadManager {
 	window := internal.GetWindow()
 
-	progressBarWidth := window.Width * 3 / 4 // 75% of screen width
+	progressBarWidth := window.Width * 3 / 4
 	progressBarHeight := int32(30)
 	progressBarX := (window.Width - progressBarWidth) / 2
 	progressBarY := window.Height / 2
@@ -318,7 +311,7 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 }
 
 func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
-	renderer.SetDrawColor(20, 20, 20, 255)
+	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
 	font := internal.GetSmallFont()
@@ -376,12 +369,11 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 			displayText = filepath.Base(dm.downloads[dm.currentIndex].Location)
 		}
 
-		// Render multiline text with a max width of 75% of the window width
 		maxWidth := dm.window.Width * 3 / 4
 		renderMultilineText(renderer, displayText, font, maxWidth, dm.window.Width/2, displayNameY, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	}
 
-	if dm.downloadComplete && len(dm.downloads) == 1 { // TODO fix this hack
+	if dm.downloadComplete && len(dm.downloads) == 1 {
 		font := internal.GetSmallFont()
 		var displayText string
 		if dm.downloads[0].DisplayName != "" {
@@ -390,7 +382,6 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 			displayText = filepath.Base(dm.downloads[0].Location)
 		}
 
-		// Render multiline text with a max width of 75% of the window width
 		maxWidth := dm.window.Width * 3 / 4
 		renderMultilineText(renderer, displayText, font, maxWidth, dm.window.Width/2, displayNameY, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	}
@@ -416,13 +407,12 @@ func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
 		renderer.FillRect(&progressBarFill)
 	}
 
-	// Add padding between progress bar and percentage text - 30px instead of 10px
 	percentTextY := dm.progressBarY + dm.progressBarHeight + 30
 
 	percentText := fmt.Sprintf("%.1f%%", dm.downloadProgress*100)
 	if dm.totalSize > 0 {
-		downloadedMB := float64(dm.downloadedSize) / 1048576.0 // Convert to MB
-		totalMB := float64(dm.totalSize) / 1048576.0           // Convert to MB
+		downloadedMB := float64(dm.downloadedSize) / 1048576.0
+		totalMB := float64(dm.totalSize) / 1048576.0
 		percentText = fmt.Sprintf("%.1f%% (%.2f MB / %.2f MB)", dm.downloadProgress*100, downloadedMB, totalMB)
 	}
 
@@ -501,116 +491,4 @@ func (r *progressReader) Read(p []byte) (n int, err error) {
 		r.onProgress(r.bytesRead)
 	}
 	return
-}
-
-func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) int32 {
-	if text == "" {
-		return 0
-	}
-
-	// Split the text into words
-	words := strings.Fields(text)
-	if len(words) == 0 {
-		return 0
-	}
-
-	lines := []string{}
-	currentLine := words[0]
-
-	// Measure the width of the first word
-	wordSurface, err := font.RenderUTF8Solid(words[0], color)
-	if err != nil {
-		return 0
-	}
-	wordWidth := wordSurface.W
-	wordSurface.Free()
-
-	// If a single word is already too wide, we need to handle character by character
-	if wordWidth > maxWidth && len(words[0]) > 1 {
-		// Start with empty line
-		currentLine = ""
-		// Process the first word character by character
-		for _, char := range words[0] {
-			testLine := currentLine + string(char)
-			charSurface, err := font.RenderUTF8Solid(testLine, color)
-			if err != nil {
-				continue
-			}
-
-			if charSurface.W > maxWidth {
-				// This character would make the line too wide
-				if currentLine != "" {
-					lines = append(lines, currentLine)
-				}
-				currentLine = string(char)
-			} else {
-				currentLine = testLine
-			}
-			charSurface.Free()
-		}
-		lines = append(lines, currentLine)
-
-		// Continue with remaining words
-		words = words[1:]
-		currentLine = ""
-	}
-
-	// Process remaining words
-	for i := 1; i < len(words); i++ {
-		testLine := currentLine + " " + words[i]
-		lineSurface, err := font.RenderUTF8Solid(testLine, color)
-		if err != nil {
-			continue
-		}
-
-		if lineSurface.W <= maxWidth {
-			currentLine = testLine
-		} else {
-			lines = append(lines, currentLine)
-			currentLine = words[i]
-		}
-		lineSurface.Free()
-	}
-
-	// Add the last line
-	if currentLine != "" {
-		lines = append(lines, currentLine)
-	}
-
-	// Render each line
-	lineHeight := int32(font.Height())
-	totalHeight := int32(0)
-
-	for i, line := range lines {
-		lineSurface, err := font.RenderUTF8Solid(line, color)
-		if err != nil {
-			continue
-		}
-
-		lineTexture, err := renderer.CreateTextureFromSurface(lineSurface)
-		if err != nil {
-			lineSurface.Free()
-			continue
-		}
-
-		lineY := startY + int32(i)*lineHeight
-
-		// Center the line horizontally
-		lineX := centerX - (lineSurface.W / 2)
-
-		lineRect := &sdl.Rect{
-			X: lineX,
-			Y: lineY,
-			W: lineSurface.W,
-			H: lineSurface.H,
-		}
-
-		renderer.Copy(lineTexture, nil, lineRect)
-		lineTexture.Destroy()
-		lineSurface.Free()
-
-		totalHeight = lineY + lineSurface.H - startY
-	}
-
-	return totalHeight
 }

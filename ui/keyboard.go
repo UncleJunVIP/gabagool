@@ -13,7 +13,7 @@ type Key struct {
 	Rect        sdl.Rect
 	LowerValue  string
 	UpperValue  string
-	SymbolValue string // Will now be accessed when shift is pressed for the top row
+	SymbolValue string
 	IsPressed   bool
 }
 
@@ -43,8 +43,9 @@ type VirtualKeyboard struct {
 	LastCursorBlink time.Time
 	CursorBlinkRate time.Duration
 
-	helpOverlay *HelpOverlay
-	ShowingHelp bool
+	helpOverlay  *HelpOverlay
+	ShowingHelp  bool
+	EnterPressed bool
 }
 
 var defaultKeyboardHelpLines = []string{
@@ -73,7 +74,6 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		ShowingHelp:      false,
 	}
 
-	// Create and configure the help overlay
 	kb.helpOverlay = NewHelpOverlay(defaultKeyboardHelpLines)
 
 	keyboardWidth := (windowWidth * 85) / 100
@@ -119,8 +119,8 @@ func CreateKeyboard(windowWidth, windowHeight int32) *VirtualKeyboard {
 		kb.Keys = append(kb.Keys, Key{
 			Rect:        sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight},
 			LowerValue:  keyVal,
-			UpperValue:  keyVal,        // Same as lower when not shifted
-			SymbolValue: rowSymbols[i], // Symbol value for when shift is pressed
+			UpperValue:  keyVal,
+			SymbolValue: rowSymbols[i],
 			IsPressed:   false,
 		})
 		x += keyWidth + keySpacing
@@ -248,6 +248,13 @@ func NewBlockingKeyboard(initialText string) (types.Option[string], error) {
 				if e.Type == sdl.KEYDOWN {
 					kb.HandleKeyDown(e.Keysym.Sym)
 
+					if kb.EnterPressed {
+						running = false
+						result = kb.TextBuffer
+						exitType = 0
+						break
+					}
+
 					if e.Keysym.Sym == sdl.K_RETURN && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
@@ -264,6 +271,13 @@ func NewBlockingKeyboard(initialText string) (types.Option[string], error) {
 			case *sdl.ControllerButtonEvent:
 				if e.Type == sdl.CONTROLLERBUTTONDOWN {
 					kb.HandleButtonPress(e.Button)
+
+					if kb.EnterPressed {
+						running = false
+						result = kb.TextBuffer
+						exitType = 0
+						break
+					}
 
 					if e.Button == BrickButton_START && !kb.ShowingHelp {
 						running = false
@@ -324,14 +338,14 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 
 	numKeys := make([]Key, 0)
 	for i := range kb.Keys {
-		// Assume number keys are in the top row (lowest Y value)
-		if i < 10 { // First 10 keys are typically 1-0
+
+		if i < 10 {
 			numKeys = append(numKeys, kb.Keys[i])
 		}
 	}
 
 	for i := range numKeys {
-		row1 = append(row1, i) // Store index of key
+		row1 = append(row1, i)
 	}
 
 	row1 = append(row1, "backspace")
@@ -409,7 +423,7 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 			currentRow = 0
 			currentCol = 0
 		} else {
-			// Fallback to first key
+
 			kb.SelectedKeyIndex = 0
 			kb.SelectedSpecial = 0
 			kb.Keys[kb.SelectedKeyIndex].IsPressed = true
@@ -421,43 +435,41 @@ func (kb *VirtualKeyboard) ProcessNavigation(direction int) {
 	newCol := currentCol
 
 	switch direction {
-	case 1: // Right
+	case 1:
 		newCol++
-		// Loop around if needed
+
 		if newCol >= len(keyGrid[currentRow]) {
 			newCol = 0
 		}
 
-	case 2: // Left
+	case 2:
 		newCol--
-		// Loop around if needed
+
 		if newCol < 0 {
 			newCol = len(keyGrid[currentRow]) - 1
 		}
 
-	case 3: // Up
+	case 3:
 		newRow--
-		// Loop around if needed
+
 		if newRow < 0 {
 			newRow = len(keyGrid) - 1
 		}
 
-		// Adjust column to nearest button in the row
 		if newCol >= len(keyGrid[newRow]) {
-			// Find the closest column
+
 			newCol = len(keyGrid[newRow]) - 1
 		}
 
-	case 4: // Down
+	case 4:
 		newRow++
-		// Loop around if needed
+
 		if newRow >= len(keyGrid) {
 			newRow = 0
 		}
 
-		// Adjust column to nearest button in the row
 		if newCol >= len(keyGrid[newRow]) {
-			// Find the closest column
+
 			newCol = len(keyGrid[newRow]) - 1
 		}
 	}
@@ -515,11 +527,11 @@ func (kb *VirtualKeyboard) ToggleShift() {
 }
 
 func (kb *VirtualKeyboard) MoveCursor(direction int) {
-	if direction > 0 { // Move right
+	if direction > 0 {
 		if kb.CursorPosition < len(kb.TextBuffer) {
 			kb.CursorPosition++
 		}
-	} else { // Move left
+	} else {
 		if kb.CursorPosition > 0 {
 			kb.CursorPosition--
 		}
@@ -543,13 +555,12 @@ func (kb *VirtualKeyboard) ResetPressedKeys() {
 }
 
 func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
-	// Handle help toggle
+
 	if key == sdl.K_h {
 		kb.ToggleHelp()
 		return true
 	}
 
-	// If help is showing, handle navigation and closing
 	if kb.ShowingHelp {
 		if key == sdl.K_UP {
 			kb.ScrollHelpOverlay(-1)
@@ -560,7 +571,6 @@ func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
 			return true
 		}
 
-		// Any other key closes help
 		if key != sdl.K_UP && key != sdl.K_DOWN {
 			kb.ShowingHelp = false
 			return true
@@ -568,7 +578,6 @@ func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
 		return true
 	}
 
-	// Handle other keyboard controls
 	switch key {
 	case sdl.K_UP, sdl.K_DOWN, sdl.K_LEFT, sdl.K_RIGHT:
 		direction := 0
@@ -603,13 +612,12 @@ func (kb *VirtualKeyboard) HandleKeyDown(key sdl.Keycode) bool {
 }
 
 func (kb *VirtualKeyboard) HandleButtonPress(button uint8) bool {
-	// Handle help toggle
+
 	if button == BrickButton_MENU {
 		kb.ToggleHelp()
 		return true
 	}
 
-	// If help is showing, handle navigation and closing
 	if kb.ShowingHelp {
 		if button == BrickButton_UP {
 			kb.ScrollHelpOverlay(-1)
@@ -620,12 +628,10 @@ func (kb *VirtualKeyboard) HandleButtonPress(button uint8) bool {
 			return true
 		}
 
-		// Any other button closes help
 		kb.ShowingHelp = false
 		return true
 	}
 
-	// Handle other controller buttons
 	switch button {
 	case BrickButton_UP, BrickButton_DOWN, BrickButton_LEFT, BrickButton_RIGHT:
 		direction := 0
@@ -675,10 +681,9 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 	totalKeys := len(kb.Keys)
 
 	if kb.SelectedKeyIndex >= 0 && kb.SelectedKeyIndex < totalKeys {
-		// Regular key
+
 		var keyValue string
 
-		// For number keys (0-9) with shift pressed, use the symbol value
 		if kb.SelectedKeyIndex < 10 && kb.ShiftPressed {
 			keyValue = kb.Keys[kb.SelectedKeyIndex].SymbolValue
 		} else if kb.CurrentState == UpperCase {
@@ -687,11 +692,10 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 			keyValue = kb.Keys[kb.SelectedKeyIndex].LowerValue
 		}
 
-		// Insert at cursor position instead of appending
 		if kb.CursorPosition == len(kb.TextBuffer) {
 			kb.TextBuffer += keyValue
 		} else {
-			// Split text at cursor position and insert the new character
+
 			textRunes := []rune(kb.TextBuffer)
 			before := string(textRunes[:kb.CursorPosition])
 			after := string(textRunes[kb.CursorPosition:])
@@ -699,9 +703,9 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 		}
 		kb.CursorPosition += len([]rune(keyValue))
 	} else {
-		// Special key
+
 		switch kb.SelectedSpecial {
-		case 1: // Backspace
+		case 1:
 			if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
 				textRunes := []rune(kb.TextBuffer)
 				before := string(textRunes[:kb.CursorPosition-1])
@@ -709,17 +713,9 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 				kb.TextBuffer = before + after
 				kb.CursorPosition--
 			}
-		case 2: // Enter
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += "\n"
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + "\n" + after
-			}
-			kb.CursorPosition++
-		case 3: // Space
+		case 2:
+			kb.EnterPressed = true
+		case 3:
 			if kb.CursorPosition == len(kb.TextBuffer) {
 				kb.TextBuffer += " "
 			} else {
@@ -729,7 +725,7 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 				kb.TextBuffer = before + " " + after
 			}
 			kb.CursorPosition++
-		case 4: // Shift
+		case 4:
 			kb.ShiftPressed = !kb.ShiftPressed
 			if kb.ShiftPressed {
 				kb.CurrentState = UpperCase
@@ -744,29 +740,27 @@ func (kb *VirtualKeyboard) ProcessSelection() {
 }
 
 func (kb *VirtualKeyboard) Render(renderer *sdl.Renderer, font *ttf.Font) {
-	// Only render the keyboard if help isn't showing
+
 	if !kb.ShowingHelp {
 		kb.renderKeyboard(renderer, font)
 	}
 
-	// Draw the help overlay if it's active
 	if kb.ShowingHelp && kb.helpOverlay != nil {
 		kb.helpOverlay.Render(renderer, internal.GetSmallFont())
 	} else {
-		// Only show the help prompt when help is not visible
+
 		kb.renderHelpPrompt(renderer, font)
 	}
 }
 
 func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font) {
-	// Render text input box
+
 	renderer.SetDrawColor(50, 50, 50, 255)
 	renderer.FillRect(&kb.TextInputRect)
 
 	renderer.SetDrawColor(200, 200, 200, 255)
 	renderer.DrawRect(&kb.TextInputRect)
 
-	// Render text
 	if kb.TextBuffer != "" {
 		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 		textSurface, err := font.RenderUTF8Blended(kb.TextBuffer, textColor)
@@ -782,10 +776,9 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 		var textWidth, textHeight = textSurface.W, textSurface.H
 
-		// Calculate cursor position
 		var cursorX int32
 		if kb.CursorPosition > 0 {
-			// Measure text up to cursor
+
 			cursorText := kb.TextBuffer[:kb.CursorPosition]
 			cursorSurface, err := font.RenderUTF8Blended(cursorText, textColor)
 			if err == nil {
@@ -804,7 +797,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 		renderer.Copy(textTexture, nil, &textRect)
 
-		// Draw cursor if it's visible
 		if kb.CursorVisible {
 			renderer.SetDrawColor(255, 255, 255, 255)
 			cursorRect := sdl.Rect{
@@ -819,9 +811,9 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		textTexture.Destroy()
 		textSurface.Free()
 	} else if kb.CursorVisible {
-		// If no text, just draw the cursor at the start
+
 		padding := int32(10)
-		placeholderHeight := int32(20) // Assuming some height for the cursor
+		placeholderHeight := int32(20)
 		cursorRect := sdl.Rect{
 			X: kb.TextInputRect.X + padding,
 			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-placeholderHeight)/2,
@@ -832,7 +824,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		renderer.FillRect(&cursorRect)
 	}
 
-	// Render each key
 	for i, key := range kb.Keys {
 		bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
@@ -850,10 +841,9 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		renderer.SetDrawColor(70, 70, 80, 255)
 		renderer.DrawRect(&key.Rect)
 
-		// Determine which text value to use based on shift state
 		keyVal := key.LowerValue
 		if kb.CurrentState == UpperCase {
-			if i < 10 && kb.ShiftPressed { // For the top row numbers
+			if i < 10 && kb.ShiftPressed {
 				keyVal = key.SymbolValue
 			} else {
 				keyVal = key.UpperValue
@@ -884,8 +874,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		textSurface.Free()
 	}
 
-	// Render special keys
-	// Backspace key
 	backspaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 1 {
 		backspaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
@@ -915,7 +903,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		backspaceSurface.Free()
 	}
 
-	// Enter key
 	enterBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 2 {
 		enterBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
@@ -944,7 +931,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		enterSurface.Free()
 	}
 
-	// Space key
 	spaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 3 {
 		spaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
@@ -956,7 +942,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
-	// Draw a line to represent space
 	lineWidth := kb.SpaceRect.W / 3
 	lineHeight := int32(4)
 	lineRect := sdl.Rect{
@@ -968,7 +953,6 @@ func (kb *VirtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.SetDrawColor(255, 255, 255, 255)
 	renderer.FillRect(&lineRect)
 
-	// Shift key
 	shiftBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 4 || kb.CurrentState == UpperCase {
 		shiftBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"math"
 	"time"
 
 	"github.com/UncleJunVIP/gabagool/internal"
@@ -41,6 +40,7 @@ type ListSettings struct {
 	ScrollSpeed       float32
 	ScrollPauseTime   int
 	FooterText        string
+	FooterHelpItems   []FooterHelpItem
 	FooterTextColor   sdl.Color
 }
 
@@ -83,10 +83,11 @@ func DefaultListSettings(title string) ListSettings {
 		Title:           title,
 		TitleAlign:      internal.AlignLeft,
 		TitleSpacing:    internal.DefaultTitleSpacing,
-		ScrollSpeed:     150.0, // pixels per second
-		ScrollPauseTime: 25,    // frames to pause at edges
-		FooterText:      "",    // Empty by default
+		ScrollSpeed:     150.0,
+		ScrollPauseTime: 25,
+		FooterText:      "",
 		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
+		FooterHelpItems: []FooterHelpItem{},
 	}
 }
 
@@ -94,7 +95,6 @@ func NewListController(title string, items []models.MenuItem) *ListController {
 	selectedItems := make(map[int]bool)
 	selectedIndex := 0
 
-	// Find first pre-selected item if any
 	for i, item := range items {
 		if item.Selected {
 			selectedIndex = i
@@ -102,7 +102,6 @@ func NewListController(title string, items []models.MenuItem) *ListController {
 		}
 	}
 
-	// Update selection state
 	for i := range items {
 		items[i].Selected = i == selectedIndex
 		if items[i].Selected {
@@ -122,7 +121,7 @@ func NewListController(title string, items []models.MenuItem) *ListController {
 	}
 }
 
-func NewBlockingList(title string, items []models.MenuItem, footerText string, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
+func NewBlockingList(title string, items []models.MenuItem, footerText string, footerHelpItems []FooterHelpItem, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
@@ -131,6 +130,7 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 	listController.MaxVisibleItems = 8
 	listController.EnableAction = enableAction
 	listController.Settings.FooterText = footerText
+	listController.Settings.FooterHelpItems = footerHelpItems
 
 	if enableMultiSelect {
 		listController.Settings.MultiSelectKey = sdl.K_SPACE
@@ -171,13 +171,13 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 
 				case e.Keysym.Sym == sdl.K_RETURN && listController.MultiSelect:
 					running = false
-					if indices := listController.GetSelectedItems(); len(indices) > 0 {
+					if indices := listController.getSelectedItems(); len(indices) > 0 {
 						result.PopulateMultiSelection(indices, items)
 						result.Cancelled = false
 					}
 
 				case e.Keysym.Sym == sdl.K_a && listController.MultiSelect:
-					listController.HandleEvent(event)
+					listController.handleEvent(event)
 
 				case e.Keysym.Sym == sdl.K_a && !listController.MultiSelect:
 					running = false
@@ -190,7 +190,7 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 					result.Cancelled = true
 
 				default:
-					listController.HandleEvent(event)
+					listController.handleEvent(event)
 				}
 
 			case *sdl.ControllerButtonEvent:
@@ -209,13 +209,13 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 
 				case e.Button == BrickButton_START && listController.MultiSelect:
 					running = false
-					if indices := listController.GetSelectedItems(); len(indices) > 0 {
+					if indices := listController.getSelectedItems(); len(indices) > 0 {
 						result.PopulateMultiSelection(indices, items)
 						result.Cancelled = false
 					}
 
 				case e.Button == BrickButton_A && listController.MultiSelect:
-					listController.HandleEvent(event)
+					listController.handleEvent(event)
 
 				case e.Button == BrickButton_A && !listController.MultiSelect:
 					running = false
@@ -227,7 +227,7 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 					running = false
 
 				default:
-					listController.HandleEvent(event)
+					listController.handleEvent(event)
 				}
 			}
 		}
@@ -235,7 +235,7 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
-		listController.Render(renderer)
+		listController.render(renderer)
 
 		renderer.Present()
 
@@ -249,31 +249,27 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, e
 	return option.Some(result), nil
 }
 
-// ToggleMultiSelect switches between single and multi-selection modes
-func (lc *ListController) ToggleMultiSelect() {
+func (lc *ListController) toggleMultiSelect() {
 	lc.MultiSelect = !lc.MultiSelect
 
 	if !lc.MultiSelect && len(lc.SelectedItems) > 1 {
-		// Reset selections when leaving multi-select mode
+
 		for i := range lc.Items {
 			lc.Items[i].Selected = false
 		}
 
 		lc.SelectedItems = make(map[int]bool)
 
-		// Keep only the currently focused item selected
 		lc.Items[lc.SelectedIndex].Selected = true
 		lc.SelectedItems[lc.SelectedIndex] = true
 	}
 }
 
-// ToggleReorderMode switches item reordering mode on/off
-func (lc *ListController) ToggleReorderMode() {
+func (lc *ListController) toggleReorderMode() {
 	lc.ReorderMode = !lc.ReorderMode
 }
 
-// MoveItemUp moves the selected item up one position in the list
-func (lc *ListController) MoveItemUp() bool {
+func (lc *ListController) moveItemUp() bool {
 	if !lc.ReorderMode || lc.SelectedIndex <= 0 {
 		return false
 	}
@@ -281,16 +277,14 @@ func (lc *ListController) MoveItemUp() bool {
 	currentIndex := lc.SelectedIndex
 	prevIndex := currentIndex - 1
 
-	// Swap items
 	lc.Items[currentIndex], lc.Items[prevIndex] = lc.Items[prevIndex], lc.Items[currentIndex]
 
-	// Update selection state
 	if lc.MultiSelect {
 		lc.updateSelectionAfterMove(currentIndex, prevIndex)
 	}
 
 	lc.SelectedIndex = prevIndex
-	lc.ScrollTo(lc.SelectedIndex)
+	lc.scrollTo(lc.SelectedIndex)
 
 	if lc.OnReorder != nil {
 		lc.OnReorder(currentIndex, prevIndex)
@@ -299,8 +293,7 @@ func (lc *ListController) MoveItemUp() bool {
 	return true
 }
 
-// MoveItemDown moves the selected item down one position in the list
-func (lc *ListController) MoveItemDown() bool {
+func (lc *ListController) moveItemDown() bool {
 	if !lc.ReorderMode || lc.SelectedIndex >= len(lc.Items)-1 {
 		return false
 	}
@@ -308,16 +301,14 @@ func (lc *ListController) MoveItemDown() bool {
 	currentIndex := lc.SelectedIndex
 	nextIndex := currentIndex + 1
 
-	// Swap items
 	lc.Items[currentIndex], lc.Items[nextIndex] = lc.Items[nextIndex], lc.Items[currentIndex]
 
-	// Update selection state
 	if lc.MultiSelect {
 		lc.updateSelectionAfterMove(currentIndex, nextIndex)
 	}
 
 	lc.SelectedIndex = nextIndex
-	lc.ScrollTo(lc.SelectedIndex)
+	lc.scrollTo(lc.SelectedIndex)
 
 	if lc.OnReorder != nil {
 		lc.OnReorder(currentIndex, nextIndex)
@@ -326,7 +317,6 @@ func (lc *ListController) MoveItemDown() bool {
 	return true
 }
 
-// updateSelectionAfterMove adjusts selection state after moving items
 func (lc *ListController) updateSelectionAfterMove(fromIdx, toIdx int) {
 	switch {
 	case lc.SelectedItems[fromIdx]:
@@ -338,8 +328,7 @@ func (lc *ListController) updateSelectionAfterMove(fromIdx, toIdx int) {
 	}
 }
 
-// ToggleSelection toggles selection state of the item at given index
-func (lc *ListController) ToggleSelection(index int) {
+func (lc *ListController) toggleSelection(index int) {
 	if index < 0 || index >= len(lc.Items) {
 		return
 	}
@@ -353,8 +342,7 @@ func (lc *ListController) ToggleSelection(index int) {
 	}
 }
 
-// GetSelectedItems returns the indices of all selected items
-func (lc *ListController) GetSelectedItems() []int {
+func (lc *ListController) getSelectedItems() []int {
 	selectedIndices := make([]int, 0, len(lc.SelectedItems))
 	for idx := range lc.SelectedItems {
 		selectedIndices = append(selectedIndices, idx)
@@ -362,18 +350,15 @@ func (lc *ListController) GetSelectedItems() []int {
 	return selectedIndices
 }
 
-// ScrollTo adjusts visible window to ensure the item at index is visible
-func (lc *ListController) ScrollTo(index int) {
+func (lc *ListController) scrollTo(index int) {
 	if index < 0 || index >= len(lc.Items) {
-		return // Invalid index
+		return
 	}
 
-	// If already visible, do nothing
 	if index >= lc.VisibleStartIndex && index < lc.VisibleStartIndex+lc.MaxVisibleItems {
 		return
 	}
 
-	// Adjust visible window to make index visible
 	if index < lc.VisibleStartIndex {
 		lc.VisibleStartIndex = index
 	} else {
@@ -384,8 +369,7 @@ func (lc *ListController) ScrollTo(index int) {
 	}
 }
 
-// HandleEvent processes input events and updates the list accordingly
-func (lc *ListController) HandleEvent(event sdl.Event) bool {
+func (lc *ListController) handleEvent(event sdl.Event) bool {
 	currentTime := time.Now()
 	if currentTime.Sub(lc.lastInputTime) < lc.Settings.InputDelay {
 		return false
@@ -404,12 +388,11 @@ func (lc *ListController) HandleEvent(event sdl.Event) bool {
 	return false
 }
 
-// handleKeyDown processes keyboard input
 func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	lc.lastInputTime = time.Now()
 
 	if key == sdl.K_h {
-		lc.ToggleHelp()
+		lc.toggleHelp()
 		return true
 	}
 
@@ -424,14 +407,13 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	return lc.handleNormalModeInput(key)
 }
 
-// handleHelpScreenInput handles input when help screen is shown
 func (lc *ListController) handleHelpScreenInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
-		lc.ScrollHelpOverlay(-1)
+		lc.scrollHelpOverlay(-1)
 		return true
 	case sdl.K_DOWN:
-		lc.ScrollHelpOverlay(1)
+		lc.scrollHelpOverlay(1)
 		return true
 	default:
 		lc.ShowingHelp = false
@@ -439,13 +421,12 @@ func (lc *ListController) handleHelpScreenInput(key sdl.Keycode) bool {
 	}
 }
 
-// handleReorderModeInput handles input in reorder mode
 func (lc *ListController) handleReorderModeInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
-		return lc.MoveItemUp()
+		return lc.moveItemUp()
 	case sdl.K_DOWN:
-		return lc.MoveItemDown()
+		return lc.moveItemDown()
 	case sdl.K_ESCAPE, sdl.K_RETURN:
 		lc.ReorderMode = false
 		return true
@@ -454,7 +435,6 @@ func (lc *ListController) handleReorderModeInput(key sdl.Keycode) bool {
 	}
 }
 
-// handleNormalModeInput handles normal navigation and selection input
 func (lc *ListController) handleNormalModeInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
@@ -470,11 +450,11 @@ func (lc *ListController) handleNormalModeInput(key sdl.Keycode) bool {
 		lc.moveSelection(4)
 		return true
 	case lc.Settings.MultiSelectKey:
-		lc.ToggleMultiSelect()
+		lc.toggleMultiSelect()
 		return true
 	case sdl.K_a:
 		if lc.MultiSelect {
-			lc.ToggleSelection(lc.SelectedIndex)
+			lc.toggleSelection(lc.SelectedIndex)
 		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
@@ -482,25 +462,24 @@ func (lc *ListController) handleNormalModeInput(key sdl.Keycode) bool {
 		return true
 	case sdl.K_z:
 		if lc.MultiSelect {
-			lc.ToggleSelection(lc.SelectedIndex)
+			lc.toggleSelection(lc.SelectedIndex)
 			if lc.OnSelect != nil {
 				lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 			}
 			return true
 		}
 	case lc.Settings.ReorderKey:
-		lc.ToggleReorderMode()
+		lc.toggleReorderMode()
 		return true
 	}
 	return false
 }
 
-// handleButtonPress processes controller button input
 func (lc *ListController) handleButtonPress(button uint8) bool {
 	lc.lastInputTime = time.Now()
 
 	if button == BrickButton_MENU {
-		lc.ToggleHelp()
+		lc.toggleHelp()
 		return true
 	}
 
@@ -515,27 +494,25 @@ func (lc *ListController) handleButtonPress(button uint8) bool {
 	return lc.handleNormalModeButtonInput(button)
 }
 
-// handleHelpScreenButtonInput handles button input when help is shown
 func (lc *ListController) handleHelpScreenButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
-		lc.ScrollHelpOverlay(-1)
+		lc.scrollHelpOverlay(-1)
 		return true
 	case BrickButton_DOWN:
-		lc.ScrollHelpOverlay(1)
+		lc.scrollHelpOverlay(1)
 		return true
 	default:
 		return true
 	}
 }
 
-// handleReorderModeButtonInput handles button input in reorder mode
 func (lc *ListController) handleReorderModeButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
-		return lc.MoveItemUp()
+		return lc.moveItemUp()
 	case BrickButton_DOWN:
-		return lc.MoveItemDown()
+		return lc.moveItemDown()
 	case BrickButton_B, BrickButton_A:
 		lc.ReorderMode = false
 		return true
@@ -544,7 +521,6 @@ func (lc *ListController) handleReorderModeButtonInput(button uint8) bool {
 	}
 }
 
-// handleNormalModeButtonInput handles normal navigation and selection button input
 func (lc *ListController) handleNormalModeButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
@@ -561,45 +537,40 @@ func (lc *ListController) handleNormalModeButtonInput(button uint8) bool {
 		return true
 	case BrickButton_A:
 		if lc.MultiSelect {
-			lc.ToggleSelection(lc.SelectedIndex)
+			lc.toggleSelection(lc.SelectedIndex)
 		}
 		if lc.OnSelect != nil {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
 		return true
 	case lc.Settings.MultiSelectButton:
-		lc.ToggleMultiSelect()
+		lc.toggleMultiSelect()
 		return true
 	case lc.Settings.ReorderButton:
-		lc.ToggleReorderMode()
+		lc.toggleReorderMode()
 		return true
 	default:
 		return false
 	}
 }
 
-// moveSelection changes the selected item by the given offset
 func (lc *ListController) moveSelection(direction int) {
 	if len(lc.Items) == 0 {
 		return
 	}
 
-	// Clear current selection in single-select mode
 	if !lc.MultiSelect {
 		lc.Items[lc.SelectedIndex].Selected = false
 		delete(lc.SelectedItems, lc.SelectedIndex)
 	}
 
-	// Calculate new index with wrap-around
 	lc.SelectedIndex = (lc.SelectedIndex + direction + len(lc.Items)) % len(lc.Items)
 
-	// Update selection in single-select mode
 	if !lc.MultiSelect {
 		lc.Items[lc.SelectedIndex].Selected = true
 		lc.SelectedItems[lc.SelectedIndex] = true
 	}
 
-	// Ensure selected item is visible
 	if lc.SelectedIndex < lc.VisibleStartIndex {
 		lc.VisibleStartIndex = lc.SelectedIndex
 	} else if lc.SelectedIndex >= lc.VisibleStartIndex+lc.MaxVisibleItems {
@@ -607,65 +578,53 @@ func (lc *ListController) moveSelection(direction int) {
 	}
 }
 
-// Render draws the list to the screen
-func (lc *ListController) Render(renderer *sdl.Renderer) {
-	// Update scrolling animations
+func (lc *ListController) render(renderer *sdl.Renderer) {
+
 	lc.updateScrollingAnimations()
 
-	// Update focus state for all items
 	for i := range lc.Items {
 		lc.Items[i].Focused = i == lc.SelectedIndex
 	}
 
-	// Get visible items
 	endIndex := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
 	visibleItems := make([]models.MenuItem, endIndex-lc.VisibleStartIndex)
 	copy(visibleItems, lc.Items[lc.VisibleStartIndex:endIndex])
 
-	// Special handling for multi-select mode
 	if lc.MultiSelect {
 		for i := range visibleItems {
 			visibleItems[i].Focused = false
 		}
 
-		// Only focus the currently selected item
 		focusedIdx := lc.SelectedIndex - lc.VisibleStartIndex
 		if focusedIdx >= 0 && focusedIdx < len(visibleItems) {
 			visibleItems[focusedIdx].Focused = true
 		}
 	}
 
-	// Store original title settings
 	originalTitle := lc.Settings.Title
 	originalAlign := lc.Settings.TitleAlign
 
-	// Special handling for reorder mode
 	if lc.ReorderMode {
 		lc.Settings.Title = "REORDER MODE"
 		lc.Settings.TitleAlign = internal.AlignCenter
 
-		// Add reorder indicator to selected item
 		selectedIdx := lc.SelectedIndex - lc.VisibleStartIndex
 		if selectedIdx >= 0 && selectedIdx < len(visibleItems) {
 			visibleItems[selectedIdx].Text = "↕ " + visibleItems[selectedIdx].Text
 		}
 	}
 
-	// Draw the menu
 	drawScrollableMenu(renderer, internal.GetFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
-	// Restore original title settings
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
 
-	// Draw help overlay if active
 	if lc.ShowingHelp && lc.helpOverlay != nil {
 		lc.helpOverlay.Render(renderer, internal.GetSmallFont())
 	}
 }
 
-// ToggleHelp shows or hides the help overlay
-func (lc *ListController) ToggleHelp() {
+func (lc *ListController) toggleHelp() {
 	if !lc.HelpEnabled {
 		return
 	}
@@ -678,16 +637,14 @@ func (lc *ListController) ToggleHelp() {
 	lc.ShowingHelp = lc.helpOverlay.ShowingHelp
 }
 
-// ScrollHelpOverlay scrolls the help text up or down
-func (lc *ListController) ScrollHelpOverlay(direction int) {
+func (lc *ListController) scrollHelpOverlay(direction int) {
 	if lc.helpOverlay != nil {
 		lc.helpOverlay.Scroll(direction)
 	}
 }
 
-// measureTextForScrolling measures text width to determine if scrolling is needed
 func (lc *ListController) measureTextForScrolling(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
-	// Build full text with prefixes
+
 	prefix := ""
 	if lc.MultiSelect {
 		if item.Selected {
@@ -701,7 +658,6 @@ func (lc *ListController) measureTextForScrolling(idx int, item models.MenuItem,
 		prefix = "↕ " + prefix
 	}
 
-	// Measure text width
 	textSurface, err := internal.GetFont().RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
@@ -724,38 +680,32 @@ func (lc *ListController) measureTextForScrolling(idx int, item models.MenuItem,
 	}
 }
 
-// updateItemScrollAnimation updates a single item's scroll animation
 func (lc *ListController) updateItemScrollAnimation(data *textScrollData) {
-	// Calculate elapsed time
+
 	currentTime := time.Now()
 	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
 	data.lastUpdateTime = currentTime
 
-	// Handle pause state
 	if data.pauseCounter > 0 {
 		data.pauseCounter--
 		return
 	}
 
-	// Calculate scroll amount (at least 1 pixel)
 	pixelsToScroll := max(int32(float32(elapsed)*lc.Settings.ScrollSpeed), 1)
 
-	// Update position based on scroll direction
 	if data.direction == scrollDirectionRight {
-		// Scrolling right to left
+
 		data.scrollOffset += pixelsToScroll
 
-		// Check if we've reached the end
 		if data.scrollOffset >= data.textWidth-data.containerWidth {
 			data.scrollOffset = data.textWidth - data.containerWidth
 			data.direction = scrollDirectionLeft
 			data.pauseCounter = lc.Settings.ScrollPauseTime
 		}
 	} else {
-		// Scrolling left to right
+
 		data.scrollOffset -= pixelsToScroll
 
-		// Check if we've reached the beginning
 		if data.scrollOffset <= 0 {
 			data.scrollOffset = 0
 			data.direction = scrollDirectionRight
@@ -790,13 +740,13 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	const pillHeight = int32(60)
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
-		screenWidth = 768 // fallback width
+		screenWidth = 768
 	}
 
 	maxTextWidth := screenWidth - settings.Margins.Left - settings.Margins.Right - 15
 
 	for i, item := range visibleItems {
-		// Prepare text and color configuration
+
 		textColor, bgColor := getItemColors(item, multiSelect)
 		itemText := formatItemText(item, multiSelect)
 
@@ -818,17 +768,14 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		itemY := itemStartY + int32(i)*(pillHeight+settings.ItemSpacing)
 		globalIndex := controller.VisibleStartIndex + i
 
-		// Get scroll data if available
 		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
 		needsScrolling := hasScrollData && scrollData.needsScrolling && item.Focused
 
-		// Calculate pill width based on scrolling needs
 		pillWidth := textWidth + 10
 		if needsScrolling {
 			pillWidth = maxTextWidth + 10
 		}
 
-		// Draw background for selected or focused items
 		if item.Selected || item.Focused {
 			pillRect := sdl.Rect{
 				X: settings.Margins.Left,
@@ -839,10 +786,8 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 			drawRoundedRect(renderer, &pillRect, 12, bgColor)
 		}
 
-		// Center text vertically within the pill
-		textVerticalOffset := (pillHeight-textHeight)/2 + 1 // +1 for visual adjustment
+		textVerticalOffset := (pillHeight-textHeight)/2 + 1
 
-		// Render text differently based on scrolling needs
 		if needsScrolling {
 			renderScrollingText(renderer, textTexture, textHeight, maxTextWidth, settings.Margins.Left,
 				itemY, textVerticalOffset, scrollData.scrollOffset)
@@ -852,7 +797,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		}
 	}
 
-	renderFooter(renderer, settings, controller.MultiSelect)
+	renderListFooter(renderer, settings, controller.MultiSelect)
 }
 
 func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
@@ -918,8 +863,9 @@ func renderStaticText(renderer *sdl.Renderer, texture *sdl.Texture, src *sdl.Rec
 	renderer.Copy(texture, src, &textRect)
 }
 
-func renderFooter(renderer *sdl.Renderer, settings ListSettings, isMultiSelect bool) {
-	if settings.FooterText == "" && !isMultiSelect {
+func renderListFooter(renderer *sdl.Renderer, settings ListSettings, isMultiSelect bool) {
+
+	if settings.FooterText == "" && len(settings.FooterHelpItems) == 0 && !isMultiSelect {
 		return
 	}
 
@@ -928,64 +874,401 @@ func renderFooter(renderer *sdl.Renderer, settings ListSettings, isMultiSelect b
 		return
 	}
 
-	footerText := settings.FooterText
 	if isMultiSelect {
-		footerText = "A Add / Remove | Select Cancel | Start Confirm"
-	}
+		pillHeight := int32(40)
+		pillPadding := int32(12)
+		pillSpacing := int32(20)
+		font := internal.GetSmallFont()
 
-	footerSurface, err := internal.GetSmallFont().RenderUTF8Blended(
-		footerText,
-		settings.FooterTextColor,
-	)
-	if err != nil {
+		whitePillRadius := int32(8)
+		blackPillRadius := int32(6)
+
+		buttonPaddingX := int32(12)
+
+		multiSelectHelpItems := []struct {
+			ButtonName string
+			HelpText   string
+		}{
+			{ButtonName: "A", HelpText: "Add / Remove"},
+			{ButtonName: "Select", HelpText: "Cancel"},
+			{ButtonName: "Start", HelpText: "Confirm"},
+		}
+
+		var totalWidth int32 = 0
+		var pillInfos []struct {
+			buttonName     string
+			helpText       string
+			buttonWidth    int32
+			buttonHeight   int32
+			helpWidth      int32
+			blackPillWidth int32
+			whitePillWidth int32
+		}
+
+		for _, item := range multiSelectHelpItems {
+
+			buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err != nil {
+				continue
+			}
+			buttonWidth := buttonSurface.W
+			buttonHeight := buttonSurface.H
+			buttonSurface.Free()
+
+			blackPillWidth := buttonWidth + buttonPaddingX*2
+
+			helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
+			if err != nil {
+				continue
+			}
+			helpWidth := helpSurface.W
+			helpSurface.Free()
+
+			whitePillWidth := blackPillWidth + helpWidth + pillPadding*3
+
+			pillInfos = append(pillInfos, struct {
+				buttonName     string
+				helpText       string
+				buttonWidth    int32
+				buttonHeight   int32
+				helpWidth      int32
+				blackPillWidth int32
+				whitePillWidth int32
+			}{
+				buttonName:     item.ButtonName,
+				helpText:       item.HelpText,
+				buttonWidth:    buttonWidth,
+				buttonHeight:   buttonHeight,
+				helpWidth:      helpWidth,
+				blackPillWidth: blackPillWidth,
+				whitePillWidth: whitePillWidth,
+			})
+
+			totalWidth += whitePillWidth + pillSpacing
+		}
+
+		screenWidth, _, err := renderer.GetOutputSize()
+		if err != nil {
+			screenWidth = 768
+		}
+
+		startX := (screenWidth - totalWidth + pillSpacing) / 2
+		currentX := startX
+
+		for _, info := range pillInfos {
+
+			outerPillRect := &sdl.Rect{
+				X: currentX,
+				Y: screenHeight - pillHeight - settings.Margins.Bottom,
+				W: info.whitePillWidth,
+				H: pillHeight,
+			}
+
+			whiteColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+			drawRoundedRect(renderer, outerPillRect, whitePillRadius, whiteColor)
+
+			blackPillRect := &sdl.Rect{
+				X: currentX + pillPadding,
+				Y: screenHeight - pillHeight - settings.Margins.Bottom + pillPadding/2,
+				W: info.blackPillWidth,
+				H: pillHeight - pillPadding,
+			}
+			blackColor := sdl.Color{R: 0, G: 0, B: 0, A: 255}
+			drawRoundedRect(renderer, blackPillRect, blackPillRadius, blackColor)
+
+			blackPillCenterX := blackPillRect.X + blackPillRect.W/2
+			blackPillCenterY := blackPillRect.Y + blackPillRect.H/2
+
+			buttonSurface, err := font.RenderUTF8Blended(info.buttonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err == nil {
+
+				buttonWidth := buttonSurface.W
+				buttonHeight := buttonSurface.H
+
+				buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
+				if err == nil {
+
+					buttonRect := &sdl.Rect{
+						X: blackPillCenterX - buttonWidth/2,
+						Y: blackPillCenterY - buttonHeight/2,
+						W: buttonWidth,
+						H: buttonHeight,
+					}
+					renderer.Copy(buttonTexture, nil, buttonRect)
+					buttonTexture.Destroy()
+				}
+				buttonSurface.Free()
+			}
+
+			helpSurface, err := font.RenderUTF8Blended(info.helpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
+			if err == nil {
+				helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
+				if err == nil {
+					helpRect := &sdl.Rect{
+						X: currentX + info.blackPillWidth + pillPadding*2,
+						Y: screenHeight - pillHeight - settings.Margins.Bottom + (pillHeight-helpSurface.H)/2,
+						W: helpSurface.W,
+						H: helpSurface.H,
+					}
+					renderer.Copy(helpTexture, nil, helpRect)
+					helpTexture.Destroy()
+				}
+				helpSurface.Free()
+			}
+
+			currentX += info.whitePillWidth + pillSpacing
+		}
+
 		return
 	}
-	defer footerSurface.Free()
 
-	footerTexture, err := renderer.CreateTextureFromSurface(footerSurface)
-	if err != nil {
+	if settings.FooterText != "" {
+		footerSurface, err := internal.GetSmallFont().RenderUTF8Blended(
+			settings.FooterText,
+			settings.FooterTextColor,
+		)
+		if err != nil {
+			return
+		}
+		defer footerSurface.Free()
+
+		footerTexture, err := renderer.CreateTextureFromSurface(footerSurface)
+		if err != nil {
+			return
+		}
+		defer footerTexture.Destroy()
+
+		footerRect := sdl.Rect{
+			X: settings.Margins.Left,
+			Y: screenHeight - footerSurface.H - settings.Margins.Bottom,
+			W: footerSurface.W,
+			H: footerSurface.H,
+		}
+
+		renderer.Copy(footerTexture, nil, &footerRect)
 		return
 	}
-	defer footerTexture.Destroy()
 
-	footerRect := sdl.Rect{
-		X: settings.Margins.Left,
-		Y: screenHeight - footerSurface.H - settings.Margins.Bottom,
-		W: footerSurface.W,
-		H: footerSurface.H,
+	if len(settings.FooterHelpItems) > 0 {
+		pillHeight := int32(40)
+		pillPadding := int32(12)
+		pillSpacing := int32(20)
+		font := internal.GetSmallFont()
+
+		whitePillRadius := int32(8)
+		blackPillRadius := int32(6)
+
+		buttonPaddingX := int32(12)
+
+		var totalWidth int32 = 0
+		var pillInfos []struct {
+			buttonName     string
+			helpText       string
+			buttonWidth    int32
+			buttonHeight   int32
+			helpWidth      int32
+			blackPillWidth int32
+			whitePillWidth int32
+		}
+
+		for _, item := range settings.FooterHelpItems {
+
+			buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err != nil {
+				continue
+			}
+			buttonWidth := buttonSurface.W
+			buttonHeight := buttonSurface.H
+			buttonSurface.Free()
+
+			blackPillWidth := buttonWidth + buttonPaddingX*2
+
+			helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
+			if err != nil {
+				continue
+			}
+			helpWidth := helpSurface.W
+			helpSurface.Free()
+
+			whitePillWidth := blackPillWidth + helpWidth + pillPadding*3
+
+			pillInfos = append(pillInfos, struct {
+				buttonName     string
+				helpText       string
+				buttonWidth    int32
+				buttonHeight   int32
+				helpWidth      int32
+				blackPillWidth int32
+				whitePillWidth int32
+			}{
+				buttonName:     item.ButtonName,
+				helpText:       item.HelpText,
+				buttonWidth:    buttonWidth,
+				buttonHeight:   buttonHeight,
+				helpWidth:      helpWidth,
+				blackPillWidth: blackPillWidth,
+				whitePillWidth: whitePillWidth,
+			})
+
+			totalWidth += whitePillWidth + pillSpacing
+		}
+
+		screenWidth, _, err := renderer.GetOutputSize()
+		if err != nil {
+			screenWidth = 768
+		}
+
+		startX := (screenWidth - totalWidth + pillSpacing) / 2
+		currentX := startX
+
+		for _, info := range pillInfos {
+
+			outerPillRect := &sdl.Rect{
+				X: currentX,
+				Y: screenHeight - pillHeight - settings.Margins.Bottom,
+				W: info.whitePillWidth,
+				H: pillHeight,
+			}
+
+			whiteColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+			drawRoundedRect(renderer, outerPillRect, whitePillRadius, whiteColor)
+
+			blackPillRect := &sdl.Rect{
+				X: currentX + pillPadding,
+				Y: screenHeight - pillHeight - settings.Margins.Bottom + pillPadding/2,
+				W: info.blackPillWidth,
+				H: pillHeight - pillPadding,
+			}
+			blackColor := sdl.Color{R: 0, G: 0, B: 0, A: 255}
+			drawRoundedRect(renderer, blackPillRect, blackPillRadius, blackColor)
+
+			blackPillCenterX := blackPillRect.X + blackPillRect.W/2
+			blackPillCenterY := blackPillRect.Y + blackPillRect.H/2
+
+			buttonSurface, err := font.RenderUTF8Blended(info.buttonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err == nil {
+
+				buttonWidth := buttonSurface.W
+				buttonHeight := buttonSurface.H
+
+				buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
+				if err == nil {
+
+					buttonRect := &sdl.Rect{
+						X: blackPillCenterX - buttonWidth/2,
+						Y: blackPillCenterY - buttonHeight/2,
+						W: buttonWidth,
+						H: buttonHeight,
+					}
+					renderer.Copy(buttonTexture, nil, buttonRect)
+					buttonTexture.Destroy()
+				}
+				buttonSurface.Free()
+			}
+
+			helpSurface, err := font.RenderUTF8Blended(info.helpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
+			if err == nil {
+				helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
+				if err == nil {
+					helpRect := &sdl.Rect{
+						X: currentX + info.blackPillWidth + pillPadding*2,
+						Y: screenHeight - pillHeight - settings.Margins.Bottom + (pillHeight-helpSurface.H)/2,
+						W: helpSurface.W,
+						H: helpSurface.H,
+					}
+					renderer.Copy(helpTexture, nil, helpRect)
+					helpTexture.Destroy()
+				}
+				helpSurface.Free()
+			}
+
+			currentX += info.whitePillWidth + pillSpacing
+		}
+	}
+}
+
+func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
+	if radius <= 0 {
+
+		renderer.SetDrawColor(color.R, color.G, color.B, color.A)
+		renderer.FillRect(rect)
+		return
 	}
 
-	renderer.Copy(footerTexture, nil, &footerRect)
+	if radius*2 > rect.W {
+		radius = rect.W / 2
+	}
+	if radius*2 > rect.H {
+		radius = rect.H / 2
+	}
+
+	renderer.SetDrawColor(color.R, color.G, color.B, color.A)
+
+	mainRect := &sdl.Rect{
+		X: rect.X + radius,
+		Y: rect.Y,
+		W: rect.W - 2*radius,
+		H: rect.H,
+	}
+	renderer.FillRect(mainRect)
+
+	sideRectLeft := &sdl.Rect{
+		X: rect.X,
+		Y: rect.Y + radius,
+		W: radius,
+		H: rect.H - 2*radius,
+	}
+	renderer.FillRect(sideRectLeft)
+
+	sideRectRight := &sdl.Rect{
+		X: rect.X + rect.W - radius,
+		Y: rect.Y + radius,
+		W: radius,
+		H: rect.H - 2*radius,
+	}
+	renderer.FillRect(sideRectRight)
+
+	for y := int32(0); y <= radius; y++ {
+		for x := int32(0); x <= radius; x++ {
+
+			if x*x+y*y <= radius*radius {
+
+				renderer.DrawPoint(rect.X+radius-x, rect.Y+radius-y)
+
+				renderer.DrawPoint(rect.X+rect.W-radius+x-1, rect.Y+radius-y)
+
+				renderer.DrawPoint(rect.X+radius-x, rect.Y+rect.H-radius+y-1)
+
+				renderer.DrawPoint(rect.X+rect.W-radius+x-1, rect.Y+rect.H-radius+y-1)
+			}
+		}
+	}
 }
 
 func (lc *ListController) updateScrollingAnimations() {
 	screenWidth, _, err := internal.GetWindow().Renderer.GetOutputSize()
 	if err != nil {
-		screenWidth = 768 // fallback width
+		screenWidth = 768
 	}
 
 	maxTextWidth := screenWidth - lc.Settings.Margins.Left - lc.Settings.Margins.Right - 15
 
-	// Update scrolling only for visible items
 	endIdx := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
 
 	for idx := lc.VisibleStartIndex; idx < endIdx; idx++ {
 		item := lc.Items[idx]
 
-		// Only animate focused items
 		if !item.Focused {
 			delete(lc.itemScrollData, idx)
 			continue
 		}
 
-		// Get or create scrolling data
 		scrollData, exists := lc.itemScrollData[idx]
 		if !exists {
 			scrollData = lc.createScrollDataForItem(idx, item, maxTextWidth)
 			lc.itemScrollData[idx] = scrollData
 		}
 
-		// Skip if no scrolling needed
 		if !scrollData.needsScrolling {
 			continue
 		}
@@ -995,7 +1278,7 @@ func (lc *ListController) updateScrollingAnimations() {
 }
 
 func (lc *ListController) createScrollDataForItem(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
-	// Build the prefix based on item state
+
 	prefix := ""
 	if lc.MultiSelect {
 		if item.Selected {
@@ -1009,7 +1292,6 @@ func (lc *ListController) createScrollDataForItem(idx int, item models.MenuItem,
 		prefix = "↕ " + prefix
 	}
 
-	// Measure text width
 	textSurface, err := internal.GetFont().RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
@@ -1025,47 +1307,42 @@ func (lc *ListController) createScrollDataForItem(idx int, item models.MenuItem,
 		needsScrolling: textWidth > maxWidth,
 		textWidth:      textWidth,
 		containerWidth: maxWidth,
-		direction:      1, // Start scrolling left to right
+		direction:      1,
 		scrollOffset:   0,
 		lastUpdateTime: time.Now(),
-		pauseCounter:   lc.Settings.ScrollPauseTime, // Start with a pause
+		pauseCounter:   lc.Settings.ScrollPauseTime,
 	}
 }
 
 func (lc *ListController) updateScrollAnimation(data *textScrollData) {
-	// Only update at appropriate intervals
+
 	currentTime := time.Now()
 	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
 	data.lastUpdateTime = currentTime
 
-	// Handle pause state
 	if data.pauseCounter > 0 {
 		data.pauseCounter--
 		return
 	}
 
-	// Calculate scroll amount
 	pixelsToScroll := max(int32(float32(elapsed)*lc.Settings.ScrollSpeed), 1)
 
-	// Update scroll position based on direction
 	if data.direction > 0 {
-		// Scrolling right to left
+
 		data.scrollOffset += pixelsToScroll
 
-		// Check if we've reached the end
 		if data.scrollOffset >= data.textWidth-data.containerWidth {
 			data.scrollOffset = data.textWidth - data.containerWidth
-			data.direction = -1 // Reverse direction
+			data.direction = -1
 			data.pauseCounter = lc.Settings.ScrollPauseTime
 		}
 	} else {
-		// Scrolling left to right
+
 		data.scrollOffset -= pixelsToScroll
 
-		// Check if we've reached the beginning
 		if data.scrollOffset <= 0 {
 			data.scrollOffset = 0
-			data.direction = 1 // Reverse direction
+			data.direction = 1
 			data.pauseCounter = lc.Settings.ScrollPauseTime
 		}
 	}
@@ -1086,10 +1363,9 @@ func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign 
 
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
-		screenWidth = 768 // fallback width
+		screenWidth = 768
 	}
 
-	// Calculate title position based on alignment
 	titleX := getTitleXPosition(titleAlign, screenWidth, titleSurface.W, titleXMargin)
 
 	titleRect := sdl.Rect{
@@ -1109,98 +1385,7 @@ func getTitleXPosition(align internal.TextAlignment, screenWidth, titleWidth, ma
 		return (screenWidth - titleWidth) / 2
 	case internal.AlignRight:
 		return screenWidth - titleWidth - margin
-	default: // AlignLeft and fallback
-		return margin
-	}
-}
-
-func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
-	// If no rounding needed, just draw a regular rectangle
-	if radius <= 0 {
-		renderer.SetDrawColor(color.R, color.G, color.B, color.A)
-		renderer.FillRect(rect)
-		return
-	}
-
-	// Limit radius to half of width/height
-	radius = min(radius, min(rect.W/2, rect.H/2))
-
-	renderer.SetDrawColor(color.R, color.G, color.B, color.A)
-
-	// Draw center rectangle
-	centerRect := &sdl.Rect{
-		X: rect.X + radius,
-		Y: rect.Y,
-		W: rect.W - 2*radius,
-		H: rect.H,
-	}
-	renderer.FillRect(centerRect)
-
-	// Draw left side rectangle
-	leftRect := &sdl.Rect{
-		X: rect.X,
-		Y: rect.Y + radius,
-		W: radius,
-		H: rect.H - 2*radius,
-	}
-	renderer.FillRect(leftRect)
-
-	// Draw right side rectangle
-	rightRect := &sdl.Rect{
-		X: rect.X + rect.W - radius,
-		Y: rect.Y + radius,
-		W: radius,
-		H: rect.H - 2*radius,
-	}
-	renderer.FillRect(rightRect)
-
-	// Draw the four corners
-	drawFilledCorner(renderer, rect.X+radius, rect.Y+radius, radius, 1, color)
-	drawFilledCorner(renderer, rect.X+rect.W-radius, rect.Y+radius, radius, 2, color)
-	drawFilledCorner(renderer, rect.X+radius, rect.Y+rect.H-radius, radius, 3, color)
-	drawFilledCorner(renderer, rect.X+rect.W-radius, rect.Y+rect.H-radius, radius, 4, color)
-}
-
-func drawFilledCorner(renderer *sdl.Renderer, centerX, centerY, radius int32, corner int, color sdl.Color) {
-	renderer.SetDrawColor(color.R, color.G, color.B, color.A)
-	radiusSquared := radius * radius
-
-	// Get offset based on corner
-	xOffset, yOffset := getCornerOffsets(corner)
-
-	// Draw the corner using horizontal lines
-	for dy := int32(0); dy <= radius; dy++ {
-		width := int32(math.Sqrt(float64(radiusSquared - dy*dy)))
-		if width <= 0 {
-			continue
-		}
-
-		y := centerY + yOffset*dy
-		var startX, endX int32
-
-		if xOffset < 0 {
-			startX = centerX - width
-			endX = centerX
-		} else {
-			startX = centerX
-			endX = centerX + width
-		}
-
-		renderer.DrawLine(startX, y, endX, y)
-	}
-}
-
-func getCornerOffsets(corner int) (xOffset, yOffset int32) {
-	switch corner {
-	case 1: // Top-left
-		return -1, -1
-	case 2: // Top-right
-		return 1, -1
-	case 3: // Bottom-left
-		return -1, 1
-	case 4: // Bottom-right
-		return 1, 1
 	default:
-		return 0, 0
+		return margin
 	}
 }

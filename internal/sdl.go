@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"os"
@@ -10,7 +11,7 @@ var window *Window
 var gameControllers []*sdl.GameController
 
 func Init(applicationName string) {
-	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_GAMECONTROLLER); err != nil {
+	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_GAMECONTROLLER | img.INIT_PNG | img.INIT_JPG); err != nil {
 		os.Exit(1)
 	}
 
