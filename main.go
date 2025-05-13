@@ -43,7 +43,7 @@ func main() {
 	//	{ButtonName: "A", HelpText: "Select"},
 	//}
 	//
-	//_, _ = ui.NewBlockingList("List Reorder Demo", menuItems, "", fhi, false, false, true)
+	//_, _ = ui.List("List Reorder Demo", menuItems, "", fhi, false, false, true)
 
 	items := []ui.ItemWithOptions{
 		{
@@ -85,7 +85,7 @@ func main() {
 		{ButtonName: "←→", HelpText: "Change option"},
 	}
 
-	result, err := ui.NewBlockingOptionsList(
+	result, err := ui.OptionsList(
 		"Settings",
 		items,
 		footerHelpItems,
@@ -111,7 +111,7 @@ func main() {
 	//	},
 	//}
 
-	//result, err := ui.NewBlockingDownload(downloads)
+	//result, err := ui.Download(downloads)
 	//if err != nil {
 	//	internal.Logger.Error("Download error", "error", err)
 	//}
@@ -131,7 +131,7 @@ func main() {
 	//		result.Errors[i].Error())
 	//}
 
-	//res, err := ui.NewBlockingKeyboard("Hello world")
+	//res, err := ui.Keyboard("Hello world")
 	//if err != nil {
 	//}
 	//

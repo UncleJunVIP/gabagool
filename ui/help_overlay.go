@@ -6,8 +6,7 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-// HelpOverlay represents a help screen that can be toggled in UI components
-type HelpOverlay struct {
+type helpOverlay struct {
 	Lines           []string
 	ShowingHelp     bool
 	ScrollOffset    int32
@@ -23,12 +22,11 @@ type HelpOverlay struct {
 	ExitTextPadding int32 // Additional padding for exit text
 }
 
-// NewHelpOverlay creates a new help overlay with default settings
-func NewHelpOverlay(lines []string) *HelpOverlay {
+func newHelpOverlay(lines []string) *helpOverlay {
 	window := internal.GetWindow()
 	width, height := window.Window.GetSize()
 
-	return &HelpOverlay{
+	return &helpOverlay{
 		Lines:           lines,
 		ShowingHelp:     false,
 		ScrollOffset:    0,
@@ -45,16 +43,14 @@ func NewHelpOverlay(lines []string) *HelpOverlay {
 	}
 }
 
-// Toggle shows or hides the help overlay
-func (h *HelpOverlay) Toggle() {
+func (h *helpOverlay) toggle() {
 	h.ShowingHelp = !h.ShowingHelp
 	if h.ShowingHelp {
 		h.ScrollOffset = 0 // Reset scroll position when showing help
 	}
 }
 
-// Scroll moves the help content up or down
-func (h *HelpOverlay) Scroll(direction int) {
+func (h *helpOverlay) scroll(direction int) {
 	if !h.ShowingHelp {
 		return
 	}
@@ -75,8 +71,7 @@ func (h *HelpOverlay) Scroll(direction int) {
 	h.ScrollOffset = newOffset
 }
 
-// CalculateMaxScroll calculates how far down the help text can be scrolled
-func (h *HelpOverlay) CalculateMaxScroll(renderer *sdl.Renderer, font *ttf.Font) {
+func (h *helpOverlay) calculateMaxScroll(renderer *sdl.Renderer, font *ttf.Font) {
 	totalHeight := int32(len(h.Lines)) * h.LineHeight
 	visibleHeight := h.Height - (h.Padding * 2) - h.LineHeight - h.ExitTextPadding // Reserve space for exit instructions with padding
 
@@ -87,14 +82,13 @@ func (h *HelpOverlay) CalculateMaxScroll(renderer *sdl.Renderer, font *ttf.Font)
 	}
 }
 
-// Render draws the help overlay on the screen
-func (h *HelpOverlay) Render(renderer *sdl.Renderer, font *ttf.Font) {
+func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 	if !h.ShowingHelp {
 		return
 	}
 
 	// Ensure max scroll calculation is up to date
-	h.CalculateMaxScroll(renderer, font)
+	h.calculateMaxScroll(renderer, font)
 
 	// Draw semi-transparent background
 	bgRect := &sdl.Rect{X: 0, Y: 0, W: h.Width, H: h.Height}

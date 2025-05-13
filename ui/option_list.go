@@ -10,20 +10,26 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// Option represents a selectable option for items in the OptionsList
 type Option struct {
 	DisplayName string
 	Value       interface{}
 }
 
-// ItemWithOptions represents an item with a list of options to choose from
 type ItemWithOptions struct {
 	Item           models.MenuItem
 	Options        []Option
 	SelectedOption int
 }
 
-type OptionsListSettings struct {
+type OptionsListReturn struct {
+	Items          []ItemWithOptions
+	SelectedIndex  int
+	SelectedItem   *ItemWithOptions
+	LastPressedBtn uint8
+	Cancelled      bool
+}
+
+type optionsListSettings struct {
 	Margins         models.Padding
 	ItemSpacing     int32
 	InputDelay      time.Duration
@@ -36,10 +42,10 @@ type OptionsListSettings struct {
 	FooterTextColor sdl.Color
 }
 
-type OptionsListController struct {
+type optionsListController struct {
 	Items         []ItemWithOptions
 	SelectedIndex int
-	Settings      OptionsListSettings
+	Settings      optionsListSettings
 	StartY        int32
 	lastInputTime time.Time
 	OnSelect      func(index int, item *ItemWithOptions)
@@ -48,14 +54,14 @@ type OptionsListController struct {
 	MaxVisibleItems   int
 
 	HelpEnabled bool
-	helpOverlay *HelpOverlay
+	helpOverlay *helpOverlay
 	ShowingHelp bool
 
 	itemScrollData map[int]*textScrollData
 }
 
-func DefaultOptionsListSettings(title string) OptionsListSettings {
-	return OptionsListSettings{
+func defaultOptionsListSettings(title string) optionsListSettings {
+	return optionsListSettings{
 		Margins:         models.UniformPadding(20),
 		ItemSpacing:     60,
 		InputDelay:      internal.DefaultInputDelay,
@@ -69,7 +75,7 @@ func DefaultOptionsListSettings(title string) OptionsListSettings {
 	}
 }
 
-func NewOptionsListController(title string, items []ItemWithOptions) *OptionsListController {
+func newOptionsListController(title string, items []ItemWithOptions) *optionsListController {
 	selectedIndex := 0
 
 	for i, item := range items {
@@ -83,29 +89,21 @@ func NewOptionsListController(title string, items []ItemWithOptions) *OptionsLis
 		items[i].Item.Selected = i == selectedIndex
 	}
 
-	return &OptionsListController{
+	return &optionsListController{
 		Items:          items,
 		SelectedIndex:  selectedIndex,
-		Settings:       DefaultOptionsListSettings(title),
+		Settings:       defaultOptionsListSettings(title),
 		StartY:         20,
 		lastInputTime:  time.Now(),
 		itemScrollData: make(map[int]*textScrollData),
 	}
 }
 
-type OptionsListReturn struct {
-	Items          []ItemWithOptions
-	SelectedIndex  int
-	SelectedItem   *ItemWithOptions
-	LastPressedBtn uint8
-	Cancelled      bool
-}
-
-func NewBlockingOptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
+func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	optionsListController := NewOptionsListController(title, items)
+	optionsListController := newOptionsListController(title, items)
 
 	optionsListController.MaxVisibleItems = 8
 	optionsListController.Settings.FooterHelpItems = footerHelpItems
@@ -202,7 +200,7 @@ func NewBlockingOptionsList(title string, items []ItemWithOptions, footerHelpIte
 	return option.Some(result), nil
 }
 
-func (olc *OptionsListController) cycleOptionLeft() {
+func (olc *optionsListController) cycleOptionLeft() {
 	if olc.SelectedIndex < 0 || olc.SelectedIndex >= len(olc.Items) {
 		return
 	}
@@ -218,7 +216,7 @@ func (olc *OptionsListController) cycleOptionLeft() {
 	}
 }
 
-func (olc *OptionsListController) cycleOptionRight() {
+func (olc *optionsListController) cycleOptionRight() {
 	if olc.SelectedIndex < 0 || olc.SelectedIndex >= len(olc.Items) {
 		return
 	}
@@ -234,7 +232,7 @@ func (olc *OptionsListController) cycleOptionRight() {
 	}
 }
 
-func (olc *OptionsListController) scrollTo(index int) {
+func (olc *optionsListController) scrollTo(index int) {
 	if index < 0 || index >= len(olc.Items) {
 		return
 	}
@@ -253,7 +251,7 @@ func (olc *OptionsListController) scrollTo(index int) {
 	}
 }
 
-func (olc *OptionsListController) handleEvent(event sdl.Event) bool {
+func (olc *optionsListController) handleEvent(event sdl.Event) bool {
 	currentTime := time.Now()
 	if currentTime.Sub(olc.lastInputTime) < olc.Settings.InputDelay {
 		return false
@@ -272,7 +270,7 @@ func (olc *OptionsListController) handleEvent(event sdl.Event) bool {
 	return false
 }
 
-func (olc *OptionsListController) handleKeyDown(key sdl.Keycode) bool {
+func (olc *optionsListController) handleKeyDown(key sdl.Keycode) bool {
 	olc.lastInputTime = time.Now()
 
 	if key == sdl.K_h {
@@ -287,7 +285,7 @@ func (olc *OptionsListController) handleKeyDown(key sdl.Keycode) bool {
 	return olc.handleNormalModeInput(key)
 }
 
-func (olc *OptionsListController) handleHelpScreenInput(key sdl.Keycode) bool {
+func (olc *optionsListController) handleHelpScreenInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
 		olc.scrollHelpOverlay(-1)
@@ -301,7 +299,7 @@ func (olc *OptionsListController) handleHelpScreenInput(key sdl.Keycode) bool {
 	}
 }
 
-func (olc *OptionsListController) handleNormalModeInput(key sdl.Keycode) bool {
+func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
 		olc.Items[olc.SelectedIndex].Item.Selected = false
@@ -336,7 +334,7 @@ func (olc *OptionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 	}
 }
 
-func (olc *OptionsListController) handleButtonPress(button uint8) bool {
+func (olc *optionsListController) handleButtonPress(button uint8) bool {
 	olc.lastInputTime = time.Now()
 
 	if button == BrickButton_Y {
@@ -351,7 +349,7 @@ func (olc *OptionsListController) handleButtonPress(button uint8) bool {
 	return olc.handleNormalModeButton(button)
 }
 
-func (olc *OptionsListController) handleHelpScreenButton(button uint8) bool {
+func (olc *optionsListController) handleHelpScreenButton(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
 		olc.scrollHelpOverlay(-1)
@@ -365,7 +363,7 @@ func (olc *OptionsListController) handleHelpScreenButton(button uint8) bool {
 	}
 }
 
-func (olc *OptionsListController) handleNormalModeButton(button uint8) bool {
+func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
 		olc.Items[olc.SelectedIndex].Item.Selected = false
@@ -400,7 +398,7 @@ func (olc *OptionsListController) handleNormalModeButton(button uint8) bool {
 	}
 }
 
-func (olc *OptionsListController) toggleHelp() {
+func (olc *optionsListController) toggleHelp() {
 	if !olc.HelpEnabled {
 		return
 	}
@@ -414,27 +412,27 @@ func (olc *OptionsListController) toggleHelp() {
 			"• A: Save selections and exit",
 			"• B: Cancel and exit",
 		}
-		olc.helpOverlay = NewHelpOverlay(helpLines)
+		olc.helpOverlay = newHelpOverlay(helpLines)
 	}
 }
 
-func (olc *OptionsListController) scrollHelpOverlay(direction int) {
+func (olc *optionsListController) scrollHelpOverlay(direction int) {
 	if olc.helpOverlay == nil {
 		return
 	}
-	olc.helpOverlay.Scroll(direction)
+	olc.helpOverlay.scroll(direction)
 }
 
-func (olc *OptionsListController) render(renderer *sdl.Renderer) {
+func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	if olc.ShowingHelp && olc.helpOverlay != nil {
-		olc.helpOverlay.Render(renderer, internal.GetSmallFont())
+		olc.helpOverlay.render(renderer, internal.GetSmallFont())
 		return
 	}
 
 	window := internal.GetWindow()
 	font := internal.GetFont()
 
-	// Render title
+	// render title
 	if olc.Settings.Title != "" {
 		titleSurface, _ := font.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if titleSurface != nil {
@@ -468,7 +466,7 @@ func (olc *OptionsListController) render(renderer *sdl.Renderer) {
 	// Calculate how many items we can display
 	visibleCount := min(olc.MaxVisibleItems, len(olc.Items)-olc.VisibleStartIndex)
 
-	// Render items
+	// render items
 	for i := 0; i < visibleCount; i++ {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
@@ -486,7 +484,7 @@ func (olc *OptionsListController) render(renderer *sdl.Renderer) {
 		// Calculate item Y position
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
 
-		// Render background for selected item
+		// render background for selected item
 		if item.Item.Selected {
 			renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
 			renderer.FillRect(&sdl.Rect{
@@ -497,7 +495,7 @@ func (olc *OptionsListController) render(renderer *sdl.Renderer) {
 			})
 		}
 
-		// Render item text
+		// render item text
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
 		if itemSurface != nil {
 			defer itemSurface.Free()
@@ -513,7 +511,7 @@ func (olc *OptionsListController) render(renderer *sdl.Renderer) {
 			}
 		}
 
-		// Render option text
+		// render option text
 		if len(item.Options) > 0 {
 			selectedOption := item.Options[item.SelectedOption]
 			optionSurface, _ := font.RenderUTF8Blended(selectedOption.DisplayName, textColor)
@@ -538,7 +536,7 @@ func (olc *OptionsListController) render(renderer *sdl.Renderer) {
 	renderOptionListFooter(renderer, olc.Settings)
 }
 
-func renderOptionListFooter(renderer *sdl.Renderer, settings OptionsListSettings) {
+func renderOptionListFooter(renderer *sdl.Renderer, settings optionsListSettings) {
 
 	if len(settings.FooterHelpItems) == 0 {
 		return

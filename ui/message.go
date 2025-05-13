@@ -11,8 +11,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-// MessageSettings contains configuration options for the message display
-type MessageSettings struct {
+type messageSettings struct {
 	Margins          models.Padding
 	Title            string
 	TitleAlign       internal.TextAlignment
@@ -31,7 +30,6 @@ type MessageSettings struct {
 	InputDelay       time.Duration
 }
 
-// MessageReturn contains the result of the message dialog
 type MessageReturn struct {
 	SelectedButton int // Index of the selected button
 	ButtonName     string
@@ -40,9 +38,8 @@ type MessageReturn struct {
 	Cancelled      bool
 }
 
-// DefaultMessageSettings returns default settings for a message display
-func DefaultMessageSettings(title, message string) MessageSettings {
-	return MessageSettings{
+func defaultMessageSettings(title, message string) messageSettings {
+	return messageSettings{
 		Margins:          models.UniformPadding(20),
 		Title:            title,
 		TitleAlign:       internal.AlignCenter,
@@ -58,13 +55,11 @@ func DefaultMessageSettings(title, message string) MessageSettings {
 	}
 }
 
-// NewBlockingMessage displays a blocking message with optional image and buttons
-// Returns the selected button or an error
-func NewBlockingMessage(title, message string, footerHelpItems []FooterHelpItem, imagePath string) (types.Option[MessageReturn], error) {
+func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath string) (types.Option[MessageReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	settings := DefaultMessageSettings(title, message)
+	settings := defaultMessageSettings(title, message)
 	settings.FooterHelpItems = footerHelpItems
 
 	if imagePath != "" {
@@ -180,7 +175,7 @@ func NewBlockingMessage(title, message string, footerHelpItems []FooterHelpItem,
 			}
 		}
 
-		// Render the message dialog
+		// render the message dialog
 		renderer.SetDrawColor(
 			settings.BackgroundColor.R,
 			settings.BackgroundColor.G,

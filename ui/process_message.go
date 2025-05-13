@@ -6,25 +6,23 @@ import (
 	"time"
 )
 
-// ProcessReturn contains the result of the blocking process
 type ProcessReturn struct {
 	Success bool
 	Result  interface{}
 	Error   error
 }
 
-// BlockingProcess manages a UI that shows a message while running a function in a goroutine
-type BlockingProcess struct {
+type blockingProcess struct {
 	window       *internal.Window
 	message      string
 	isProcessing bool
 	completeTime time.Time
 }
 
-// NewBlockingProcess creates a UI that shows a message while a function runs
+// BlockingProcess creates a UI that shows a message while a function runs
 // and returns the result once complete
-func NewBlockingProcess(message string, fn func() (interface{}, error)) (ProcessReturn, error) {
-	processor := &BlockingProcess{
+func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessReturn, error) {
+	processor := &blockingProcess{
 		window:       internal.GetWindow(),
 		message:      message,
 		isProcessing: true,
@@ -112,7 +110,7 @@ func NewBlockingProcess(message string, fn func() (interface{}, error)) (Process
 	return result, err
 }
 
-func (p *BlockingProcess) render(renderer *sdl.Renderer) {
+func (p *blockingProcess) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 

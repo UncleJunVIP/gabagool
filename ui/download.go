@@ -22,7 +22,7 @@ type DownloadReturn struct {
 	Cancelled          bool
 }
 
-type BlockingDownloadManager struct {
+type downloadManager struct {
 	window            *internal.Window
 	downloads         []models.Download
 	currentIndex      int
@@ -44,8 +44,8 @@ type BlockingDownloadManager struct {
 	headers map[string]string
 }
 
-func NewBlockingDownload(downloads []models.Download, headers map[string]string) (DownloadReturn, error) {
-	downloadManager := NewBlockingDownloadManager(downloads, headers)
+func Download(downloads []models.Download, headers map[string]string) (DownloadReturn, error) {
+	downloadManager := newDownloadManager(downloads, headers)
 
 	result := DownloadReturn{
 		CompletedDownloads: []models.Download{},
@@ -177,7 +177,7 @@ func NewBlockingDownload(downloads []models.Download, headers map[string]string)
 	return result, err
 }
 
-func NewBlockingDownloadManager(downloads []models.Download, headers map[string]string) *BlockingDownloadManager {
+func newDownloadManager(downloads []models.Download, headers map[string]string) *downloadManager {
 	window := internal.GetWindow()
 
 	progressBarWidth := window.Width * 3 / 4
@@ -185,7 +185,7 @@ func NewBlockingDownloadManager(downloads []models.Download, headers map[string]
 	progressBarX := (window.Width - progressBarWidth) / 2
 	progressBarY := window.Height / 2
 
-	return &BlockingDownloadManager{
+	return &downloadManager{
 		window:            window,
 		downloads:         downloads,
 		headers:           headers,
@@ -201,7 +201,7 @@ func NewBlockingDownloadManager(downloads []models.Download, headers map[string]
 	}
 }
 
-func (dm *BlockingDownloadManager) startDownload() {
+func (dm *downloadManager) startDownload() {
 	if dm.currentIndex >= len(dm.downloads) {
 		return
 	}
@@ -223,7 +223,7 @@ func (dm *BlockingDownloadManager) startDownload() {
 	go dm.downloadFile(download.URL, download.Location)
 }
 
-func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
+func (dm *downloadManager) downloadFile(url, filePath string) {
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		dm.downloadError = err
@@ -310,7 +310,7 @@ func (dm *BlockingDownloadManager) downloadFile(url, filePath string) {
 	}
 }
 
-func (dm *BlockingDownloadManager) render(renderer *sdl.Renderer) {
+func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 

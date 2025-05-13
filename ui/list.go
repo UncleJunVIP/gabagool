@@ -26,7 +26,7 @@ type textScrollData struct {
 	pauseCounter   int
 }
 
-type ListSettings struct {
+type listSettings struct {
 	Margins           models.Padding
 	ItemSpacing       int32
 	InputDelay        time.Duration
@@ -44,13 +44,13 @@ type ListSettings struct {
 	FooterTextColor   sdl.Color
 }
 
-type ListController struct {
+type listController struct {
 	Items         []models.MenuItem
 	SelectedIndex int
 	SelectedItems map[int]bool
 	MultiSelect   bool
 	ReorderMode   bool
-	Settings      ListSettings
+	Settings      listSettings
 	StartY        int32
 	lastInputTime time.Time
 	OnSelect      func(index int, item *models.MenuItem)
@@ -62,7 +62,7 @@ type ListController struct {
 	EnableAction bool
 
 	HelpEnabled bool
-	helpOverlay *HelpOverlay
+	helpOverlay *helpOverlay
 	ShowingHelp bool
 
 	itemScrollData map[int]*textScrollData
@@ -75,8 +75,8 @@ var defaultListHelpLines = []string{
 	"• B: Cancel and exit",
 }
 
-func DefaultListSettings(title string) ListSettings {
-	return ListSettings{
+func defaultListSettings(title string) listSettings {
+	return listSettings{
 		Margins:         models.UniformPadding(20),
 		ItemSpacing:     internal.DefaultMenuSpacing,
 		InputDelay:      internal.DefaultInputDelay,
@@ -91,7 +91,7 @@ func DefaultListSettings(title string) ListSettings {
 	}
 }
 
-func NewListController(title string, items []models.MenuItem) *ListController {
+func newListController(title string, items []models.MenuItem) *listController {
 	selectedItems := make(map[int]bool)
 	selectedIndex := 0
 
@@ -109,23 +109,23 @@ func NewListController(title string, items []models.MenuItem) *ListController {
 		}
 	}
 
-	return &ListController{
+	return &listController{
 		Items:          items,
 		SelectedIndex:  selectedIndex,
 		SelectedItems:  selectedItems,
 		MultiSelect:    false,
-		Settings:       DefaultListSettings(title),
+		Settings:       defaultListSettings(title),
 		StartY:         20,
 		lastInputTime:  time.Now(),
 		itemScrollData: make(map[int]*textScrollData),
 	}
 }
 
-func NewBlockingList(title string, items []models.MenuItem, footerText string, footerHelpItems []FooterHelpItem, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
+func List(title string, items []models.MenuItem, footerText string, footerHelpItems []FooterHelpItem, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	listController := NewListController(title, items)
+	listController := newListController(title, items)
 
 	listController.MaxVisibleItems = 8
 	listController.EnableAction = enableAction
@@ -249,7 +249,7 @@ func NewBlockingList(title string, items []models.MenuItem, footerText string, f
 	return option.Some(result), nil
 }
 
-func (lc *ListController) toggleMultiSelect() {
+func (lc *listController) toggleMultiSelect() {
 	lc.MultiSelect = !lc.MultiSelect
 
 	if !lc.MultiSelect && len(lc.SelectedItems) > 1 {
@@ -265,11 +265,11 @@ func (lc *ListController) toggleMultiSelect() {
 	}
 }
 
-func (lc *ListController) toggleReorderMode() {
+func (lc *listController) toggleReorderMode() {
 	lc.ReorderMode = !lc.ReorderMode
 }
 
-func (lc *ListController) moveItemUp() bool {
+func (lc *listController) moveItemUp() bool {
 	if !lc.ReorderMode || lc.SelectedIndex <= 0 {
 		return false
 	}
@@ -293,7 +293,7 @@ func (lc *ListController) moveItemUp() bool {
 	return true
 }
 
-func (lc *ListController) moveItemDown() bool {
+func (lc *listController) moveItemDown() bool {
 	if !lc.ReorderMode || lc.SelectedIndex >= len(lc.Items)-1 {
 		return false
 	}
@@ -317,7 +317,7 @@ func (lc *ListController) moveItemDown() bool {
 	return true
 }
 
-func (lc *ListController) updateSelectionAfterMove(fromIdx, toIdx int) {
+func (lc *listController) updateSelectionAfterMove(fromIdx, toIdx int) {
 	switch {
 	case lc.SelectedItems[fromIdx]:
 		delete(lc.SelectedItems, fromIdx)
@@ -328,7 +328,7 @@ func (lc *ListController) updateSelectionAfterMove(fromIdx, toIdx int) {
 	}
 }
 
-func (lc *ListController) toggleSelection(index int) {
+func (lc *listController) toggleSelection(index int) {
 	if index < 0 || index >= len(lc.Items) {
 		return
 	}
@@ -342,7 +342,7 @@ func (lc *ListController) toggleSelection(index int) {
 	}
 }
 
-func (lc *ListController) getSelectedItems() []int {
+func (lc *listController) getSelectedItems() []int {
 	selectedIndices := make([]int, 0, len(lc.SelectedItems))
 	for idx := range lc.SelectedItems {
 		selectedIndices = append(selectedIndices, idx)
@@ -350,7 +350,7 @@ func (lc *ListController) getSelectedItems() []int {
 	return selectedIndices
 }
 
-func (lc *ListController) scrollTo(index int) {
+func (lc *listController) scrollTo(index int) {
 	if index < 0 || index >= len(lc.Items) {
 		return
 	}
@@ -369,7 +369,7 @@ func (lc *ListController) scrollTo(index int) {
 	}
 }
 
-func (lc *ListController) handleEvent(event sdl.Event) bool {
+func (lc *listController) handleEvent(event sdl.Event) bool {
 	currentTime := time.Now()
 	if currentTime.Sub(lc.lastInputTime) < lc.Settings.InputDelay {
 		return false
@@ -388,7 +388,7 @@ func (lc *ListController) handleEvent(event sdl.Event) bool {
 	return false
 }
 
-func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
+func (lc *listController) handleKeyDown(key sdl.Keycode) bool {
 	lc.lastInputTime = time.Now()
 
 	if key == sdl.K_h {
@@ -407,7 +407,7 @@ func (lc *ListController) handleKeyDown(key sdl.Keycode) bool {
 	return lc.handleNormalModeInput(key)
 }
 
-func (lc *ListController) handleHelpScreenInput(key sdl.Keycode) bool {
+func (lc *listController) handleHelpScreenInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
 		lc.scrollHelpOverlay(-1)
@@ -421,7 +421,7 @@ func (lc *ListController) handleHelpScreenInput(key sdl.Keycode) bool {
 	}
 }
 
-func (lc *ListController) handleReorderModeInput(key sdl.Keycode) bool {
+func (lc *listController) handleReorderModeInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
 		return lc.moveItemUp()
@@ -435,7 +435,7 @@ func (lc *ListController) handleReorderModeInput(key sdl.Keycode) bool {
 	}
 }
 
-func (lc *ListController) handleNormalModeInput(key sdl.Keycode) bool {
+func (lc *listController) handleNormalModeInput(key sdl.Keycode) bool {
 	switch key {
 	case sdl.K_UP:
 		lc.moveSelection(-1)
@@ -475,7 +475,7 @@ func (lc *ListController) handleNormalModeInput(key sdl.Keycode) bool {
 	return false
 }
 
-func (lc *ListController) handleButtonPress(button uint8) bool {
+func (lc *listController) handleButtonPress(button uint8) bool {
 	lc.lastInputTime = time.Now()
 
 	if button == BrickButton_MENU {
@@ -494,7 +494,7 @@ func (lc *ListController) handleButtonPress(button uint8) bool {
 	return lc.handleNormalModeButtonInput(button)
 }
 
-func (lc *ListController) handleHelpScreenButtonInput(button uint8) bool {
+func (lc *listController) handleHelpScreenButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
 		lc.scrollHelpOverlay(-1)
@@ -507,7 +507,7 @@ func (lc *ListController) handleHelpScreenButtonInput(button uint8) bool {
 	}
 }
 
-func (lc *ListController) handleReorderModeButtonInput(button uint8) bool {
+func (lc *listController) handleReorderModeButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
 		return lc.moveItemUp()
@@ -521,7 +521,7 @@ func (lc *ListController) handleReorderModeButtonInput(button uint8) bool {
 	}
 }
 
-func (lc *ListController) handleNormalModeButtonInput(button uint8) bool {
+func (lc *listController) handleNormalModeButtonInput(button uint8) bool {
 	switch button {
 	case BrickButton_UP:
 		lc.moveSelection(-1)
@@ -554,7 +554,7 @@ func (lc *ListController) handleNormalModeButtonInput(button uint8) bool {
 	}
 }
 
-func (lc *ListController) moveSelection(direction int) {
+func (lc *listController) moveSelection(direction int) {
 	if len(lc.Items) == 0 {
 		return
 	}
@@ -578,7 +578,7 @@ func (lc *ListController) moveSelection(direction int) {
 	}
 }
 
-func (lc *ListController) render(renderer *sdl.Renderer) {
+func (lc *listController) render(renderer *sdl.Renderer) {
 
 	lc.updateScrollingAnimations()
 
@@ -620,30 +620,30 @@ func (lc *ListController) render(renderer *sdl.Renderer) {
 	lc.Settings.TitleAlign = originalAlign
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
-		lc.helpOverlay.Render(renderer, internal.GetSmallFont())
+		lc.helpOverlay.render(renderer, internal.GetSmallFont())
 	}
 }
 
-func (lc *ListController) toggleHelp() {
+func (lc *listController) toggleHelp() {
 	if !lc.HelpEnabled {
 		return
 	}
 
 	if lc.helpOverlay == nil {
-		lc.helpOverlay = NewHelpOverlay(defaultListHelpLines)
+		lc.helpOverlay = newHelpOverlay(defaultListHelpLines)
 	}
 
-	lc.helpOverlay.Toggle()
+	lc.helpOverlay.toggle()
 	lc.ShowingHelp = lc.helpOverlay.ShowingHelp
 }
 
-func (lc *ListController) scrollHelpOverlay(direction int) {
+func (lc *listController) scrollHelpOverlay(direction int) {
 	if lc.helpOverlay != nil {
-		lc.helpOverlay.Scroll(direction)
+		lc.helpOverlay.scroll(direction)
 	}
 }
 
-func (lc *ListController) measureTextForScrolling(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
+func (lc *listController) measureTextForScrolling(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
 
 	prefix := ""
 	if lc.MultiSelect {
@@ -680,7 +680,7 @@ func (lc *ListController) measureTextForScrolling(idx int, item models.MenuItem,
 	}
 }
 
-func (lc *ListController) updateItemScrollAnimation(data *textScrollData) {
+func (lc *listController) updateItemScrollAnimation(data *textScrollData) {
 
 	currentTime := time.Now()
 	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
@@ -715,7 +715,7 @@ func (lc *ListController) updateItemScrollAnimation(data *textScrollData) {
 }
 
 func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
-	startY int32, settings ListSettings, multiSelect bool, controller *ListController) {
+	startY int32, settings listSettings, multiSelect bool, controller *listController) {
 
 	if settings.ItemSpacing <= 0 {
 		settings.ItemSpacing = internal.DefaultMenuSpacing
@@ -863,7 +863,7 @@ func renderStaticText(renderer *sdl.Renderer, texture *sdl.Texture, src *sdl.Rec
 	renderer.Copy(texture, src, &textRect)
 }
 
-func renderListFooter(renderer *sdl.Renderer, settings ListSettings, isMultiSelect bool) {
+func renderListFooter(renderer *sdl.Renderer, settings listSettings, isMultiSelect bool) {
 
 	if settings.FooterText == "" && len(settings.FooterHelpItems) == 0 && !isMultiSelect {
 		return
@@ -1245,7 +1245,7 @@ func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color
 	}
 }
 
-func (lc *ListController) updateScrollingAnimations() {
+func (lc *listController) updateScrollingAnimations() {
 	screenWidth, _, err := internal.GetWindow().Renderer.GetOutputSize()
 	if err != nil {
 		screenWidth = 768
@@ -1277,7 +1277,7 @@ func (lc *ListController) updateScrollingAnimations() {
 	}
 }
 
-func (lc *ListController) createScrollDataForItem(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
+func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
 
 	prefix := ""
 	if lc.MultiSelect {
@@ -1314,7 +1314,7 @@ func (lc *ListController) createScrollDataForItem(idx int, item models.MenuItem,
 	}
 }
 
-func (lc *ListController) updateScrollAnimation(data *textScrollData) {
+func (lc *listController) updateScrollAnimation(data *textScrollData) {
 
 	currentTime := time.Now()
 	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
