@@ -605,7 +605,7 @@ func (lc *ListController) render(renderer *sdl.Renderer) {
 	originalAlign := lc.Settings.TitleAlign
 
 	if lc.ReorderMode {
-		lc.Settings.Title = "REORDER MODE"
+		lc.Settings.Title = "Reordering Mode"
 		lc.Settings.TitleAlign = internal.AlignCenter
 
 		selectedIdx := lc.SelectedIndex - lc.VisibleStartIndex

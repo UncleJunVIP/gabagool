@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	internal.Init("Mortar")
+	internal.Init("Option List Demo")
 	defer internal.SDLCleanup()
 	//
 	//conf, err := ui.NewBlockingConfirmation("Do you like potatoes?")
@@ -23,143 +23,80 @@ func main() {
 	//
 	//fmt.Println(aniRes)
 
-	menuItems := []models.MenuItem{
-		{Text: "The quick brown fox jumps over the lazy dog. I said the quick brown fox jumps over the lazy dog!!!!"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
-		{Text: "Megathread"},
-		{Text: "SMB"},
-		{Text: "RomM"},
-		{Text: "nginx"},
-		{Text: "Apache"},
-		{Text: "Potato"},
-		{Text: "Salad"},
-		{Text: "Oh look"},
-		{Text: "There is more"},
-		{Text: "This scrolls?"},
-		{Text: "This scrolls!"},
-		{Text: "And its in Go!?"},
-		{Text: "Wait does that mean?"},
-		{Text: "Can this be a library?"},
-		{Text: "Hopefully."},
-		{Text: "Should make things so much smoother."},
-		{Text: "Better UX / UI"},
-		{Text: "Better Dev Experience"},
+	//menuItems := []models.MenuItem{
+	//	{Text: "Game 1"},
+	//	{Text: "Game 2"},
+	//	{Text: "Game 3"},
+	//	{Text: "Game 4"},
+	//	{Text: "Game 5"},
+	//	{Text: "Game 6"},
+	//	{Text: "Game 7"},
+	//	{Text: "Game 8"},
+	//	{Text: "Game 9"},
+	//	{Text: "Game 10"},
+	//	{Text: "Game 11"},
+	//	{Text: "Game 12"},
+	//}
+	//
+	//fhi := []ui.FooterHelpItem{
+	//	{ButtonName: "B", HelpText: "Quit"},
+	//	{ButtonName: "A", HelpText: "Select"},
+	//}
+	//
+	//_, _ = ui.NewBlockingList("List Reorder Demo", menuItems, "", fhi, false, false, true)
+
+	items := []ui.ItemWithOptions{
+		{
+			Item: models.MenuItem{
+				Text: "Download Art",
+			},
+			Options: []ui.Option{
+				{DisplayName: "True", Value: true},
+				{DisplayName: "False", Value: false},
+			},
+		},
+		{
+			Item: models.MenuItem{
+				Text: "Art Type",
+			},
+			Options: []ui.Option{
+				{DisplayName: "Box Art", Value: "BOX_ART"},
+				{DisplayName: "Title Screen", Value: "TITLE_SCREEN"},
+				{DisplayName: "Logos", Value: "LOGOS"},
+				{DisplayName: "Screenshots", Value: "SCREENSHOTS"},
+			},
+			SelectedOption: 1, // Default to 1080p
+		},
+		{
+			Item: models.MenuItem{
+				Text: "Cache Game Lists",
+			},
+			Options: []ui.Option{
+				{DisplayName: "False", Value: false},
+				{DisplayName: "True", Value: true},
+			},
+			SelectedOption: 0, // Default to High
+		},
 	}
 
-	sel, err := ui.NewBlockingList("Mortar", menuItems, 20)
+	footerHelpItems := []ui.FooterHelpItem{
+		{ButtonName: "A", HelpText: "Select"},
+		{ButtonName: "B", HelpText: "Back"},
+		{ButtonName: "←→", HelpText: "Change option"},
+	}
+
+	result, err := ui.NewBlockingOptionsList(
+		"Settings",
+		items,
+		footerHelpItems,
+	)
+
 	if err != nil {
-		internal.Logger.Error("Failed to create blocking list",
-			"error", err)
+		fmt.Println("Error showing options list:", err)
+		return
 	}
 
-	fmt.Println(sel.SelectedItem.Text)
+	fmt.Println(result)
 
 	//downloads := []models.Download{
 	//	{
@@ -194,10 +131,10 @@ func main() {
 	//		result.Errors[i].Error())
 	//}
 
-	res, err := ui.NewBlockingKeyboard("Hello world")
-	if err != nil {
-	}
-
-	fmt.Println(res)
+	//res, err := ui.NewBlockingKeyboard("Hello world")
+	//if err != nil {
+	//}
+	//
+	//fmt.Println(res)
 
 }
