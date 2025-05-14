@@ -226,7 +226,12 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 										KeyboardPrompt: option.KeyboardPrompt,
 									}
 								}
-								continue // Don't exit the list
+								continue
+							} else if option.Type == OptionTypeClickable {
+								running = false
+								result.SelectedIndex = optionsListController.SelectedIndex
+								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
+								result.Cancelled = false
 							}
 						}
 					}
