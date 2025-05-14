@@ -136,6 +136,22 @@ func List(title string, items []models.MenuItem, listOptions ListOptions) (types
 	listController := newListController(title, items)
 
 	listController.SelectedIndex = listOptions.SelectedIndex
+
+	if listController.SelectedIndex > 0 {
+		if listController.SelectedIndex >= len(listController.Items) {
+			listController.SelectedIndex = len(listController.Items) - 1
+		}
+
+		for i := range listController.Items {
+			listController.Items[i].Selected = false
+		}
+
+		listController.Items[listController.SelectedIndex].Selected = true
+		listController.SelectedItems = map[int]bool{listController.SelectedIndex: true}
+
+		listController.scrollTo(listController.SelectedIndex - 1)
+	}
+
 	listController.MaxVisibleItems = 8
 	listController.EnableAction = listOptions.EnableAction
 	listController.Settings.FooterHelpItems = listOptions.FooterHelpItems
