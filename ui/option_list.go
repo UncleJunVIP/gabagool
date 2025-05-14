@@ -306,7 +306,7 @@ func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 		if olc.SelectedIndex > 0 {
 			olc.SelectedIndex--
 		} else {
-			olc.SelectedIndex = len(olc.Items) - 1 // Wrap to the bottom
+			olc.SelectedIndex = len(olc.Items) - 1
 		}
 		olc.Items[olc.SelectedIndex].Item.Selected = true
 		olc.scrollTo(olc.SelectedIndex)
@@ -320,7 +320,7 @@ func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 		if olc.SelectedIndex < len(olc.Items)-1 {
 			olc.SelectedIndex++
 		} else {
-			olc.SelectedIndex = 0 // Wrap to the top
+			olc.SelectedIndex = 0
 		}
 		olc.Items[olc.SelectedIndex].Item.Selected = true
 		olc.scrollTo(olc.SelectedIndex)
@@ -370,7 +370,7 @@ func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 		if olc.SelectedIndex > 0 {
 			olc.SelectedIndex--
 		} else {
-			olc.SelectedIndex = len(olc.Items) - 1 // Wrap to the bottom
+			olc.SelectedIndex = len(olc.Items) - 1
 		}
 		olc.Items[olc.SelectedIndex].Item.Selected = true
 		olc.scrollTo(olc.SelectedIndex)
@@ -384,7 +384,7 @@ func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 		if olc.SelectedIndex < len(olc.Items)-1 {
 			olc.SelectedIndex++
 		} else {
-			olc.SelectedIndex = 0 // Wrap to the top
+			olc.SelectedIndex = 0
 		}
 		olc.Items[olc.SelectedIndex].Item.Selected = true
 		olc.scrollTo(olc.SelectedIndex)
@@ -432,7 +432,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	window := internal.GetWindow()
 	font := internal.GetFont()
 
-	// render title
 	if olc.Settings.Title != "" {
 		titleSurface, _ := font.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if titleSurface != nil {
@@ -463,28 +462,22 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Calculate how many items we can display
 	visibleCount := min(olc.MaxVisibleItems, len(olc.Items)-olc.VisibleStartIndex)
 
-	// render items
 	for i := 0; i < visibleCount; i++ {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
 
-		// Item text color
 		textColor := sdl.Color{R: 180, G: 180, B: 180, A: 255}
 		bgColor := sdl.Color{R: 0, G: 0, B: 0, A: 0}
 
-		// Selected item has different color
 		if item.Item.Selected {
 			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 			bgColor = sdl.Color{R: 60, G: 60, B: 80, A: 255}
 		}
 
-		// Calculate item Y position
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
 
-		// render background for selected item
 		if item.Item.Selected {
 			renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
 			renderer.FillRect(&sdl.Rect{
@@ -495,7 +488,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 			})
 		}
 
-		// render item text
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
 		if itemSurface != nil {
 			defer itemSurface.Free()
@@ -511,7 +503,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 			}
 		}
 
-		// render option text
 		if len(item.Options) > 0 {
 			selectedOption := item.Options[item.SelectedOption]
 			optionSurface, _ := font.RenderUTF8Blended(selectedOption.DisplayName, textColor)
@@ -521,7 +512,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 				if optionTexture != nil {
 					defer optionTexture.Destroy()
 
-					// Position option text on the right side
 					renderer.Copy(optionTexture, nil, &sdl.Rect{
 						X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
 						Y: itemY,

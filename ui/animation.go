@@ -72,15 +72,13 @@ func NewAPNGPlayer(renderer *sdl.Renderer, filePath string) (*APNGPlayer, error)
 	}
 
 	for i, frame := range animation.Frames {
-		// For each frame, create a new RGBA image with proper dimensions
+
 		img := image.NewRGBA(image.Rect(0, 0, width, height))
 
-		// Draw the frame onto the RGBA image
 		draw.Draw(img, img.Bounds(), frame.Image, bounds.Min, draw.Over)
 
 		frames[i] = img
 
-		// Calculate frame duration in milliseconds
 		numDenomMs := 1000 * float64(frame.DelayNumerator) / float64(frame.DelayDenominator)
 		frameTimes[i] = time.Duration(numDenomMs) * time.Millisecond
 	}
@@ -184,7 +182,7 @@ func (p *APNGPlayer) Destroy() {
 func updateTextureFromFrame(renderer *sdl.Renderer, texture *sdl.Texture, img image.Image) error {
 	rgba, ok := img.(*image.RGBA)
 	if !ok {
-		// Convert to RGBA if it's not already
+
 		bounds := img.Bounds()
 		rgba = image.NewRGBA(bounds)
 		draw.Draw(rgba, bounds, img, bounds.Min, draw.Src)
@@ -209,15 +207,15 @@ type animationConfig struct {
 
 func defaultAnimationConfig() *animationConfig {
 	return &animationConfig{
-		x:              -1, // Center horizontally
-		y:              -1, // Center vertically
-		width:          0,  // Original size
-		height:         0,  // Original size
+		x:              -1,
+		y:              -1,
+		width:          0,
+		height:         0,
 		loop:           false,
 		autoClose:      true,
-		displayTime:    time.Second * 2,                     // Display for 2 seconds after completion
-		maxDisplayTime: 0,                                   // No maximum display time
-		bgColor:        sdl.Color{R: 0, G: 0, B: 0, A: 255}, // Black background
+		displayTime:    time.Second * 2,
+		maxDisplayTime: 0,
+		bgColor:        sdl.Color{R: 0, G: 0, B: 0, A: 255},
 	}
 }
 
@@ -419,7 +417,7 @@ func NewBlockingAnimation(filePath string, options ...AnimationOption) (Animatio
 
 		if !player.IsPlaying() && !player.IsLooping() {
 			if config.autoClose {
-				// Wait for the configured delay before auto-closing
+
 				if time.Since(startTime) > config.displayTime && config.displayTime > 0 {
 					running = false
 					result.CompletedNormally = true

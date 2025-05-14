@@ -16,6 +16,14 @@ const (
 	scrollDirectionLeft  = -1
 )
 
+type ListOptions struct {
+	FooterHelpItems   []FooterHelpItem
+	EnableAction      bool
+	EnableMultiSelect bool
+	EnableReordering  bool
+	SelectedIndex     int
+}
+
 type textScrollData struct {
 	needsScrolling bool
 	scrollOffset   int32
@@ -121,23 +129,23 @@ func newListController(title string, items []models.MenuItem) *listController {
 	}
 }
 
-func List(title string, items []models.MenuItem, footerText string, footerHelpItems []FooterHelpItem, enableAction bool, enableMultiSelect bool, enableReordering bool) (types.Option[models.ListReturn], error) {
+func List(title string, items []models.MenuItem, listOptions ListOptions) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
 	listController := newListController(title, items)
 
+	listController.SelectedIndex = listOptions.SelectedIndex
 	listController.MaxVisibleItems = 8
-	listController.EnableAction = enableAction
-	listController.Settings.FooterText = footerText
-	listController.Settings.FooterHelpItems = footerHelpItems
+	listController.EnableAction = listOptions.EnableAction
+	listController.Settings.FooterHelpItems = listOptions.FooterHelpItems
 
-	if enableMultiSelect {
+	if listOptions.EnableMultiSelect {
 		listController.Settings.MultiSelectKey = sdl.K_SPACE
 		listController.Settings.MultiSelectButton = BrickButton_SELECT
 	}
 
-	if enableReordering {
+	if listOptions.EnableReordering {
 		listController.Settings.ReorderKey = sdl.K_SPACE
 		listController.Settings.ReorderButton = BrickButton_SELECT
 	}

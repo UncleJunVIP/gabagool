@@ -19,7 +19,7 @@ type helpOverlay struct {
 	TextColor       sdl.Color
 	ScrollbarColor  sdl.Color
 	ScrollbarWidth  int32
-	ExitTextPadding int32 // Additional padding for exit text
+	ExitTextPadding int32
 }
 
 func newHelpOverlay(lines []string) *helpOverlay {
@@ -35,18 +35,18 @@ func newHelpOverlay(lines []string) *helpOverlay {
 		LineHeight:      50,
 		Width:           width,
 		Height:          height,
-		BackgroundColor: sdl.Color{R: 0, G: 0, B: 0, A: 220},       // Semi-transparent black
-		TextColor:       sdl.Color{R: 255, G: 255, B: 255, A: 255}, // White
-		ScrollbarColor:  sdl.Color{R: 150, G: 150, B: 150, A: 180}, // Semi-transparent gray
+		BackgroundColor: sdl.Color{R: 0, G: 0, B: 0, A: 220},
+		TextColor:       sdl.Color{R: 255, G: 255, B: 255, A: 255},
+		ScrollbarColor:  sdl.Color{R: 150, G: 150, B: 150, A: 180},
 		ScrollbarWidth:  8,
-		ExitTextPadding: 40, // Increased padding for exit text
+		ExitTextPadding: 40,
 	}
 }
 
 func (h *helpOverlay) toggle() {
 	h.ShowingHelp = !h.ShowingHelp
 	if h.ShowingHelp {
-		h.ScrollOffset = 0 // Reset scroll position when showing help
+		h.ScrollOffset = 0
 	}
 }
 
@@ -55,15 +55,12 @@ func (h *helpOverlay) scroll(direction int) {
 		return
 	}
 
-	// Calculate how much we can scroll based on content height
 	newOffset := h.ScrollOffset + int32(direction)*h.LineHeight
 
-	// Prevent scrolling past the beginning
 	if newOffset < 0 {
 		newOffset = 0
 	}
 
-	// Prevent scrolling past the end
 	if newOffset > h.MaxScrollOffset {
 		newOffset = h.MaxScrollOffset
 	}
@@ -73,7 +70,7 @@ func (h *helpOverlay) scroll(direction int) {
 
 func (h *helpOverlay) calculateMaxScroll(renderer *sdl.Renderer, font *ttf.Font) {
 	totalHeight := int32(len(h.Lines)) * h.LineHeight
-	visibleHeight := h.Height - (h.Padding * 2) - h.LineHeight - h.ExitTextPadding // Reserve space for exit instructions with padding
+	visibleHeight := h.Height - (h.Padding * 2) - h.LineHeight - h.ExitTextPadding
 
 	if totalHeight > visibleHeight {
 		h.MaxScrollOffset = totalHeight - visibleHeight
@@ -87,15 +84,12 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		return
 	}
 
-	// Ensure max scroll calculation is up to date
 	h.calculateMaxScroll(renderer, font)
 
-	// Draw semi-transparent background
 	bgRect := &sdl.Rect{X: 0, Y: 0, W: h.Width, H: h.Height}
 	renderer.SetDrawColor(h.BackgroundColor.R, h.BackgroundColor.G, h.BackgroundColor.B, h.BackgroundColor.A)
 	renderer.FillRect(bgRect)
 
-	// Draw title
 	titleText, err := font.RenderUTF8Blended("Help", h.TextColor)
 	if err == nil {
 		titleTexture, err := renderer.CreateTextureFromSurface(titleText)
@@ -112,21 +106,18 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		titleText.Free()
 	}
 
-	// Calculate content area
 	contentY := h.Padding + h.LineHeight*2
-	contentHeight := h.Height - contentY - h.Padding - h.LineHeight - h.ExitTextPadding // Reserve more space at bottom for exit text
+	contentHeight := h.Height - contentY - h.Padding - h.LineHeight - h.ExitTextPadding
 
-	// Calculate content width (accounting for scrollbar)
 	contentWidth := h.Width - h.Padding*2
 	if h.MaxScrollOffset > 0 {
-		contentWidth -= (h.ScrollbarWidth + 10) // Add some spacing between content and scrollbar
+		contentWidth -= h.ScrollbarWidth + 10
 	}
 
-	// Draw help lines
 	y := contentY - h.ScrollOffset
 
 	for _, line := range h.Lines {
-		// Skip lines that would be rendered outside the visible area
+
 		if y+h.LineHeight < contentY || y > contentY+contentHeight {
 			y += h.LineHeight
 			continue
@@ -151,14 +142,12 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		y += h.LineHeight
 	}
 
-	// Draw scrollbar if needed
 	if h.MaxScrollOffset > 0 {
-		// Calculate scrollbar positioning
+
 		scrollbarX := h.Width - h.Padding - h.ScrollbarWidth
 		scrollbarY := contentY
 		scrollbarHeight := contentHeight
 
-		// Draw scrollbar background/track
 		scrollbarBgRect := &sdl.Rect{
 			X: scrollbarX,
 			Y: scrollbarY,
@@ -169,7 +158,6 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		renderer.SetDrawColor(scrollbarBgColor.R, scrollbarBgColor.G, scrollbarBgColor.B, scrollbarBgColor.A)
 		renderer.FillRect(scrollbarBgRect)
 
-		// Calculate scrollbar handle size and position
 		totalContentHeight := int32(len(h.Lines)) * h.LineHeight
 		handleRatio := float64(contentHeight) / float64(totalContentHeight)
 		if handleRatio > 1.0 {
@@ -178,7 +166,7 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 
 		handleHeight := int32(float64(scrollbarHeight) * handleRatio)
 		if handleHeight < 30 {
-			handleHeight = 30 // Minimum handle size
+			handleHeight = 30
 		}
 
 		scrollRatio := 0.0
@@ -188,7 +176,6 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 
 		handleY := scrollbarY + int32(float64(scrollbarHeight-handleHeight)*scrollRatio)
 
-		// Draw scrollbar handle
 		scrollbarHandleRect := &sdl.Rect{
 			X: scrollbarX,
 			Y: handleY,
@@ -199,7 +186,6 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		renderer.FillRect(scrollbarHandleRect)
 	}
 
-	// Draw exit instructions with increased padding
 	exitText := "Press any button to close help"
 	exitSurface, err := font.RenderUTF8Blended(exitText, h.TextColor)
 	if err == nil {
@@ -207,7 +193,7 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		if err == nil {
 			exitRect := &sdl.Rect{
 				X: (h.Width - exitSurface.W) / 2,
-				Y: h.Height - h.Padding - exitSurface.H - h.ExitTextPadding/2, // Add half of the exit text padding
+				Y: h.Height - h.Padding - exitSurface.H - h.ExitTextPadding/2,
 				W: exitSurface.W,
 				H: exitSurface.H,
 			}

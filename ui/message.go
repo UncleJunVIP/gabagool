@@ -19,9 +19,9 @@ type messageSettings struct {
 	MessageText      string
 	MessageAlign     internal.TextAlignment
 	ButtonSpacing    int32
-	ImagePath        string // Optional path to image file
-	MaxImageHeight   int32  // Maximum height for the image
-	MaxImageWidth    int32  // Maximum width for the image
+	ImagePath        string
+	MaxImageHeight   int32
+	MaxImageWidth    int32
 	BackgroundColor  sdl.Color
 	MessageTextColor sdl.Color
 	FooterText       string
@@ -31,7 +31,7 @@ type messageSettings struct {
 }
 
 type MessageReturn struct {
-	SelectedButton int // Index of the selected button
+	SelectedButton int
 	ButtonName     string
 	LastPressedKey sdl.Keycode
 	LastPressedBtn uint8
@@ -64,8 +64,8 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 
 	if imagePath != "" {
 		settings.ImagePath = imagePath
-		settings.MaxImageHeight = window.Height / 2
-		settings.MaxImageWidth = window.Width * 2 / 2
+		settings.MaxImageHeight = int32(float64(window.Height) / 1.75)
+		settings.MaxImageWidth = int32(float64(window.Width) / 1.75)
 	}
 
 	running := true
@@ -80,7 +80,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 	var imageTexture *sdl.Texture
 	var imageRect sdl.Rect
 
-	// Load image if provided
 	if settings.ImagePath != "" {
 		image, err := img.Load(settings.ImagePath)
 		if err == nil {
@@ -88,7 +87,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 
 			imageTexture, err = renderer.CreateTextureFromSurface(image)
 			if err == nil {
-				// Scale image to fit within max dimensions while preserving aspect ratio
+
 				imageW := image.W
 				imageH := image.H
 
@@ -175,7 +174,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			}
 		}
 
-		// render the message dialog
 		renderer.SetDrawColor(
 			settings.BackgroundColor.R,
 			settings.BackgroundColor.G,
@@ -183,7 +181,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			settings.BackgroundColor.A)
 		renderer.Clear()
 
-		// Draw the title
 		titleFont := internal.GetTitleFont()
 		titleSurface, err := titleFont.RenderUTF8Solid(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
@@ -201,16 +198,13 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			titleSurface.Free()
 		}
 
-		// Calculate starting Y position based on image presence
 		startY := settings.Margins.Top + settings.TitleSpacing + 40
 
-		// Draw the image if available
 		if imageTexture != nil {
 			renderer.Copy(imageTexture, nil, &imageRect)
 			startY = imageRect.Y + imageRect.H + 30
 		}
 
-		// Draw the message text
 		messageFont := internal.GetSmallFont()
 		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
 		renderMultilineText(
@@ -222,14 +216,12 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			startY,
 			settings.MessageTextColor)
 
-		// Draw footer with button pills identical to list.go
 		renderMessageFooter(renderer, settings.FooterHelpItems, settings.Margins)
 
 		renderer.Present()
 		sdl.Delay(16)
 	}
 
-	// Clean up resources
 	if imageTexture != nil {
 		imageTexture.Destroy()
 	}

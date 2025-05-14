@@ -19,8 +19,6 @@ type blockingProcess struct {
 	completeTime time.Time
 }
 
-// BlockingProcess creates a UI that shows a message while a function runs
-// and returns the result once complete
 func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessReturn, error) {
 	processor := &blockingProcess{
 		window:       internal.GetWindow(),
@@ -37,18 +35,15 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	// Setup and start the process
 	processor.render(renderer)
 	renderer.Present()
 
-	// Create a channel for the function result
 	resultChan := make(chan struct {
 		success bool
 		result  interface{}
 		err     error
 	}, 1)
 
-	// Start the function in a goroutine
 	go func() {
 		result, err := fn()
 		if err != nil {
@@ -66,13 +61,12 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 		}
 	}()
 
-	// Main loop to keep displaying the message
 	running := true
 	functionComplete := false
 	var err error
 
 	for running {
-		// Handle SDL events (just to keep the window responsive)
+
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			if _, ok := event.(*sdl.QuitEvent); ok {
 				running = false
@@ -80,7 +74,6 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 			}
 		}
 
-		// Check if function has completed
 		if !functionComplete {
 			select {
 			case processResult := <-resultChan:
@@ -91,20 +84,19 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 				processor.isProcessing = false
 				processor.completeTime = time.Now()
 			default:
-				// Continue waiting
+
 			}
 		} else {
-			// Function is complete, check if we should close
+
 			if time.Since(processor.completeTime) > 1*time.Second {
 				running = false
 			}
 		}
 
-		// Update display
 		processor.render(renderer)
 		renderer.Present()
 
-		sdl.Delay(16) // ~60 FPS
+		sdl.Delay(16)
 	}
 
 	return result, err
@@ -116,7 +108,6 @@ func (p *blockingProcess) render(renderer *sdl.Renderer) {
 
 	font := internal.GetSmallFont()
 
-	// Only render the message, centered vertically and horizontally
 	maxWidth := p.window.Width * 3 / 4
 	renderMultilineText(renderer, p.message, font, maxWidth, p.window.Width/2, p.window.Height/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 }
