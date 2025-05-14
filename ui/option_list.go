@@ -10,9 +10,19 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type OptionType int
+
+const (
+	OptionTypeStandard OptionType = iota
+	OptionTypeKeyboard
+	OptionTypeClickable
+)
+
 type Option struct {
-	DisplayName string
-	Value       interface{}
+	DisplayName    string
+	Value          interface{}
+	Type           OptionType
+	KeyboardPrompt string
 }
 
 type ItemWithOptions struct {
@@ -137,6 +147,37 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					result.Cancelled = true
 
 				case sdl.K_a:
+					// Check if the current option is a keyboard type
+					if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(optionsListController.Items) {
+						item := &optionsListController.Items[optionsListController.SelectedIndex]
+						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
+							option := item.Options[item.SelectedOption]
+							if option.Type == OptionTypeKeyboard {
+								prompt := option.KeyboardPrompt
+								if prompt == "" {
+									prompt = "Enter value"
+								}
+								keyboardResult, keyboardErr := Keyboard(prompt)
+								if keyboardErr == nil && keyboardResult.IsSome() {
+									enteredText := keyboardResult.Unwrap()
+									item.Options[item.SelectedOption] = Option{
+										DisplayName:    enteredText,
+										Value:          enteredText,
+										Type:           OptionTypeKeyboard,
+										KeyboardPrompt: option.KeyboardPrompt,
+									}
+								}
+								continue
+							} else if option.Type == OptionTypeClickable {
+								running = false
+								result.SelectedIndex = optionsListController.SelectedIndex
+								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
+								result.Cancelled = false
+							}
+						}
+					}
+
+				case sdl.K_RETURN:
 					running = false
 					result.SelectedIndex = optionsListController.SelectedIndex
 					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
@@ -166,6 +207,31 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					running = false
 
 				case BrickButton_A:
+					if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(optionsListController.Items) {
+						item := &optionsListController.Items[optionsListController.SelectedIndex]
+						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
+							option := item.Options[item.SelectedOption]
+							if option.Type == OptionTypeKeyboard {
+								prompt := option.KeyboardPrompt
+								if prompt == "" {
+									prompt = "Enter value"
+								}
+								keyboardResult, keyboardErr := Keyboard(prompt)
+								if keyboardErr == nil && keyboardResult.IsSome() {
+									enteredText := keyboardResult.Unwrap()
+									item.Options[item.SelectedOption] = Option{
+										DisplayName:    enteredText,
+										Value:          enteredText,
+										Type:           OptionTypeKeyboard,
+										KeyboardPrompt: option.KeyboardPrompt,
+									}
+								}
+								continue // Don't exit the list
+							}
+						}
+					}
+
+				case BrickButton_START:
 					running = false
 					result.SelectedIndex = optionsListController.SelectedIndex
 					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
@@ -210,6 +276,10 @@ func (olc *optionsListController) cycleOptionLeft() {
 		return
 	}
 
+	if item.Options[item.SelectedOption].Type == OptionTypeClickable {
+		return
+	}
+
 	item.SelectedOption--
 	if item.SelectedOption < 0 {
 		item.SelectedOption = len(item.Options) - 1
@@ -223,6 +293,10 @@ func (olc *optionsListController) cycleOptionRight() {
 
 	item := &olc.Items[olc.SelectedIndex]
 	if len(item.Options) == 0 {
+		return
+	}
+
+	if item.Options[item.SelectedOption].Type == OptionTypeClickable {
 		return
 	}
 
@@ -282,6 +356,32 @@ func (olc *optionsListController) handleKeyDown(key sdl.Keycode) bool {
 		return olc.handleHelpScreenInput(key)
 	}
 
+	if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
+		item := &olc.Items[olc.SelectedIndex]
+		if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
+			option := item.Options[item.SelectedOption]
+			if option.Type == OptionTypeKeyboard {
+				if key == sdl.K_a {
+					prompt := option.KeyboardPrompt
+					if prompt == "" {
+						prompt = "Enter value"
+					}
+					keyboardResult, err := Keyboard(prompt)
+					if err == nil && keyboardResult.IsSome() {
+						enteredText := keyboardResult.Unwrap()
+						item.Options[item.SelectedOption] = Option{
+							DisplayName:    enteredText,
+							Value:          enteredText,
+							Type:           OptionTypeKeyboard,
+							KeyboardPrompt: option.KeyboardPrompt,
+						}
+					}
+					return true
+				}
+			}
+		}
+	}
+
 	return olc.handleNormalModeInput(key)
 }
 
@@ -337,7 +437,7 @@ func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 func (olc *optionsListController) handleButtonPress(button uint8) bool {
 	olc.lastInputTime = time.Now()
 
-	if button == BrickButton_Y {
+	if button == BrickButton_MENU {
 		olc.toggleHelp()
 		return true
 	}
@@ -393,9 +493,35 @@ func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 		}
 		return true
 
+	case BrickButton_A:
+		if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
+			item := &olc.Items[olc.SelectedIndex]
+			if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
+				option := item.Options[item.SelectedOption]
+				if option.Type == OptionTypeKeyboard {
+					prompt := option.KeyboardPrompt
+					if prompt == "" {
+						prompt = "Enter value"
+					}
+					keyboardResult, err := Keyboard(prompt)
+					if err == nil && keyboardResult.IsSome() {
+						enteredText := keyboardResult.Unwrap()
+						item.Options[item.SelectedOption] = Option{
+							DisplayName:    enteredText,
+							Value:          enteredText,
+							Type:           OptionTypeKeyboard,
+							KeyboardPrompt: option.KeyboardPrompt,
+						}
+					}
+					return true
+				}
+			}
+		}
+
 	default:
 		return false
 	}
+	return false
 }
 
 func (olc *optionsListController) toggleHelp() {
@@ -409,7 +535,7 @@ func (olc *optionsListController) toggleHelp() {
 			"Navigation Controls:",
 			"• Up / Down: Navigate through items",
 			"• Left / Right: Change option for current item",
-			"• A: Save selections and exit",
+			"• A: Select or input text for keyboard options",
 			"• B: Cancel and exit",
 		}
 		olc.helpOverlay = newHelpOverlay(helpLines)
@@ -505,19 +631,61 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 		if len(item.Options) > 0 {
 			selectedOption := item.Options[item.SelectedOption]
-			optionSurface, _ := font.RenderUTF8Blended(selectedOption.DisplayName, textColor)
-			if optionSurface != nil {
-				defer optionSurface.Free()
-				optionTexture, _ := renderer.CreateTextureFromSurface(optionSurface)
-				if optionTexture != nil {
-					defer optionTexture.Destroy()
 
-					renderer.Copy(optionTexture, nil, &sdl.Rect{
-						X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
-						Y: itemY,
-						W: optionSurface.W,
-						H: optionSurface.H,
-					})
+			if selectedOption.Type == OptionTypeKeyboard {
+				indicatorText := selectedOption.DisplayName
+				if indicatorText == "" {
+					indicatorText = "[Press A to input]"
+				}
+
+				optionSurface, _ := font.RenderUTF8Blended(indicatorText, textColor)
+				if optionSurface != nil {
+					defer optionSurface.Free()
+					optionTexture, _ := renderer.CreateTextureFromSurface(optionSurface)
+					if optionTexture != nil {
+						defer optionTexture.Destroy()
+
+						renderer.Copy(optionTexture, nil, &sdl.Rect{
+							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							Y: itemY,
+							W: optionSurface.W,
+							H: optionSurface.H,
+						})
+					}
+				}
+			} else if selectedOption.Type == OptionTypeClickable {
+				indicatorText := selectedOption.DisplayName
+
+				optionSurface, _ := font.RenderUTF8Blended(indicatorText, textColor)
+				if optionSurface != nil {
+					defer optionSurface.Free()
+					optionTexture, _ := renderer.CreateTextureFromSurface(optionSurface)
+					if optionTexture != nil {
+						defer optionTexture.Destroy()
+
+						renderer.Copy(optionTexture, nil, &sdl.Rect{
+							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							Y: itemY,
+							W: optionSurface.W,
+							H: optionSurface.H,
+						})
+					}
+				}
+			} else {
+				optionSurface, _ := font.RenderUTF8Blended(selectedOption.DisplayName, textColor)
+				if optionSurface != nil {
+					defer optionSurface.Free()
+					optionTexture, _ := renderer.CreateTextureFromSurface(optionSurface)
+					if optionTexture != nil {
+						defer optionTexture.Destroy()
+
+						renderer.Copy(optionTexture, nil, &sdl.Rect{
+							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							Y: itemY,
+							W: optionSurface.W,
+							H: optionSurface.H,
+						})
+					}
 				}
 			}
 		}

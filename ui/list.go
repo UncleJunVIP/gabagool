@@ -468,14 +468,6 @@ func (lc *listController) handleNormalModeInput(key sdl.Keycode) bool {
 			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
 		}
 		return true
-	case sdl.K_z:
-		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
-			if lc.OnSelect != nil {
-				lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
-			}
-			return true
-		}
 	case lc.Settings.ReorderKey:
 		lc.toggleReorderMode()
 		return true
