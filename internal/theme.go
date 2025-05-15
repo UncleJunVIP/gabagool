@@ -28,8 +28,8 @@ func InitTheme() {
 		PrimaryAccentColor:    hexToColor(0x9B2257),
 		SecondaryAccentColor:  hexToColor(0x1E2329),
 		HintInfoColor:         hexToColor(0xFFFFFF),
-		ListTextColor:         hexToColor(0x000000),
-		ListTextSelectedColor: hexToColor(0xFFFFFF),
+		ListTextColor:         hexToColor(0xFFFFFF),
+		ListTextSelectedColor: hexToColor(0x000000),
 		BGColor:               hexToColor(0x000000),
 	}
 

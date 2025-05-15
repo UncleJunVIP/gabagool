@@ -19,7 +19,7 @@ var xlFont, largeFont, mediumFont, smallFont, tinyFont, microFont,
 	largeSymbolFont, mediumSymbolFont, smallSymbolFont, tinySymbolFont, microSymbolFont *ttf.Font
 
 func InitFonts(scale int) {
-	xlFont = loadFont("fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeXLarge*scale)
+	xlFont = loadFont("fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeXLarge*scale) // TODO laod from .system folder first
 	largeFont = loadFont("fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
 	mediumFont = loadFont("fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
 	smallFont = loadFont("fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)

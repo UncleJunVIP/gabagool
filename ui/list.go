@@ -754,8 +754,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 
 	RenderFooter(
 		renderer,
-		internal.GetMediumFont(),
-		lc.Settings.FooterTextColor,
+		internal.GetSmallFont(),
 		lc.Settings.FooterHelpItems,
 		lc.Settings.Margins.Bottom,
 	)
@@ -860,7 +859,7 @@ func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor s
 		} else if item.Focused {
 			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 		} else if item.Selected {
-			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().PrimaryAccentColor
+			return internal.GetTheme().HintInfoColor, internal.GetTheme().PrimaryAccentColor
 		}
 		return internal.GetTheme().ListTextColor, sdl.Color{}
 	}

@@ -701,7 +701,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	RenderFooter(
 		renderer,
 		internal.GetMediumFont(),
-		olc.Settings.FooterTextColor,
 		olc.Settings.FooterHelpItems,
 		olc.Settings.Margins.Bottom,
 	)
