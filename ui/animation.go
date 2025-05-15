@@ -452,7 +452,7 @@ func renderHelpOverlay(renderer *sdl.Renderer, helpLines []string) {
 	renderer.SetDrawColor(0, 0, 0, 200)
 	renderer.FillRect(&overlay)
 
-	font := internal.GetTitleFont()
+	font := internal.GetLargeFont()
 	titleSurface, err := font.RenderUTF8Solid("Animation Help", sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err == nil {
 		texture, err := renderer.CreateTextureFromSurface(titleSurface)
@@ -469,7 +469,7 @@ func renderHelpOverlay(renderer *sdl.Renderer, helpLines []string) {
 		titleSurface.Free()
 	}
 
-	normalFont := internal.GetFont()
+	normalFont := internal.GetMediumFont()
 	lineHeight := int32(30)
 	startY := screenH/6 + lineHeight*2
 

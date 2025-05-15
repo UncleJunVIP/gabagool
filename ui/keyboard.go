@@ -223,7 +223,7 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 func Keyboard(initialText string) (types.Option[string], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
-	font := internal.GetFont()
+	font := internal.GetMediumFont()
 
 	kb := createKeyboard(window.Width, window.Height)
 
@@ -887,7 +887,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 	backspaceText := "⌫"
 	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-	backspaceSurface, err := font.RenderUTF8Blended(backspaceText, textColor)
+	backspaceSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(backspaceText, textColor)
 	if err == nil {
 		backspaceTexture, err := renderer.CreateTextureFromSurface(backspaceSurface)
 		if err == nil {
@@ -915,7 +915,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.DrawRect(&kb.EnterRect)
 
 	enterText := "↵"
-	enterSurface, err := font.RenderUTF8Blended(enterText, textColor)
+	enterSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(enterText, textColor)
 	if err == nil {
 		enterTexture, err := renderer.CreateTextureFromSurface(enterSurface)
 		if err == nil {
@@ -965,7 +965,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.DrawRect(&kb.ShiftRect)
 
 	shiftText := "⇧"
-	shiftSurface, err := font.RenderUTF8Blended(shiftText, textColor)
+	shiftSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(shiftText, textColor)
 	if err == nil {
 		shiftTexture, err := renderer.CreateTextureFromSurface(shiftSurface)
 		if err == nil {

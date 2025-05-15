@@ -561,10 +561,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	}
 
 	window := internal.GetWindow()
-	font := internal.GetFont()
+	titleFont := internal.GetXLargeFont()
+	font := internal.GetLargeFont()
 
 	if olc.Settings.Title != "" {
-		titleSurface, _ := font.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		titleSurface, _ := titleFont.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if titleSurface != nil {
 			defer titleSurface.Free()
 			titleTexture, _ := renderer.CreateTextureFromSurface(titleSurface)

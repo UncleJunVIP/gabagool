@@ -468,10 +468,10 @@ func (lc *listController) handleNormalModeInput(key sdl.Keycode) bool {
 		lc.moveSelection(1)
 		return true
 	case sdl.K_LEFT:
-		lc.moveSelection(-4)
+		lc.moveSelection(lc.MaxVisibleItems * -1)
 		return true
 	case sdl.K_RIGHT:
-		lc.moveSelection(4)
+		lc.moveSelection(lc.MaxVisibleItems)
 		return true
 	case lc.Settings.MultiSelectKey:
 		lc.toggleMultiSelect()
@@ -546,10 +546,10 @@ func (lc *listController) handleNormalModeButtonInput(button uint8) bool {
 		lc.moveSelection(1)
 		return true
 	case BrickButton_LEFT:
-		lc.moveSelection(-4)
+		lc.moveSelection(lc.MaxVisibleItems * -1)
 		return true
 	case BrickButton_RIGHT:
-		lc.moveSelection(4)
+		lc.moveSelection(lc.MaxVisibleItems)
 		return true
 	case BrickButton_A:
 		if lc.MultiSelect {
@@ -630,7 +630,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	drawScrollableMenu(renderer, internal.GetFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
+	drawScrollableMenu(renderer, internal.GetLargeFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
@@ -674,7 +674,7 @@ func (lc *listController) measureTextForScrolling(idx int, item models.MenuItem,
 		prefix = "↕ " + prefix
 	}
 
-	textSurface, err := internal.GetFont().RenderUTF8Blended(
+	textSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	)
@@ -749,7 +749,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	itemStartY := startY
 
 	if settings.Title != "" {
-		itemStartY = drawTitle(renderer, internal.GetTitleFont(), settings.Title,
+		itemStartY = drawTitle(renderer, internal.GetXLargeFont(), settings.Title,
 			settings.TitleAlign, startY, settings.Margins.Left) + settings.TitleSpacing
 	}
 
@@ -1308,7 +1308,7 @@ func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem,
 		prefix = "↕ " + prefix
 	}
 
-	textSurface, err := internal.GetFont().RenderUTF8Blended(
+	textSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	)

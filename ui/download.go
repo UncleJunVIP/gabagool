@@ -317,7 +317,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	font := internal.GetSmallFont()
 
 	if len(dm.downloads) > 1 {
-		titleFont := internal.GetTitleFont()
+		titleFont := internal.GetXLargeFont()
 		titleText := "Download Manager"
 		titleSurface, err := titleFont.RenderUTF8Solid(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {

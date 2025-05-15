@@ -19,8 +19,6 @@ type Window struct {
 const (
 	DefaultWindowWidth  = int32(1024)
 	DefaultWindowHeight = int32(768)
-	FontSize            = 40
-	SmallFontSize       = 30
 )
 
 func InitWindow(title string) *Window {
@@ -40,10 +38,10 @@ func InitWindow(title string) *Window {
 		fmt.Fprintf(os.Stderr, "Failed to get display mode: %s\n", err)
 	}
 
-	return InitWindowWithSize(title, width, height, FontSize, SmallFontSize)
+	return InitWindowWithSize(title, width, height)
 }
 
-func InitWindowWithSize(title string, width, height int32, fontSize int, smallFontSize int) *Window {
+func InitWindowWithSize(title string, width, height int32) *Window {
 	window, err := sdl.CreateWindow(title, 0, 0, width, height, sdl.WINDOW_SHOWN)
 	if err != nil {
 		panic(err)
@@ -55,17 +53,23 @@ func InitWindowWithSize(title string, width, height int32, fontSize int, smallFo
 		os.Exit(1)
 	}
 
-	InitFonts(fontSize+10, fontSize, smallFontSize)
+	InitFonts(getFontScale(width, height))
 
 	return &Window{
-		Window:        window,
-		Renderer:      renderer,
-		Title:         title,
-		Width:         width,
-		Height:        height,
-		FontSize:      fontSize,
-		SmallFontSize: smallFontSize,
+		Window:   window,
+		Renderer: renderer,
+		Title:    title,
+		Width:    width,
+		Height:   height,
 	}
+}
+
+func getFontScale(width, height int32) int {
+	if width == DefaultWindowWidth && height == DefaultWindowHeight {
+		return 3
+	}
+
+	return 2
 }
 
 func (window Window) CloseWindow() {
