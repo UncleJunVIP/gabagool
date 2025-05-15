@@ -106,7 +106,7 @@ func (p *blockingProcess) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	font := internal.GetSmallFont()
+	font := internal.GetMediumFont()
 
 	maxWidth := p.window.Width * 3 / 4
 	renderMultilineText(renderer, p.message, font, maxWidth, p.window.Width/2, p.window.Height/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})

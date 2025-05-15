@@ -6,11 +6,6 @@ import (
 	"strings"
 )
 
-type FooterHelpItem struct {
-	ButtonName string
-	HelpText   string
-}
-
 func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) int32 {
 	if text == "" {
 		return 0

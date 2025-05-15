@@ -30,6 +30,8 @@ func Init(applicationName string) {
 		}
 	}
 
+	InitTheme()
+
 	window = InitWindow(applicationName)
 }
 

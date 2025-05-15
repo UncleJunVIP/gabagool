@@ -24,18 +24,18 @@ func main() {
 	//fmt.Println(aniRes)
 
 	//menuItems := []models.MenuItem{
-	//	{Text: "Game 1"},
-	//	{Text: "Game 2"},
-	//	{Text: "Game 3"},
-	//	{Text: "Game 4"},
-	//	{Text: "Game 5"},
-	//	{Text: "Game 6"},
-	//	{Text: "Game 7"},
-	//	{Text: "Game 8"},
-	//	{Text: "Game 9"},
-	//	{Text: "Game 10"},
-	//	{Text: "Game 11"},
-	//	{Text: "Game 12"},
+	//	{HelpText: "Game 1"},
+	//	{HelpText: "Game 2"},
+	//	{HelpText: "Game 3"},
+	//	{HelpText: "Game 4"},
+	//	{HelpText: "Game 5"},
+	//	{HelpText: "Game 6"},
+	//	{HelpText: "Game 7"},
+	//	{HelpText: "Game 8"},
+	//	{HelpText: "Game 9"},
+	//	{HelpText: "Game 10"},
+	//	{HelpText: "Game 11"},
+	//	{HelpText: "Game 12"},
 	//}
 	//
 	//fhi := []ui.FooterHelpItem{

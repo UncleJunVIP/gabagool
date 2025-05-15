@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"os"
 )
@@ -14,6 +15,7 @@ type Window struct {
 	Height        int32
 	FontSize      int
 	SmallFontSize int
+	Background    *sdl.Texture
 }
 
 const (
@@ -55,12 +57,44 @@ func InitWindowWithSize(title string, width, height int32) *Window {
 
 	InitFonts(getFontScale(width, height))
 
-	return &Window{
+	win := &Window{
 		Window:   window,
 		Renderer: renderer,
 		Title:    title,
 		Width:    width,
 		Height:   height,
+	}
+
+	win.loadBackground()
+
+	return win
+}
+
+func (window *Window) loadBackground() {
+	img.Init(img.INIT_PNG)
+
+	bgPath := "bg.png"
+
+	if os.Getenv("DEVELOPMENT") == "true" {
+		bgPath = "/Users/btk/Developer/gabagool/dev_resources/bg.png" //TODO make ENV VAR
+	}
+
+	bgTexture, err := img.LoadTexture(window.Renderer, bgPath)
+	if err == nil {
+		window.Background = bgTexture
+	} else {
+		window.Background = nil
+	}
+}
+
+func (window *Window) RenderBackground() {
+	if window.Background != nil {
+
+		window.Renderer.Copy(window.Background, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
+	} else {
+
+		window.Renderer.SetDrawColor(GetSDLColorValues(GetTheme().BGColor))
+		window.Renderer.Clear()
 	}
 }
 
@@ -74,6 +108,12 @@ func getFontScale(width, height int32) int {
 
 func (window Window) CloseWindow() {
 	CloseFonts()
+
+	if window.Background != nil {
+		window.Background.Destroy()
+	}
 	window.Renderer.Destroy()
 	window.Window.Destroy()
+
+	img.Quit()
 }

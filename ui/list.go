@@ -11,17 +11,66 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-const (
-	scrollDirectionRight = 1
-	scrollDirectionLeft  = -1
-)
-
 type ListOptions struct {
-	FooterHelpItems   []FooterHelpItem
+	Title             string
+	Items             []models.MenuItem
+	SelectedIndex     int
+	VisibleStartIndex int
+	MaxVisibleItems   int
+
 	EnableAction      bool
 	EnableMultiSelect bool
 	EnableReordering  bool
-	SelectedIndex     int
+	HelpEnabled       bool
+
+	Margins         models.Padding
+	ItemSpacing     int32
+	TitleAlign      internal.TextAlignment
+	TitleSpacing    int32
+	FooterText      string
+	FooterTextColor sdl.Color
+	FooterHelpItems []FooterHelpItem
+
+	ScrollSpeed     float32
+	ScrollPauseTime int
+
+	InputDelay        time.Duration
+	MultiSelectKey    sdl.Keycode
+	MultiSelectButton uint8
+	ReorderKey        sdl.Keycode
+	ReorderButton     uint8
+
+	OnSelect  func(index int, item *models.MenuItem)
+	OnReorder func(from, to int)
+}
+
+func DefaultListOptions(title string, items []models.MenuItem) ListOptions {
+	return ListOptions{
+		Title:             title,
+		Items:             items,
+		SelectedIndex:     0,
+		MaxVisibleItems:   7,
+		EnableAction:      false,
+		EnableMultiSelect: false,
+		EnableReordering:  false,
+		HelpEnabled:       false,
+		Margins:           models.UniformPadding(20),
+		ItemSpacing:       internal.DefaultMenuSpacing,
+		TitleAlign:        internal.AlignLeft,
+		TitleSpacing:      internal.DefaultTitleSpacing,
+		FooterText:        "",
+		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
+		FooterHelpItems:   []FooterHelpItem{},
+		ScrollSpeed:       150.0,
+		ScrollPauseTime:   25,
+		InputDelay:        internal.DefaultInputDelay,
+		MultiSelectKey:    sdl.K_SPACE,
+		MultiSelectButton: BrickButton_SELECT,
+		ReorderKey:        sdl.K_SPACE,
+		ReorderButton:     BrickButton_SELECT,
+		OnSelect:          nil,
+		OnReorder:         nil,
+	}
 }
 
 type textScrollData struct {
@@ -53,15 +102,17 @@ type listSettings struct {
 }
 
 type listController struct {
-	Items         []models.MenuItem
-	SelectedIndex int
-	SelectedItems map[int]bool
-	MultiSelect   bool
-	ReorderMode   bool
-	Settings      listSettings
-	StartY        int32
-	lastInputTime time.Time
-	OnSelect      func(index int, item *models.MenuItem)
+	Items             []models.MenuItem
+	SelectedIndex     int
+	SelectedItems     map[int]bool
+	MultiSelect       bool
+	EnableMultiSelect bool
+	ReorderMode       bool
+	EnableReorderMode bool
+	Settings          listSettings
+	StartY            int32
+	lastInputTime     time.Time
+	OnSelect          func(index int, item *models.MenuItem)
 
 	VisibleStartIndex int
 	MaxVisibleItems   int
@@ -74,96 +125,93 @@ type listController struct {
 	ShowingHelp bool
 
 	itemScrollData map[int]*textScrollData
-}
 
-var defaultListHelpLines = []string{
-	"Navigation Controls:",
-	"• Up / Down: Navigate through items",
-	"• A: Select current item",
-	"• B: Cancel and exit",
-}
-
-func defaultListSettings(title string) listSettings {
-	return listSettings{
-		Margins:         models.UniformPadding(20),
-		ItemSpacing:     internal.DefaultMenuSpacing,
-		InputDelay:      internal.DefaultInputDelay,
-		Title:           title,
-		TitleAlign:      internal.AlignLeft,
-		TitleSpacing:    internal.DefaultTitleSpacing,
-		ScrollSpeed:     150.0,
-		ScrollPauseTime: 25,
-		FooterText:      "",
-		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
-		FooterHelpItems: []FooterHelpItem{},
+	heldDirections struct {
+		up    bool
+		down  bool
+		left  bool
+		right bool
 	}
+	lastRepeatTime time.Time
+	repeatDelay    time.Duration
+	repeatInterval time.Duration
 }
 
-func newListController(title string, items []models.MenuItem) *listController {
+func newListController(options ListOptions) *listController {
 	selectedItems := make(map[int]bool)
-	selectedIndex := 0
+	selectedIndex := options.SelectedIndex
 
-	for i, item := range items {
-		if item.Selected {
-			selectedIndex = i
-			break
-		}
+	if selectedIndex < 0 || selectedIndex >= len(options.Items) {
+		selectedIndex = 0
 	}
 
-	for i := range items {
-		items[i].Selected = i == selectedIndex
-		if items[i].Selected {
+	for i := range options.Items {
+		options.Items[i].Selected = i == selectedIndex
+		if options.Items[i].Selected {
 			selectedItems[i] = true
 		}
 	}
 
+	settings := listSettings{
+		Margins:         options.Margins,
+		ItemSpacing:     options.ItemSpacing,
+		InputDelay:      options.InputDelay,
+		Title:           options.Title,
+		TitleAlign:      options.TitleAlign,
+		TitleSpacing:    options.TitleSpacing,
+		ScrollSpeed:     options.ScrollSpeed,
+		ScrollPauseTime: options.ScrollPauseTime,
+		FooterText:      options.FooterText,
+		FooterTextColor: options.FooterTextColor,
+		FooterHelpItems: options.FooterHelpItems,
+	}
+
+	if options.EnableMultiSelect {
+		settings.MultiSelectKey = options.MultiSelectKey
+		settings.MultiSelectButton = options.MultiSelectButton
+	}
+
+	if options.EnableReordering {
+		settings.ReorderKey = options.ReorderKey
+		settings.ReorderButton = options.ReorderButton
+	}
+
 	return &listController{
-		Items:          items,
-		SelectedIndex:  selectedIndex,
-		SelectedItems:  selectedItems,
-		MultiSelect:    false,
-		Settings:       defaultListSettings(title),
-		StartY:         20,
-		lastInputTime:  time.Now(),
-		itemScrollData: make(map[int]*textScrollData),
+		Items:             options.Items,
+		SelectedIndex:     selectedIndex,
+		SelectedItems:     selectedItems,
+		MultiSelect:       false,
+		EnableMultiSelect: options.EnableMultiSelect,
+		ReorderMode:       false,
+		EnableReorderMode: options.EnableReordering,
+		Settings:          settings,
+		StartY:            20,
+		lastInputTime:     time.Now(),
+		VisibleStartIndex: options.VisibleStartIndex,
+		MaxVisibleItems:   options.MaxVisibleItems,
+		EnableAction:      options.EnableAction,
+		HelpEnabled:       options.HelpEnabled,
+		OnSelect:          options.OnSelect,
+		OnReorder:         options.OnReorder,
+		itemScrollData:    make(map[int]*textScrollData),
+		lastRepeatTime:    time.Now(),
+		repeatDelay:       200 * time.Millisecond,
+		repeatInterval:    0 * time.Millisecond,
 	}
 }
 
-func List(title string, items []models.MenuItem, listOptions ListOptions) (types.Option[models.ListReturn], error) {
+func List(options ListOptions) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
-	listController := newListController(title, items)
-
-	listController.SelectedIndex = listOptions.SelectedIndex
-
-	if listController.SelectedIndex > 0 {
-		if listController.SelectedIndex >= len(listController.Items) {
-			listController.SelectedIndex = len(listController.Items) - 1
-		}
-
-		for i := range listController.Items {
-			listController.Items[i].Selected = false
-		}
-
-		listController.Items[listController.SelectedIndex].Selected = true
-		listController.SelectedItems = map[int]bool{listController.SelectedIndex: true}
-
-		listController.scrollTo(listController.SelectedIndex - 1)
+	if options.MaxVisibleItems <= 0 {
+		options.MaxVisibleItems = 7
 	}
 
-	listController.MaxVisibleItems = 8
-	listController.EnableAction = listOptions.EnableAction
-	listController.Settings.FooterHelpItems = listOptions.FooterHelpItems
+	listController := newListController(options)
 
-	if listOptions.EnableMultiSelect {
-		listController.Settings.MultiSelectKey = sdl.K_SPACE
-		listController.Settings.MultiSelectButton = BrickButton_SELECT
-	}
-
-	if listOptions.EnableReordering {
-		listController.Settings.ReorderKey = sdl.K_SPACE
-		listController.Settings.ReorderButton = BrickButton_SELECT
+	if options.SelectedIndex > 0 {
+		listController.scrollTo(options.SelectedIndex)
 	}
 
 	running := true
@@ -181,84 +229,19 @@ func List(title string, items []models.MenuItem, listOptions ListOptions) (types
 			case *sdl.QuitEvent:
 				running = false
 				err = sdl.GetError()
-
 			case *sdl.KeyboardEvent:
-				if e.Type != sdl.KEYDOWN {
-					continue
-				}
-
-				switch {
-				case e.Keysym.Sym == sdl.K_x:
-					running = false
-					result.ActionTriggered = true
-					result.Cancelled = false
-
-				case e.Keysym.Sym == sdl.K_RETURN && listController.MultiSelect:
-					running = false
-					if indices := listController.getSelectedItems(); len(indices) > 0 {
-						result.PopulateMultiSelection(indices, items)
-						result.Cancelled = false
-					}
-
-				case e.Keysym.Sym == sdl.K_a && listController.MultiSelect:
-					listController.handleEvent(event)
-
-				case e.Keysym.Sym == sdl.K_a && !listController.MultiSelect:
-					running = false
-					result.PopulateSingleSelection(listController.SelectedIndex, items)
-					result.Cancelled = false
-
-				case e.Keysym.Sym == sdl.K_b:
-					running = false
-					result.SelectedIndex = -1
-					result.Cancelled = true
-
-				default:
-					listController.handleEvent(event)
-				}
-
+				listController.handleKeyboardInput(e, &running, &result)
 			case *sdl.ControllerButtonEvent:
-				if e.Type != sdl.CONTROLLERBUTTONDOWN {
-					continue
-				}
-
-				result.LastPressedBtn = e.Button
-
-				switch {
-
-				case e.Button == BrickButton_X && listController.EnableAction:
-					running = false
-					result.ActionTriggered = true
-					result.Cancelled = false
-
-				case e.Button == BrickButton_START && listController.MultiSelect:
-					running = false
-					if indices := listController.getSelectedItems(); len(indices) > 0 {
-						result.PopulateMultiSelection(indices, items)
-						result.Cancelled = false
-					}
-
-				case e.Button == BrickButton_A && listController.MultiSelect:
-					listController.handleEvent(event)
-
-				case e.Button == BrickButton_A && !listController.MultiSelect:
-					running = false
-					result.PopulateSingleSelection(listController.SelectedIndex, items)
-					result.Cancelled = false
-
-				case e.Button == BrickButton_B:
-					result.SelectedIndex = -1
-					running = false
-
-				default:
-					listController.handleEvent(event)
-				}
+				listController.handleControllerInput(e, &running, &result)
 			}
 		}
+
+		listController.handleDirectionalRepeats()
 
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
+		window.RenderBackground()
 		listController.render(renderer)
 
 		renderer.Present()
@@ -276,8 +259,7 @@ func List(title string, items []models.MenuItem, listOptions ListOptions) (types
 func (lc *listController) toggleMultiSelect() {
 	lc.MultiSelect = !lc.MultiSelect
 
-	if !lc.MultiSelect && len(lc.SelectedItems) > 1 {
-
+	if !lc.MultiSelect {
 		for i := range lc.Items {
 			lc.Items[i].Selected = false
 		}
@@ -393,209 +375,347 @@ func (lc *listController) scrollTo(index int) {
 	}
 }
 
-func (lc *listController) handleEvent(event sdl.Event) bool {
-	currentTime := time.Now()
-	if currentTime.Sub(lc.lastInputTime) < lc.Settings.InputDelay {
-		return false
-	}
-
-	switch t := event.(type) {
-	case *sdl.KeyboardEvent:
-		if t.Type == sdl.KEYDOWN {
-			return lc.handleKeyDown(t.Keysym.Sym)
-		}
-	case *sdl.ControllerButtonEvent:
-		if t.Type == sdl.CONTROLLERBUTTONDOWN {
-			return lc.handleButtonPress(t.Button)
-		}
-	}
-	return false
-}
-
-func (lc *listController) handleKeyDown(key sdl.Keycode) bool {
-	lc.lastInputTime = time.Now()
-
-	if key == sdl.K_h {
-		lc.toggleHelp()
-		return true
-	}
-
-	if lc.ShowingHelp {
-		return lc.handleHelpScreenInput(key)
-	}
-
-	if lc.ReorderMode {
-		return lc.handleReorderModeInput(key)
-	}
-
-	return lc.handleNormalModeInput(key)
-}
-
-func (lc *listController) handleHelpScreenInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		lc.scrollHelpOverlay(-1)
-		return true
-	case sdl.K_DOWN:
-		lc.scrollHelpOverlay(1)
-		return true
-	default:
-		lc.ShowingHelp = false
-		return true
-	}
-}
-
-func (lc *listController) handleReorderModeInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		return lc.moveItemUp()
-	case sdl.K_DOWN:
-		return lc.moveItemDown()
-	case sdl.K_ESCAPE, sdl.K_RETURN:
-		lc.ReorderMode = false
-		return true
-	default:
-		return false
-	}
-}
-
-func (lc *listController) handleNormalModeInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		lc.moveSelection(-1)
-		return true
-	case sdl.K_DOWN:
-		lc.moveSelection(1)
-		return true
-	case sdl.K_LEFT:
-		lc.moveSelection(lc.MaxVisibleItems * -1)
-		return true
-	case sdl.K_RIGHT:
-		lc.moveSelection(lc.MaxVisibleItems)
-		return true
-	case lc.Settings.MultiSelectKey:
-		lc.toggleMultiSelect()
-		return true
-	case sdl.K_a:
-		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
-		}
-		if lc.OnSelect != nil {
-			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
-		}
-		return true
-	case lc.Settings.ReorderKey:
-		lc.toggleReorderMode()
-		return true
-	}
-	return false
-}
-
-func (lc *listController) handleButtonPress(button uint8) bool {
-	lc.lastInputTime = time.Now()
-
-	if button == BrickButton_MENU {
-		lc.toggleHelp()
-		return true
-	}
-
-	if lc.ShowingHelp {
-		return lc.handleHelpScreenButtonInput(button)
-	}
-
-	if lc.ReorderMode {
-		return lc.handleReorderModeButtonInput(button)
-	}
-
-	return lc.handleNormalModeButtonInput(button)
-}
-
-func (lc *listController) handleHelpScreenButtonInput(button uint8) bool {
-	switch button {
-	case BrickButton_UP:
-		lc.scrollHelpOverlay(-1)
-		return true
-	case BrickButton_DOWN:
-		lc.scrollHelpOverlay(1)
-		return true
-	default:
-		return true
-	}
-}
-
-func (lc *listController) handleReorderModeButtonInput(button uint8) bool {
-	switch button {
-	case BrickButton_UP:
-		return lc.moveItemUp()
-	case BrickButton_DOWN:
-		return lc.moveItemDown()
-	case BrickButton_B, BrickButton_A:
-		lc.ReorderMode = false
-		return true
-	default:
-		return false
-	}
-}
-
-func (lc *listController) handleNormalModeButtonInput(button uint8) bool {
-	switch button {
-	case BrickButton_UP:
-		lc.moveSelection(-1)
-		return true
-	case BrickButton_DOWN:
-		lc.moveSelection(1)
-		return true
-	case BrickButton_LEFT:
-		lc.moveSelection(lc.MaxVisibleItems * -1)
-		return true
-	case BrickButton_RIGHT:
-		lc.moveSelection(lc.MaxVisibleItems)
-		return true
-	case BrickButton_A:
-		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
-		}
-		if lc.OnSelect != nil {
-			lc.OnSelect(lc.SelectedIndex, &lc.Items[lc.SelectedIndex])
-		}
-		return true
-	case lc.Settings.MultiSelectButton:
-		lc.toggleMultiSelect()
-		return true
-	case lc.Settings.ReorderButton:
-		lc.toggleReorderMode()
-		return true
-	default:
-		return false
-	}
-}
-
-func (lc *listController) moveSelection(direction int) {
-	if len(lc.Items) == 0 {
+func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *bool, result *models.ListReturn) {
+	if e.Type != sdl.KEYDOWN {
 		return
 	}
 
-	if !lc.MultiSelect {
-		lc.Items[lc.SelectedIndex].Selected = false
-		delete(lc.SelectedItems, lc.SelectedIndex)
+	switch e.Keysym.Sym {
+	case sdl.K_UP:
+		lc.navigateUp()
+	case sdl.K_DOWN:
+		lc.navigateDown()
+	case sdl.K_LEFT:
+		lc.navigateLeft()
+	case sdl.K_RIGHT:
+		lc.navigateRight()
+
+	case sdl.K_a:
+		if lc.MultiSelect {
+			lc.toggleSelection(lc.SelectedIndex)
+		} else {
+			*running = false
+			result.PopulateSingleSelection(lc.SelectedIndex, lc.Items)
+			result.Cancelled = false
+		}
+	case sdl.K_b:
+		*running = false
+		result.SelectedIndex = -1
+		result.Cancelled = true
+	case sdl.K_x:
+		if lc.EnableAction {
+			*running = false
+			result.ActionTriggered = true
+			result.Cancelled = false
+		}
+
+	case sdl.K_h:
+		if lc.HelpEnabled {
+			lc.ShowingHelp = !lc.ShowingHelp
+		}
+
+	case sdl.K_RETURN:
+		if lc.MultiSelect {
+			*running = false
+			if indices := lc.getSelectedItems(); len(indices) > 0 {
+				result.PopulateMultiSelection(indices, lc.Items)
+				result.Cancelled = false
+			}
+		}
+
+	case lc.Settings.MultiSelectKey:
+		if lc.EnableMultiSelect {
+			lc.toggleMultiSelect()
+		}
+	case lc.Settings.ReorderKey:
+		if lc.EnableReorderMode {
+			lc.toggleReorderMode()
+		}
+	}
+}
+
+func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, running *bool, result *models.ListReturn) {
+	if e.Type != sdl.CONTROLLERBUTTONDOWN && e.Type != sdl.CONTROLLERBUTTONUP {
+		return
 	}
 
-	lc.SelectedIndex = (lc.SelectedIndex + direction + len(lc.Items)) % len(lc.Items)
+	result.LastPressedBtn = e.Button
+
+	switch e.Button {
+	case BrickButton_UP:
+		lc.heldDirections.up = e.Type == sdl.CONTROLLERBUTTONDOWN
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+
+			lc.navigateUp()
+
+			lc.lastRepeatTime = time.Now()
+		}
+	case BrickButton_DOWN:
+		lc.heldDirections.down = e.Type == sdl.CONTROLLERBUTTONDOWN
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+
+			lc.navigateDown()
+
+			lc.lastRepeatTime = time.Now()
+		}
+	case BrickButton_LEFT:
+		lc.heldDirections.left = e.Type == sdl.CONTROLLERBUTTONDOWN
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+
+			lc.navigateLeft()
+
+			lc.lastRepeatTime = time.Now()
+		}
+	case BrickButton_RIGHT:
+		lc.heldDirections.right = e.Type == sdl.CONTROLLERBUTTONDOWN
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+
+			lc.navigateRight()
+
+			lc.lastRepeatTime = time.Now()
+		}
+
+	case BrickButton_A:
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+			if lc.MultiSelect {
+				lc.toggleSelection(lc.SelectedIndex)
+			} else {
+				*running = false
+				result.PopulateSingleSelection(lc.SelectedIndex, lc.Items)
+				result.Cancelled = false
+			}
+		}
+	case BrickButton_B:
+		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+			*running = false
+			result.SelectedIndex = -1
+			result.Cancelled = true
+		}
+	case BrickButton_X:
+		if lc.EnableAction && e.Type == sdl.CONTROLLERBUTTONDOWN {
+			*running = false
+			result.ActionTriggered = true
+			result.Cancelled = false
+		}
+
+	case BrickButton_MENU:
+		if lc.HelpEnabled && e.Type == sdl.CONTROLLERBUTTONDOWN {
+			lc.ShowingHelp = !lc.ShowingHelp
+		}
+
+	case BrickButton_START:
+		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
+			*running = false
+			if indices := lc.getSelectedItems(); len(indices) > 0 {
+				result.PopulateMultiSelection(indices, lc.Items)
+				result.Cancelled = false
+			}
+		}
+
+	case lc.Settings.MultiSelectButton:
+		if lc.EnableMultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
+			lc.toggleMultiSelect()
+		}
+	case lc.Settings.ReorderButton:
+		if lc.EnableReorderMode && e.Type == sdl.CONTROLLERBUTTONDOWN {
+			lc.toggleReorderMode()
+		}
+	}
+}
+
+func (lc *listController) navigateUp() {
+	if time.Since(lc.lastInputTime) < lc.Settings.InputDelay {
+		return
+	}
+
+	lc.lastInputTime = time.Now()
+
+	if lc.ReorderMode {
+		lc.moveItemUp()
+		return
+	}
+
+	if lc.SelectedIndex > 0 {
+		lc.SelectedIndex--
+	} else {
+
+		lc.SelectedIndex = len(lc.Items) - 1
+
+		if len(lc.Items) > lc.MaxVisibleItems {
+			lc.VisibleStartIndex = len(lc.Items) - lc.MaxVisibleItems
+		} else {
+			lc.VisibleStartIndex = 0
+		}
+	}
 
 	if !lc.MultiSelect {
-		lc.Items[lc.SelectedIndex].Selected = true
-		lc.SelectedItems[lc.SelectedIndex] = true
+		for i := range lc.Items {
+			lc.Items[i].Selected = i == lc.SelectedIndex
+		}
+		lc.SelectedItems = map[int]bool{lc.SelectedIndex: true}
 	}
 
 	if lc.SelectedIndex < lc.VisibleStartIndex {
+
 		lc.VisibleStartIndex = lc.SelectedIndex
-	} else if lc.SelectedIndex >= lc.VisibleStartIndex+lc.MaxVisibleItems {
+	}
+}
+
+func (lc *listController) navigateDown() {
+	if time.Since(lc.lastInputTime) < lc.Settings.InputDelay {
+		return
+	}
+
+	lc.lastInputTime = time.Now()
+
+	if lc.ReorderMode {
+		lc.moveItemDown()
+		return
+	}
+
+	if lc.SelectedIndex < len(lc.Items)-1 {
+		lc.SelectedIndex++
+	} else {
+
+		lc.SelectedIndex = 0
+
+		lc.VisibleStartIndex = 0
+	}
+
+	if !lc.MultiSelect {
+		for i := range lc.Items {
+			lc.Items[i].Selected = i == lc.SelectedIndex
+		}
+		lc.SelectedItems = map[int]bool{lc.SelectedIndex: true}
+	}
+
+	if lc.SelectedIndex >= lc.VisibleStartIndex+lc.MaxVisibleItems {
+
 		lc.VisibleStartIndex = lc.SelectedIndex - lc.MaxVisibleItems + 1
+
+		maxStartIndex := len(lc.Items) - lc.MaxVisibleItems
+		if maxStartIndex < 0 {
+			maxStartIndex = 0
+		}
+		if lc.VisibleStartIndex > maxStartIndex {
+			lc.VisibleStartIndex = maxStartIndex
+		}
+	}
+}
+
+func (lc *listController) navigateLeft() {
+	if time.Since(lc.lastInputTime) < lc.Settings.InputDelay {
+		return
+	}
+
+	lc.lastInputTime = time.Now()
+
+	visibleItems := lc.VisibleStartIndex + lc.MaxVisibleItems
+	if visibleItems > len(lc.Items) {
+		visibleItems = len(lc.Items)
+	}
+
+	if len(lc.Items) <= lc.MaxVisibleItems || lc.VisibleStartIndex == 0 {
+		lc.SelectedIndex = 0
+		lc.VisibleStartIndex = 0
+	} else {
+
+		skipAmount := lc.MaxVisibleItems
+
+		newIndex := lc.VisibleStartIndex - skipAmount
+
+		if newIndex < 0 {
+			newIndex = 0
+		}
+
+		lc.SelectedIndex = newIndex
+
+		lc.VisibleStartIndex = newIndex
+	}
+
+	if !lc.MultiSelect {
+		for i := range lc.Items {
+			lc.Items[i].Selected = i == lc.SelectedIndex
+		}
+		lc.SelectedItems = map[int]bool{lc.SelectedIndex: true}
+	}
+}
+
+func (lc *listController) navigateRight() {
+	if time.Since(lc.lastInputTime) < lc.Settings.InputDelay {
+		return
+	}
+
+	lc.lastInputTime = time.Now()
+
+	if len(lc.Items) <= lc.MaxVisibleItems {
+		lc.SelectedIndex = len(lc.Items) - 1
+	} else {
+
+		skipAmount := lc.MaxVisibleItems
+
+		newIndex := lc.VisibleStartIndex + skipAmount
+
+		maxStartIndex := len(lc.Items) - lc.MaxVisibleItems
+		if maxStartIndex < 0 {
+			maxStartIndex = 0
+		}
+
+		if newIndex >= len(lc.Items) || newIndex > maxStartIndex {
+
+			lc.SelectedIndex = len(lc.Items) - 1
+			lc.VisibleStartIndex = maxStartIndex
+		} else {
+
+			lc.SelectedIndex = newIndex
+
+			lc.VisibleStartIndex = newIndex
+		}
+	}
+
+	if !lc.MultiSelect {
+		for i := range lc.Items {
+			lc.Items[i].Selected = i == lc.SelectedIndex
+		}
+		lc.SelectedItems = map[int]bool{lc.SelectedIndex: true}
+	}
+}
+
+func (lc *listController) handleDirectionalRepeats() {
+
+	if !lc.heldDirections.up && !lc.heldDirections.down &&
+		!lc.heldDirections.left && !lc.heldDirections.right {
+
+		lc.lastRepeatTime = time.Now()
+		return
+	}
+
+	currentTime := time.Now()
+
+	if time.Since(lc.lastRepeatTime) < lc.repeatDelay {
+
+		return
+	}
+
+	if time.Since(lc.lastRepeatTime) >= lc.repeatInterval {
+		lc.lastRepeatTime = currentTime
+
+		if lc.heldDirections.up {
+			lc.navigateUp()
+		}
+		if lc.heldDirections.down {
+			lc.navigateDown()
+		}
+		if lc.heldDirections.left {
+			lc.navigateLeft()
+		}
+		if lc.heldDirections.right {
+			lc.navigateRight()
+		}
 	}
 }
 
 func (lc *listController) render(renderer *sdl.Renderer) {
-
 	lc.updateScrollingAnimations()
 
 	for i := range lc.Items {
@@ -632,101 +752,19 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 
 	drawScrollableMenu(renderer, internal.GetLargeFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
+	RenderFooter(
+		renderer,
+		internal.GetMediumFont(),
+		lc.Settings.FooterTextColor,
+		lc.Settings.FooterHelpItems,
+		lc.Settings.Margins.Bottom,
+	)
+
 	lc.Settings.Title = originalTitle
 	lc.Settings.TitleAlign = originalAlign
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
 		lc.helpOverlay.render(renderer, internal.GetSmallFont())
-	}
-}
-
-func (lc *listController) toggleHelp() {
-	if !lc.HelpEnabled {
-		return
-	}
-
-	if lc.helpOverlay == nil {
-		lc.helpOverlay = newHelpOverlay(defaultListHelpLines)
-	}
-
-	lc.helpOverlay.toggle()
-	lc.ShowingHelp = lc.helpOverlay.ShowingHelp
-}
-
-func (lc *listController) scrollHelpOverlay(direction int) {
-	if lc.helpOverlay != nil {
-		lc.helpOverlay.scroll(direction)
-	}
-}
-
-func (lc *listController) measureTextForScrolling(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
-
-	prefix := ""
-	if lc.MultiSelect {
-		if item.Selected {
-			prefix = "☑ "
-		} else {
-			prefix = "☐ "
-		}
-	}
-
-	if lc.ReorderMode && idx == lc.SelectedIndex {
-		prefix = "↕ " + prefix
-	}
-
-	textSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(
-		prefix+item.Text,
-		sdl.Color{R: 255, G: 255, B: 255, A: 255},
-	)
-	if err != nil {
-		return &textScrollData{}
-	}
-	defer textSurface.Free()
-
-	textWidth := textSurface.W
-
-	return &textScrollData{
-		needsScrolling: textWidth > maxWidth,
-		textWidth:      textWidth,
-		containerWidth: maxWidth,
-		direction:      scrollDirectionRight,
-		scrollOffset:   0,
-		lastUpdateTime: time.Now(),
-		pauseCounter:   lc.Settings.ScrollPauseTime,
-	}
-}
-
-func (lc *listController) updateItemScrollAnimation(data *textScrollData) {
-
-	currentTime := time.Now()
-	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
-	data.lastUpdateTime = currentTime
-
-	if data.pauseCounter > 0 {
-		data.pauseCounter--
-		return
-	}
-
-	pixelsToScroll := max(int32(float32(elapsed)*lc.Settings.ScrollSpeed), 1)
-
-	if data.direction == scrollDirectionRight {
-
-		data.scrollOffset += pixelsToScroll
-
-		if data.scrollOffset >= data.textWidth-data.containerWidth {
-			data.scrollOffset = data.textWidth - data.containerWidth
-			data.direction = scrollDirectionLeft
-			data.pauseCounter = lc.Settings.ScrollPauseTime
-		}
-	} else {
-
-		data.scrollOffset -= pixelsToScroll
-
-		if data.scrollOffset <= 0 {
-			data.scrollOffset = 0
-			data.direction = scrollDirectionRight
-			data.pauseCounter = lc.Settings.ScrollPauseTime
-		}
 	}
 }
 
@@ -813,27 +851,29 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		}
 	}
 
-	renderListFooter(renderer, settings, controller.MultiSelect)
 }
 
 func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
 	if multiSelect {
 		if item.Focused && item.Selected {
-			return sdl.Color{R: 0, G: 0, B: 0, A: 255}, sdl.Color{R: 220, G: 220, B: 255, A: 255}
+			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 		} else if item.Focused {
-			return sdl.Color{R: 255, G: 255, B: 255, A: 255}, sdl.Color{R: 100, G: 100, B: 180, A: 255}
+			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 		} else if item.Selected {
-			return sdl.Color{R: 0, G: 0, B: 0, A: 255}, sdl.Color{R: 180, G: 180, B: 180, A: 255}
+			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().PrimaryAccentColor
 		}
-		return sdl.Color{R: 255, G: 255, B: 255, A: 255}, sdl.Color{}
+		return internal.GetTheme().ListTextColor, sdl.Color{}
 	}
 
-	if item.Selected {
-		return sdl.Color{R: 0, G: 0, B: 0, A: 255}, sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	if item.Focused && item.Selected {
+		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 	} else if item.Focused {
-		return sdl.Color{R: 255, G: 255, B: 255, A: 255}, sdl.Color{R: 100, G: 100, B: 180, A: 255}
+		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
+	} else if item.Selected {
+		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().PrimaryAccentColor
 	}
-	return sdl.Color{R: 255, G: 255, B: 255, A: 255}, sdl.Color{}
+
+	return internal.GetTheme().ListTextColor, sdl.Color{}
 }
 
 func formatItemText(item models.MenuItem, multiSelect bool) string {
@@ -877,330 +917,6 @@ func renderStaticText(renderer *sdl.Renderer, texture *sdl.Texture, src *sdl.Rec
 		H: height,
 	}
 	renderer.Copy(texture, src, &textRect)
-}
-
-func renderListFooter(renderer *sdl.Renderer, settings listSettings, isMultiSelect bool) {
-
-	if settings.FooterText == "" && len(settings.FooterHelpItems) == 0 && !isMultiSelect {
-		return
-	}
-
-	_, screenHeight, err := renderer.GetOutputSize()
-	if err != nil {
-		return
-	}
-
-	if isMultiSelect {
-		pillHeight := int32(40)
-		pillPadding := int32(12)
-		pillSpacing := int32(20)
-		font := internal.GetSmallFont()
-
-		whitePillRadius := int32(8)
-		blackPillRadius := int32(6)
-
-		buttonPaddingX := int32(12)
-
-		multiSelectHelpItems := []struct {
-			ButtonName string
-			HelpText   string
-		}{
-			{ButtonName: "A", HelpText: "Add / Remove"},
-			{ButtonName: "Select", HelpText: "Cancel"},
-			{ButtonName: "Start", HelpText: "Confirm"},
-		}
-
-		var totalWidth int32 = 0
-		var pillInfos []struct {
-			buttonName     string
-			helpText       string
-			buttonWidth    int32
-			buttonHeight   int32
-			helpWidth      int32
-			blackPillWidth int32
-			whitePillWidth int32
-		}
-
-		for _, item := range multiSelectHelpItems {
-
-			buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err != nil {
-				continue
-			}
-			buttonWidth := buttonSurface.W
-			buttonHeight := buttonSurface.H
-			buttonSurface.Free()
-
-			blackPillWidth := buttonWidth + buttonPaddingX*2
-
-			helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err != nil {
-				continue
-			}
-			helpWidth := helpSurface.W
-			helpSurface.Free()
-
-			whitePillWidth := blackPillWidth + helpWidth + pillPadding*3
-
-			pillInfos = append(pillInfos, struct {
-				buttonName     string
-				helpText       string
-				buttonWidth    int32
-				buttonHeight   int32
-				helpWidth      int32
-				blackPillWidth int32
-				whitePillWidth int32
-			}{
-				buttonName:     item.ButtonName,
-				helpText:       item.HelpText,
-				buttonWidth:    buttonWidth,
-				buttonHeight:   buttonHeight,
-				helpWidth:      helpWidth,
-				blackPillWidth: blackPillWidth,
-				whitePillWidth: whitePillWidth,
-			})
-
-			totalWidth += whitePillWidth + pillSpacing
-		}
-
-		screenWidth, _, err := renderer.GetOutputSize()
-		if err != nil {
-			screenWidth = 768
-		}
-
-		startX := (screenWidth - totalWidth + pillSpacing) / 2
-		currentX := startX
-
-		for _, info := range pillInfos {
-
-			outerPillRect := &sdl.Rect{
-				X: currentX,
-				Y: screenHeight - pillHeight - settings.Margins.Bottom,
-				W: info.whitePillWidth,
-				H: pillHeight,
-			}
-
-			whiteColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-			drawRoundedRect(renderer, outerPillRect, whitePillRadius, whiteColor)
-
-			blackPillRect := &sdl.Rect{
-				X: currentX + pillPadding,
-				Y: screenHeight - pillHeight - settings.Margins.Bottom + pillPadding/2,
-				W: info.blackPillWidth,
-				H: pillHeight - pillPadding,
-			}
-			blackColor := sdl.Color{R: 0, G: 0, B: 0, A: 255}
-			drawRoundedRect(renderer, blackPillRect, blackPillRadius, blackColor)
-
-			blackPillCenterX := blackPillRect.X + blackPillRect.W/2
-			blackPillCenterY := blackPillRect.Y + blackPillRect.H/2
-
-			buttonSurface, err := font.RenderUTF8Blended(info.buttonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err == nil {
-
-				buttonWidth := buttonSurface.W
-				buttonHeight := buttonSurface.H
-
-				buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
-				if err == nil {
-
-					buttonRect := &sdl.Rect{
-						X: blackPillCenterX - buttonWidth/2,
-						Y: blackPillCenterY - buttonHeight/2,
-						W: buttonWidth,
-						H: buttonHeight,
-					}
-					renderer.Copy(buttonTexture, nil, buttonRect)
-					buttonTexture.Destroy()
-				}
-				buttonSurface.Free()
-			}
-
-			helpSurface, err := font.RenderUTF8Blended(info.helpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err == nil {
-				helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
-				if err == nil {
-					helpRect := &sdl.Rect{
-						X: currentX + info.blackPillWidth + pillPadding*2,
-						Y: screenHeight - pillHeight - settings.Margins.Bottom + (pillHeight-helpSurface.H)/2,
-						W: helpSurface.W,
-						H: helpSurface.H,
-					}
-					renderer.Copy(helpTexture, nil, helpRect)
-					helpTexture.Destroy()
-				}
-				helpSurface.Free()
-			}
-
-			currentX += info.whitePillWidth + pillSpacing
-		}
-
-		return
-	}
-
-	if settings.FooterText != "" {
-		footerSurface, err := internal.GetSmallFont().RenderUTF8Blended(
-			settings.FooterText,
-			settings.FooterTextColor,
-		)
-		if err != nil {
-			return
-		}
-		defer footerSurface.Free()
-
-		footerTexture, err := renderer.CreateTextureFromSurface(footerSurface)
-		if err != nil {
-			return
-		}
-		defer footerTexture.Destroy()
-
-		footerRect := sdl.Rect{
-			X: settings.Margins.Left,
-			Y: screenHeight - footerSurface.H - settings.Margins.Bottom,
-			W: footerSurface.W,
-			H: footerSurface.H,
-		}
-
-		renderer.Copy(footerTexture, nil, &footerRect)
-		return
-	}
-
-	if len(settings.FooterHelpItems) > 0 {
-		pillHeight := int32(40)
-		pillPadding := int32(12)
-		pillSpacing := int32(20)
-		font := internal.GetSmallFont()
-
-		whitePillRadius := int32(8)
-		blackPillRadius := int32(6)
-
-		buttonPaddingX := int32(12)
-
-		var totalWidth int32 = 0
-		var pillInfos []struct {
-			buttonName     string
-			helpText       string
-			buttonWidth    int32
-			buttonHeight   int32
-			helpWidth      int32
-			blackPillWidth int32
-			whitePillWidth int32
-		}
-
-		for _, item := range settings.FooterHelpItems {
-
-			buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err != nil {
-				continue
-			}
-			buttonWidth := buttonSurface.W
-			buttonHeight := buttonSurface.H
-			buttonSurface.Free()
-
-			blackPillWidth := buttonWidth + buttonPaddingX*2
-
-			helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err != nil {
-				continue
-			}
-			helpWidth := helpSurface.W
-			helpSurface.Free()
-
-			whitePillWidth := blackPillWidth + helpWidth + pillPadding*3
-
-			pillInfos = append(pillInfos, struct {
-				buttonName     string
-				helpText       string
-				buttonWidth    int32
-				buttonHeight   int32
-				helpWidth      int32
-				blackPillWidth int32
-				whitePillWidth int32
-			}{
-				buttonName:     item.ButtonName,
-				helpText:       item.HelpText,
-				buttonWidth:    buttonWidth,
-				buttonHeight:   buttonHeight,
-				helpWidth:      helpWidth,
-				blackPillWidth: blackPillWidth,
-				whitePillWidth: whitePillWidth,
-			})
-
-			totalWidth += whitePillWidth + pillSpacing
-		}
-
-		screenWidth, _, err := renderer.GetOutputSize()
-		if err != nil {
-			screenWidth = 768
-		}
-
-		startX := (screenWidth - totalWidth + pillSpacing) / 2
-		currentX := startX
-
-		for _, info := range pillInfos {
-
-			outerPillRect := &sdl.Rect{
-				X: currentX,
-				Y: screenHeight - pillHeight - settings.Margins.Bottom,
-				W: info.whitePillWidth,
-				H: pillHeight,
-			}
-
-			whiteColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-			drawRoundedRect(renderer, outerPillRect, whitePillRadius, whiteColor)
-
-			blackPillRect := &sdl.Rect{
-				X: currentX + pillPadding,
-				Y: screenHeight - pillHeight - settings.Margins.Bottom + pillPadding/2,
-				W: info.blackPillWidth,
-				H: pillHeight - pillPadding,
-			}
-			blackColor := sdl.Color{R: 0, G: 0, B: 0, A: 255}
-			drawRoundedRect(renderer, blackPillRect, blackPillRadius, blackColor)
-
-			blackPillCenterX := blackPillRect.X + blackPillRect.W/2
-			blackPillCenterY := blackPillRect.Y + blackPillRect.H/2
-
-			buttonSurface, err := font.RenderUTF8Blended(info.buttonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err == nil {
-
-				buttonWidth := buttonSurface.W
-				buttonHeight := buttonSurface.H
-
-				buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
-				if err == nil {
-
-					buttonRect := &sdl.Rect{
-						X: blackPillCenterX - buttonWidth/2,
-						Y: blackPillCenterY - buttonHeight/2,
-						W: buttonWidth,
-						H: buttonHeight,
-					}
-					renderer.Copy(buttonTexture, nil, buttonRect)
-					buttonTexture.Destroy()
-				}
-				buttonSurface.Free()
-			}
-
-			helpSurface, err := font.RenderUTF8Blended(info.helpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err == nil {
-				helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
-				if err == nil {
-					helpRect := &sdl.Rect{
-						X: currentX + info.blackPillWidth + pillPadding*2,
-						Y: screenHeight - pillHeight - settings.Margins.Bottom + (pillHeight-helpSurface.H)/2,
-						W: helpSurface.W,
-						H: helpSurface.H,
-					}
-					renderer.Copy(helpTexture, nil, helpRect)
-					helpTexture.Destroy()
-				}
-				helpSurface.Free()
-			}
-
-			currentX += info.whitePillWidth + pillSpacing
-		}
-	}
 }
 
 func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
