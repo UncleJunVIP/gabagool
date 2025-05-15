@@ -246,7 +246,7 @@ func List(options ListOptions) (types.Option[models.ListReturn], error) {
 
 		renderer.Present()
 
-		sdl.Delay(16)
+		sdl.Delay(8)
 	}
 
 	if err != nil || result.Cancelled {

@@ -73,10 +73,10 @@ func InitWindowWithSize(title string, width, height int32) *Window {
 func (window *Window) loadBackground() {
 	img.Init(img.INIT_PNG)
 
-	bgPath := "bg.png"
+	bgPath := "/mnt/SDCARD/bg.png"
 
 	if os.Getenv("DEVELOPMENT") == "true" {
-		bgPath = "/Users/btk/Developer/gabagool/dev_resources/bg.png" //TODO make ENV VAR
+		bgPath = "/Users/btk/Developer/gabagool/dev_resources/bg.png"
 	}
 
 	bgTexture, err := img.LoadTexture(window.Renderer, bgPath)
