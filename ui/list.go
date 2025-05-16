@@ -393,7 +393,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 			lc.toggleSelection(lc.SelectedIndex)
 		} else {
 			*running = false
-			result.PopulateSingleSelection(lc.SelectedIndex, lc.Items)
+			result.PopulateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
 			result.Cancelled = false
 		}
 	case sdl.K_b:
@@ -479,7 +479,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 				lc.toggleSelection(lc.SelectedIndex)
 			} else {
 				*running = false
-				result.PopulateSingleSelection(lc.SelectedIndex, lc.Items)
+				result.PopulateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
 				result.Cancelled = false
 			}
 		}

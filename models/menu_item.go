@@ -12,16 +12,18 @@ type ListReturn struct {
 	SelectedItem    *MenuItem
 	SelectedIndices []int
 	SelectedItems   []*MenuItem
+	VisiblePosition int
 	LastPressedBtn  uint8
 	ActionTriggered bool
 	Cancelled       bool
 }
 
-func (r *ListReturn) PopulateSingleSelection(index int, items []MenuItem) {
+func (r *ListReturn) PopulateSingleSelection(index int, items []MenuItem, visibleStartIndex int) {
 	r.SelectedIndex = index
 	r.SelectedItem = &items[index]
 	r.SelectedIndices = []int{index}
 	r.SelectedItems = []*MenuItem{&items[index]}
+	r.VisiblePosition = index - visibleStartIndex
 }
 
 // PopulateMultiSelection populates the result with multiple selections

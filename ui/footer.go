@@ -130,7 +130,7 @@ func renderGroupAsContinuousPill(
 	renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().PrimaryAccentColor))
 	DrawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
 	// Start position for rendering items
-	currentX := startX + 15 // Left padding
+	currentX := startX + 10 // Left padding
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 	// Render each button-text pair in sequence
 	for _, item := range items {
@@ -177,7 +177,7 @@ func renderGroupAsContinuousPill(
 			buttonTexture.Destroy()
 		}
 		// Move to position for help text
-		currentX += innerPillWidth + 15
+		currentX += innerPillWidth + 10
 		// Render help text (white text)
 		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
 		if err == nil {

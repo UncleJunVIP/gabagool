@@ -14,14 +14,16 @@ type ProcessReturn struct {
 
 type blockingProcess struct {
 	window       *internal.Window
+	showBG       bool
 	message      string
 	isProcessing bool
 	completeTime time.Time
 }
 
-func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessReturn, error) {
+func BlockingProcess(message string, showGB bool, fn func() (interface{}, error)) (ProcessReturn, error) {
 	processor := &blockingProcess{
 		window:       internal.GetWindow(),
+		showBG:       showGB,
 		message:      message,
 		isProcessing: true,
 	}
@@ -35,6 +37,9 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
+	if processor.showBG {
+		window.RenderBackground()
+	}
 	processor.render(renderer)
 	renderer.Present()
 
@@ -88,11 +93,14 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 			}
 		} else {
 
-			if time.Since(processor.completeTime) > 1*time.Second {
+			if time.Since(processor.completeTime) > 350*time.Millisecond {
 				running = false
 			}
 		}
 
+		if processor.showBG {
+			window.RenderBackground()
+		}
 		processor.render(renderer)
 		renderer.Present()
 
@@ -103,8 +111,11 @@ func BlockingProcess(message string, fn func() (interface{}, error)) (ProcessRet
 }
 
 func (p *blockingProcess) render(renderer *sdl.Renderer) {
-	renderer.SetDrawColor(0, 0, 0, 255)
-	renderer.Clear()
+
+	if !p.showBG {
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+	}
 
 	font := internal.GetMediumFont()
 

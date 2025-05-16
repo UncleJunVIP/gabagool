@@ -72,7 +72,7 @@ type optionsListController struct {
 
 func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
-		Margins:         models.UniformPadding(30),
+		Margins:         models.UniformPadding(20),
 		ItemSpacing:     60,
 		InputDelay:      internal.DefaultInputDelay,
 		Title:           title,

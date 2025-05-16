@@ -7,108 +7,64 @@ import (
 	"strings"
 )
 
-func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) int32 {
-	if text == "" {
-		return 0
-	}
-
+func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) {
 	words := strings.Fields(text)
 	if len(words) == 0 {
-		return 0
+		return
 	}
 
-	lines := []string{}
+	var lines []string
 	currentLine := words[0]
 
-	wordSurface, err := font.RenderUTF8Solid(words[0], color)
-	if err != nil {
-		return 0
-	}
-	wordWidth := wordSurface.W
-	wordSurface.Free()
-
-	if wordWidth > maxWidth && len(words[0]) > 1 {
-
-		currentLine = ""
-
-		for _, char := range words[0] {
-			testLine := currentLine + string(char)
-			charSurface, err := font.RenderUTF8Solid(testLine, color)
-			if err != nil {
-				continue
-			}
-
-			if charSurface.W > maxWidth {
-
-				if currentLine != "" {
-					lines = append(lines, currentLine)
-				}
-				currentLine = string(char)
-			} else {
-				currentLine = testLine
-			}
-			charSurface.Free()
-		}
-		lines = append(lines, currentLine)
-
-		words = words[1:]
-		currentLine = ""
-	}
-
-	for i := 1; i < len(words); i++ {
-		testLine := currentLine + " " + words[i]
-		lineSurface, err := font.RenderUTF8Solid(testLine, color)
+	for _, word := range words[1:] {
+		// Check if adding this word exceeds the max width
+		testLine := currentLine + " " + word
+		testSurface, err := font.RenderUTF8Solid(testLine, color)
 		if err != nil {
 			continue
 		}
 
-		if lineSurface.W <= maxWidth {
+		if testSurface.W <= maxWidth {
 			currentLine = testLine
+			testSurface.Free()
 		} else {
+			// Add current line to lines and start a new line
 			lines = append(lines, currentLine)
-			currentLine = words[i]
+			currentLine = word
 		}
-		lineSurface.Free()
 	}
 
+	// Add the last line
 	if currentLine != "" {
 		lines = append(lines, currentLine)
 	}
 
+	// Render each line
 	lineHeight := int32(font.Height())
-	totalHeight := int32(0)
+	totalHeight := lineHeight * int32(len(lines))
+	currentY := startY - totalHeight/2 // Center vertically around startY
 
-	for i, line := range lines {
-		lineSurface, err := font.RenderUTF8Solid(line, color)
+	for _, line := range lines {
+		surface, err := font.RenderUTF8Solid(line, color)
 		if err != nil {
 			continue
 		}
 
-		lineTexture, err := renderer.CreateTextureFromSurface(lineSurface)
-		if err != nil {
-			lineSurface.Free()
-			continue
+		texture, err := renderer.CreateTextureFromSurface(surface)
+		if err == nil {
+			rect := &sdl.Rect{
+				X: centerX - surface.W/2, // Center horizontally
+				Y: currentY,
+				W: surface.W,
+				H: surface.H,
+			}
+			renderer.Copy(texture, nil, rect)
+			texture.Destroy()
 		}
 
-		lineY := startY + int32(i)*lineHeight
-
-		lineX := centerX - (lineSurface.W / 2)
-
-		lineRect := &sdl.Rect{
-			X: lineX,
-			Y: lineY,
-			W: lineSurface.W,
-			H: lineSurface.H,
-		}
-
-		renderer.Copy(lineTexture, nil, lineRect)
-		lineTexture.Destroy()
-		lineSurface.Free()
-
-		totalHeight = lineY + lineSurface.H - startY
+		surface.Free()
+		currentY += lineHeight + 5 // Add a small gap between lines
 	}
-
-	return totalHeight
 }
 
 func DrawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
