@@ -16,14 +16,14 @@ func RenderFooter(
 	renderer *sdl.Renderer,
 	font *ttf.Font,
 	footerHelpItems []FooterHelpItem,
-	margins int32,
+	bottomPadding int32,
 ) {
 	if len(footerHelpItems) == 0 {
 		return
 	}
 	window := internal.GetWindow()
 	windowWidth, windowHeight := window.Window.GetSize()
-	y := windowHeight - margins - 50
+	y := windowHeight - bottomPadding - 50
 	outerPillHeight := int32(60)
 	innerPillMargin := int32(6)
 	var leftItems []FooterHelpItem
@@ -46,13 +46,13 @@ func RenderFooter(
 	}
 	// Render left group if it exists
 	if len(leftItems) > 0 {
-		renderGroupAsContinuousPill(renderer, font, leftItems, margins, y, outerPillHeight, innerPillMargin)
+		renderGroupAsContinuousPill(renderer, font, leftItems, bottomPadding, y, outerPillHeight, innerPillMargin)
 	}
 	// Render right group if it exists
 	if len(rightItems) > 0 {
 		// Calculate total width of right group
 		rightGroupWidth := calculateContinuousPillWidth(font, rightItems, outerPillHeight, innerPillMargin)
-		rightX := windowWidth - margins - rightGroupWidth
+		rightX := windowWidth - bottomPadding - rightGroupWidth
 		renderGroupAsContinuousPill(renderer, font, rightItems, rightX, y, outerPillHeight, innerPillMargin)
 	}
 }
@@ -66,11 +66,11 @@ func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerP
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
 	for i, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 0, G: 0, B: 0, A: 255})
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().MainColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, internal.GetTheme().PrimaryAccentColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -126,19 +126,19 @@ func renderGroupAsContinuousPill(
 		W: pillWidth,
 		H: outerPillHeight,
 	}
-	// Set maroon/purple color for background
-	renderer.SetDrawColor(158, 42, 93, 255)
+
+	renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().PrimaryAccentColor))
 	DrawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
 	// Start position for rendering items
 	currentX := startX + 15 // Left padding
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 	// Render each button-text pair in sequence
 	for _, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 0, G: 0, B: 0, A: 255})
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().HintInfoColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, internal.GetTheme().HintInfoColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -149,7 +149,7 @@ func renderGroupAsContinuousPill(
 		isCircle := (innerPillWidth == innerPillHeight)
 
 		// Set white color for inner pill
-		renderer.SetDrawColor(255, 255, 255, 255)
+		renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().MainColor))
 
 		if isCircle {
 			// Draw as circle
@@ -230,70 +230,4 @@ func DrawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
 			color,
 		)
 	}
-}
-
-// Helper function to draw rounded rectangles with no gaps
-func DrawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
-	if radius <= 0 {
-		renderer.FillRect(rect)
-		return
-	}
-	// Get current draw color
-	r, g, b, a, _ := renderer.GetDrawColor()
-	color := sdl.Color{R: r, G: g, B: b, A: a}
-	// Draw the main rectangle (center)
-	gfx.BoxColor(
-		renderer,
-		rect.X+radius,
-		rect.Y,
-		rect.X+rect.W-radius,
-		rect.Y+rect.H,
-		color,
-	)
-	// Draw the left and right rectangles
-	gfx.BoxColor(
-		renderer,
-		rect.X,
-		rect.Y+radius,
-		rect.X+radius,
-		rect.Y+rect.H-radius,
-		color,
-	)
-	gfx.BoxColor(
-		renderer,
-		rect.X+rect.W-radius,
-		rect.Y+radius,
-		rect.X+rect.W,
-		rect.Y+rect.H-radius,
-		color,
-	)
-	// Draw the four corner circles
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+radius,
-		rect.Y+radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+rect.W-radius,
-		rect.Y+radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+radius,
-		rect.Y+rect.H-radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+rect.W-radius,
-		rect.Y+rect.H-radius,
-		radius,
-		color,
-	)
 }

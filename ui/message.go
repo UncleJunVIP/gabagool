@@ -216,7 +216,12 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			startY,
 			settings.MessageTextColor)
 
-		renderMessageFooter(renderer, settings.FooterHelpItems, settings.Margins)
+		RenderFooter(
+			renderer,
+			internal.GetSmallFont(),
+			settings.FooterHelpItems,
+			settings.Margins.Bottom,
+		)
 
 		renderer.Present()
 		sdl.Delay(16)
@@ -231,153 +236,4 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 	}
 
 	return option.Some(result), nil
-}
-
-func renderMessageFooter(renderer *sdl.Renderer, footerHelpItems []FooterHelpItem, margins models.Padding) {
-
-	if len(footerHelpItems) == 0 {
-		return
-	}
-
-	_, screenHeight, err := renderer.GetOutputSize()
-	if err != nil {
-		return
-	}
-
-	if len(footerHelpItems) > 0 {
-		pillHeight := int32(40)
-		pillPadding := int32(12)
-		pillSpacing := int32(20)
-		font := internal.GetSmallFont()
-
-		whitePillRadius := int32(8)
-		blackPillRadius := int32(6)
-
-		buttonPaddingX := int32(12)
-
-		var totalWidth int32 = 0
-		var pillInfos []struct {
-			buttonName     string
-			helpText       string
-			buttonWidth    int32
-			buttonHeight   int32
-			helpWidth      int32
-			blackPillWidth int32
-			whitePillWidth int32
-		}
-
-		for _, item := range footerHelpItems {
-
-			buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err != nil {
-				continue
-			}
-			buttonWidth := buttonSurface.W
-			buttonHeight := buttonSurface.H
-			buttonSurface.Free()
-
-			blackPillWidth := buttonWidth + buttonPaddingX*2
-
-			helpSurface, err := font.RenderUTF8Blended(item.HelpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err != nil {
-				continue
-			}
-			helpWidth := helpSurface.W
-			helpSurface.Free()
-
-			whitePillWidth := blackPillWidth + helpWidth + pillPadding*3
-
-			pillInfos = append(pillInfos, struct {
-				buttonName     string
-				helpText       string
-				buttonWidth    int32
-				buttonHeight   int32
-				helpWidth      int32
-				blackPillWidth int32
-				whitePillWidth int32
-			}{
-				buttonName:     item.ButtonName,
-				helpText:       item.HelpText,
-				buttonWidth:    buttonWidth,
-				buttonHeight:   buttonHeight,
-				helpWidth:      helpWidth,
-				blackPillWidth: blackPillWidth,
-				whitePillWidth: whitePillWidth,
-			})
-
-			totalWidth += whitePillWidth + pillSpacing
-		}
-
-		screenWidth, _, err := renderer.GetOutputSize()
-		if err != nil {
-			screenWidth = 768
-		}
-
-		startX := (screenWidth - totalWidth + pillSpacing) / 2
-		currentX := startX
-
-		for _, info := range pillInfos {
-
-			outerPillRect := &sdl.Rect{
-				X: currentX,
-				Y: screenHeight - pillHeight - margins.Bottom,
-				W: info.whitePillWidth,
-				H: pillHeight,
-			}
-
-			whiteColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-			drawRoundedRect(renderer, outerPillRect, whitePillRadius, whiteColor)
-
-			blackPillRect := &sdl.Rect{
-				X: currentX + pillPadding,
-				Y: screenHeight - pillHeight - margins.Bottom + pillPadding/2,
-				W: info.blackPillWidth,
-				H: pillHeight - pillPadding,
-			}
-			blackColor := sdl.Color{R: 0, G: 0, B: 0, A: 255}
-			drawRoundedRect(renderer, blackPillRect, blackPillRadius, blackColor)
-
-			blackPillCenterX := blackPillRect.X + blackPillRect.W/2
-			blackPillCenterY := blackPillRect.Y + blackPillRect.H/2
-
-			buttonSurface, err := font.RenderUTF8Blended(info.buttonName, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err == nil {
-
-				buttonWidth := buttonSurface.W
-				buttonHeight := buttonSurface.H
-
-				buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
-				if err == nil {
-
-					buttonRect := &sdl.Rect{
-						X: blackPillCenterX - buttonWidth/2,
-						Y: blackPillCenterY - buttonHeight/2,
-						W: buttonWidth,
-						H: buttonHeight,
-					}
-					renderer.Copy(buttonTexture, nil, buttonRect)
-					buttonTexture.Destroy()
-				}
-				buttonSurface.Free()
-			}
-
-			helpSurface, err := font.RenderUTF8Blended(info.helpText, sdl.Color{R: 50, G: 50, B: 50, A: 255})
-			if err == nil {
-				helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
-				if err == nil {
-					helpRect := &sdl.Rect{
-						X: currentX + info.blackPillWidth + pillPadding*2,
-						Y: screenHeight - pillHeight - margins.Bottom + (pillHeight-helpSurface.H)/2,
-						W: helpSurface.W,
-						H: helpSurface.H,
-					}
-					renderer.Copy(helpTexture, nil, helpRect)
-					helpTexture.Destroy()
-				}
-				helpSurface.Free()
-			}
-
-			currentX += info.whitePillWidth + pillSpacing
-		}
-	}
 }

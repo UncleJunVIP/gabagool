@@ -49,20 +49,19 @@ func DefaultListOptions(title string, items []models.MenuItem) ListOptions {
 		Title:             title,
 		Items:             items,
 		SelectedIndex:     0,
-		MaxVisibleItems:   7,
+		MaxVisibleItems:   9,
 		EnableAction:      false,
 		EnableMultiSelect: false,
 		EnableReordering:  false,
 		HelpEnabled:       false,
 		Margins:           models.UniformPadding(20),
-		ItemSpacing:       internal.DefaultMenuSpacing,
 		TitleAlign:        internal.AlignLeft,
 		TitleSpacing:      internal.DefaultTitleSpacing,
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       150.0,
-		ScrollPauseTime:   25,
+		ScrollSpeed:       1.0,
+		ScrollPauseTime:   1000,
 		InputDelay:        internal.DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
 		MultiSelectButton: BrickButton_SELECT,
@@ -74,13 +73,12 @@ func DefaultListOptions(title string, items []models.MenuItem) ListOptions {
 }
 
 type textScrollData struct {
-	needsScrolling bool
-	scrollOffset   int32
-	textWidth      int32
-	containerWidth int32
-	direction      int
-	lastUpdateTime time.Time
-	pauseCounter   int
+	needsScrolling      bool
+	scrollOffset        int32
+	textWidth           int32
+	containerWidth      int32
+	direction           int
+	lastDirectionChange *time.Time
 }
 
 type listSettings struct {
@@ -205,7 +203,7 @@ func List(options ListOptions) (types.Option[models.ListReturn], error) {
 	renderer := window.Renderer
 
 	if options.MaxVisibleItems <= 0 {
-		options.MaxVisibleItems = 7
+		options.MaxVisibleItems = 9
 	}
 
 	listController := newListController(options)
@@ -750,7 +748,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	drawScrollableMenu(renderer, internal.GetLargeFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
+	drawScrollableMenu(renderer, internal.GetSmallFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
 	RenderFooter(
 		renderer,
@@ -770,10 +768,6 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
 	startY int32, settings listSettings, multiSelect bool, controller *listController) {
 
-	if settings.ItemSpacing <= 0 {
-		settings.ItemSpacing = internal.DefaultMenuSpacing
-	}
-
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
 		settings.Margins.Top <= 0 && settings.Margins.Bottom <= 0 {
 		settings.Margins = models.UniformPadding(10)
@@ -787,7 +781,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 
 	if settings.Title != "" {
 		itemStartY = drawTitle(renderer, internal.GetXLargeFont(), settings.Title,
-			settings.TitleAlign, startY, settings.Margins.Left) + settings.TitleSpacing
+			settings.TitleAlign, startY, settings.Margins.Left+10) + settings.TitleSpacing
 	}
 
 	const pillHeight = int32(60)
@@ -796,7 +790,8 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		screenWidth = 768
 	}
 
-	maxTextWidth := screenWidth - settings.Margins.Left - settings.Margins.Right - 15
+	// Add more horizontal padding for text within pills (increased from 15 to 30)
+	maxTextWidth := screenWidth - settings.Margins.Left - settings.Margins.Right - 30
 
 	for i, item := range visibleItems {
 
@@ -824,9 +819,10 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
 		needsScrolling := hasScrollData && scrollData.needsScrolling && item.Focused
 
-		pillWidth := textWidth + 10
+		// Increase horizontal padding within the pill (from 30 to 40)
+		pillWidth := textWidth + 40
 		if needsScrolling {
-			pillWidth = maxTextWidth + 10
+			pillWidth = maxTextWidth + 40
 		}
 
 		if item.Selected || item.Focused {
@@ -836,7 +832,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 				W: pillWidth,
 				H: pillHeight,
 			}
-			drawRoundedRect(renderer, &pillRect, 12, bgColor)
+			drawRoundedRect(renderer, &pillRect, 30, bgColor)
 		}
 
 		textVerticalOffset := (pillHeight-textHeight)/2 + 1
@@ -849,7 +845,6 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 				settings.Margins.Left, itemY, textVerticalOffset)
 		}
 	}
-
 }
 
 func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
@@ -889,17 +884,42 @@ func formatItemText(item models.MenuItem, multiSelect bool) string {
 func renderScrollingText(renderer *sdl.Renderer, texture *sdl.Texture, textHeight, maxWidth, marginLeft,
 	itemY, vertOffset, scrollOffset int32) {
 
+	// Get the full texture size
+	_, _, fullWidth, _, err := texture.Query()
+	if err != nil {
+		return
+	}
+
+	// The display width will always be maxWidth (the container/pill width)
+	displayWidth := maxWidth
+
+	// Ensure the scrollOffset is never negative and never beyond the texture width minus display width
+	if scrollOffset < 0 {
+		scrollOffset = 0
+	}
+
+	maxOffset := fullWidth - displayWidth
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	if scrollOffset > maxOffset {
+		scrollOffset = maxOffset
+	}
+
+	// Create clip and destination rectangles
 	clipRect := &sdl.Rect{
 		X: scrollOffset,
 		Y: 0,
-		W: maxWidth,
+		W: min(displayWidth, fullWidth-scrollOffset), // Ensure we don't try to display beyond texture bounds
 		H: textHeight,
 	}
 
+	// Add horizontal padding
 	textRect := sdl.Rect{
-		X: marginLeft + 5,
+		X: marginLeft + 20, // Fixed horizontal padding
 		Y: itemY + vertOffset,
-		W: maxWidth,
+		W: clipRect.W, // Match the width of what we're clipping
 		H: textHeight,
 	}
 
@@ -909,8 +929,14 @@ func renderScrollingText(renderer *sdl.Renderer, texture *sdl.Texture, textHeigh
 func renderStaticText(renderer *sdl.Renderer, texture *sdl.Texture, src *sdl.Rect,
 	width, height, marginLeft, itemY, vertOffset int32) {
 
+	// For centering text within the pill, we need to know the pill width
+	pillWidth := width + 30 // The pillWidth from the drawScrollableMenu function
+
+	// Calculate position to center the text within the pill
+	textX := marginLeft + (pillWidth-width)/2
+
 	textRect := sdl.Rect{
-		X: marginLeft + 5,
+		X: textX,
 		Y: itemY + vertOffset,
 		W: width,
 		H: height,
@@ -982,7 +1008,7 @@ func (lc *listController) updateScrollingAnimations() {
 		screenWidth = 768
 	}
 
-	maxTextWidth := screenWidth - lc.Settings.Margins.Left - lc.Settings.Margins.Right - 15
+	maxTextWidth := screenWidth - lc.Settings.Margins.Left - lc.Settings.Margins.Right - 30
 
 	endIdx := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
 
@@ -1009,7 +1035,6 @@ func (lc *listController) updateScrollingAnimations() {
 }
 
 func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
-
 	prefix := ""
 	if lc.MultiSelect {
 		if item.Selected {
@@ -1023,7 +1048,8 @@ func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem,
 		prefix = "↕ " + prefix
 	}
 
-	textSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(
+	// Use a consistent font to ensure proper rendering
+	textSurface, err := internal.GetSmallFont().RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	)
@@ -1034,47 +1060,59 @@ func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem,
 
 	textWidth := textSurface.W
 
+	// Only enable scrolling if the text is actually wider than the available space
+	needsScrolling := textWidth > maxWidth
+
 	return &textScrollData{
-		needsScrolling: textWidth > maxWidth,
+		needsScrolling: needsScrolling,
 		textWidth:      textWidth,
 		containerWidth: maxWidth,
 		direction:      1,
 		scrollOffset:   0,
-		lastUpdateTime: time.Now(),
-		pauseCounter:   lc.Settings.ScrollPauseTime,
 	}
 }
 
 func (lc *listController) updateScrollAnimation(data *textScrollData) {
+	pixelsToScroll := lc.Settings.ScrollSpeed
 
+	// Calculate the maximum valid scroll offset more accurately
+	// Make sure we're using the actual rendered text width
+	maxScrollOffset := (data.textWidth - data.containerWidth)
+
+	if maxScrollOffset < 0 {
+		maxScrollOffset = 0
+	}
+
+	// Add time tracking for direction changes
 	currentTime := time.Now()
-	elapsed := currentTime.Sub(data.lastUpdateTime).Seconds()
-	data.lastUpdateTime = currentTime
-
-	if data.pauseCounter > 0 {
-		data.pauseCounter--
+	if data.lastDirectionChange != nil &&
+		currentTime.Sub(*data.lastDirectionChange).Milliseconds() < int64(lc.Settings.ScrollPauseTime) {
 		return
 	}
 
-	pixelsToScroll := max(int32(float32(elapsed)*lc.Settings.ScrollSpeed), 1)
-
 	if data.direction > 0 {
+		// Scrolling right (forward)
+		data.scrollOffset += int32(pixelsToScroll)
 
-		data.scrollOffset += pixelsToScroll
-
-		if data.scrollOffset >= data.textWidth-data.containerWidth {
-			data.scrollOffset = data.textWidth - data.containerWidth
+		// Make sure we don't scroll beyond the end of the text
+		if data.scrollOffset >= maxScrollOffset {
+			data.scrollOffset = maxScrollOffset
 			data.direction = -1
-			data.pauseCounter = lc.Settings.ScrollPauseTime
+			// Record time of direction change
+			now := time.Now()
+			data.lastDirectionChange = &now
 		}
 	} else {
+		// Scrolling left (backward)
+		data.scrollOffset -= int32(pixelsToScroll)
 
-		data.scrollOffset -= pixelsToScroll
-
+		// Make sure we don't scroll beyond the beginning of the text
 		if data.scrollOffset <= 0 {
 			data.scrollOffset = 0
 			data.direction = 1
-			data.pauseCounter = lc.Settings.ScrollPauseTime
+			// Record time of direction change
+			now := time.Now()
+			data.lastDirectionChange = &now
 		}
 	}
 }

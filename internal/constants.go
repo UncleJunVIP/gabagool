@@ -14,7 +14,6 @@ const (
 )
 
 const (
-	DefaultMenuSpacing  int32 = 12
 	DefaultInputDelay         = 20 * time.Millisecond
 	DefaultTitleSpacing int32 = 5
 )
