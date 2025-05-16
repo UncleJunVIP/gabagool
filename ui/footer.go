@@ -134,7 +134,7 @@ func renderGroupAsContinuousPill(
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 	// Render each button-text pair in sequence
 	for _, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().HintInfoColor)
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().SecondaryAccentColor)
 		if err != nil {
 			continue
 		}
