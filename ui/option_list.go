@@ -72,7 +72,7 @@ type optionsListController struct {
 
 func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
-		Margins:         models.UniformPadding(20),
+		Margins:         models.UniformPadding(30),
 		ItemSpacing:     60,
 		InputDelay:      internal.DefaultInputDelay,
 		Title:           title,
@@ -601,24 +601,25 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
 
-		textColor := sdl.Color{R: 180, G: 180, B: 180, A: 255}
+		textColor := internal.GetTheme().ListTextColor
 		bgColor := sdl.Color{R: 0, G: 0, B: 0, A: 0}
 
 		if item.Item.Selected {
-			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
-			bgColor = sdl.Color{R: 60, G: 60, B: 80, A: 255}
+			textColor = internal.GetTheme().ListTextSelectedColor
+			bgColor = internal.GetTheme().MainColor
 		}
 
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
 
 		if item.Item.Selected {
 			renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
-			renderer.FillRect(&sdl.Rect{
+			selectionRect := &sdl.Rect{
 				X: olc.Settings.Margins.Left - 10,
 				Y: itemY - 5,
 				W: window.Width - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
-				H: olc.Settings.ItemSpacing - 5,
-			})
+				H: olc.Settings.ItemSpacing,
+			}
+			DrawRoundedRect(renderer, selectionRect, 20)
 		}
 
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
@@ -700,7 +701,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 	RenderFooter(
 		renderer,
-		internal.GetMediumFont(),
+		internal.GetSmallFont(),
 		olc.Settings.FooterHelpItems,
 		olc.Settings.Margins.Bottom,
 	)
