@@ -304,7 +304,7 @@ func (dm *downloadManager) downloadFile(url, filePath string) {
 			dm.downloadDone <- true
 		}
 	case <-dm.cancelDownload:
-		dm.downloadError = fmt.Errorf("Download Cancelled")
+		dm.downloadError = fmt.Errorf("Download Canceled")
 		dm.isDownloading = false
 		dm.downloadDone <- false
 	}

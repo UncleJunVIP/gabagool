@@ -18,6 +18,15 @@ const (
 	OptionTypeClickable
 )
 
+// Option represents a single option for a menu item.
+// DisplayName is the text that will be displayed to the user.
+// Value is the value that will be returned when the option is submitted.
+// Type controls the option's behavior. There are three types:
+//   - Standard: A standard option that will be displayed to the user.
+//   - Keyboard: A keyboard option that will be displayed to the user.
+//   - Clickable: A clickable option that will be displayed to the user.
+//
+// KeyboardPrompt is the text that will be displayed to the user when the option is a keyboard option.
 type Option struct {
 	DisplayName    string
 	Value          interface{}
@@ -25,18 +34,26 @@ type Option struct {
 	KeyboardPrompt string
 }
 
+// ItemWithOptions represents a menu item with multiple choices.
+// Item is the menu item itself.
+// Options is the list of options for the menu item.
+// SelectedOption is the index of the currently selected option.
 type ItemWithOptions struct {
 	Item           models.MenuItem
 	Options        []Option
 	SelectedOption int
 }
 
+// OptionsListReturn represents the return value of the OptionsList function.
+// Items is the entire list of menu items that were selected.
+// SelectedIndex is the index of the selected item.
+// SelectedItem is the selected item.
+// Canceled is true if the user canceled the OptionsList.
 type OptionsListReturn struct {
-	Items          []ItemWithOptions
-	SelectedIndex  int
-	SelectedItem   *ItemWithOptions
-	LastPressedBtn uint8
-	Cancelled      bool
+	Items         []ItemWithOptions
+	SelectedIndex int
+	SelectedItem  *ItemWithOptions
+	Canceled      bool
 }
 
 type optionsListSettings struct {
@@ -109,6 +126,8 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 	}
 }
 
+// OptionsList presents a list of options to the user.
+// This blocks until a selection is made or the user cancels.
 func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
@@ -120,12 +139,9 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 	running := true
 	result := OptionsListReturn{
-		Items:          items,
-		SelectedIndex:  -1,
-		SelectedItem:   nil,
-		LastPressedBtn: 0,
-		Cancelled:      true,
+		Items: items,
 	}
+
 	var err error
 
 	for running {
@@ -144,7 +160,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 				case sdl.K_b:
 					running = false
 					result.SelectedIndex = -1
-					result.Cancelled = true
+					result.Canceled = true
 
 				case sdl.K_a:
 
@@ -172,7 +188,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 								running = false
 								result.SelectedIndex = optionsListController.SelectedIndex
 								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-								result.Cancelled = false
+								result.Canceled = false
 							}
 						}
 					}
@@ -181,7 +197,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					running = false
 					result.SelectedIndex = optionsListController.SelectedIndex
 					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-					result.Cancelled = false
+					result.Canceled = false
 
 				case sdl.K_LEFT:
 					optionsListController.cycleOptionLeft()
@@ -198,12 +214,10 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					continue
 				}
 
-				result.LastPressedBtn = e.Button
-
 				switch e.Button {
 				case BrickButton_B:
 					result.SelectedIndex = -1
-					result.Cancelled = true
+					result.Canceled = true
 					running = false
 
 				case BrickButton_A:
@@ -231,7 +245,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 								running = false
 								result.SelectedIndex = optionsListController.SelectedIndex
 								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-								result.Cancelled = false
+								result.Canceled = false
 							}
 						}
 					}
@@ -240,7 +254,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					running = false
 					result.SelectedIndex = optionsListController.SelectedIndex
 					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-					result.Cancelled = false
+					result.Canceled = false
 
 				case BrickButton_LEFT:
 					optionsListController.cycleOptionLeft()
@@ -265,7 +279,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 		sdl.Delay(16)
 	}
 
-	if err != nil || result.Cancelled {
+	if err != nil || result.Canceled {
 		return option.None[OptionsListReturn](), err
 	}
 

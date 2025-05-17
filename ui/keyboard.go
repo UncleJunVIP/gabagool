@@ -220,6 +220,11 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 	return kb
 }
 
+// Keyboard creates a virtual keyboard that can be used to enter text.
+// The keyboard is centered on screen and features both on-screen controls and button shortcuts.
+// This returns an Option[string] that can be used to get the text entered by the user.
+// If the user hits enter, the Option[string] will contain the text entered by the user.
+// If the user exits, the Option[string] will be empty.
 func Keyboard(initialText string) (types.Option[string], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer

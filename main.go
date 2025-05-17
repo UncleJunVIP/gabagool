@@ -116,10 +116,10 @@ func main() {
 	//	internal.Logger.Error("Download error", "error", err)
 	//}
 	//
-	//fmt.Printf("Completed: %d, Failed: %d, Cancelled: %t\n",
+	//fmt.Printf("Completed: %d, Failed: %d, Canceled: %t\n",
 	//	len(result.CompletedDownloads),
 	//	len(result.FailedDownloads),
-	//	result.Cancelled)
+	//	result.Canceled)
 	//
 	//for _, download := range result.CompletedDownloads {
 	//	fmt.Printf("Successfully downloaded: %s\n", download.DisplayName)

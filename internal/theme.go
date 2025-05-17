@@ -22,7 +22,7 @@ type Theme struct {
 
 var currentTheme Theme
 
-func InitTheme() {
+func initTheme() {
 	currentTheme = Theme{
 		MainColor:             hexToColor(0xFFFFFF),
 		PrimaryAccentColor:    hexToColor(0x9B2257),
@@ -33,9 +33,9 @@ func InitTheme() {
 		BGColor:               hexToColor(0x000000),
 	}
 
-	settingsPath := "/mnt/SDCARD/.userdata/shared/minuisettings.txt"
-	if os.Getenv("DEVELOPMENT") == "true" {
-		settingsPath = "/Users/btk/Developer/gabagool/dev_resources/minuisettings.txt" //TODO make ENV VAR
+	settingsPath := nextUISettingPath
+	if isDev {
+		settingsPath = os.Getenv(envSettingsFile)
 	}
 
 	file, err := os.Open(settingsPath)

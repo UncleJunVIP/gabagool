@@ -5,6 +5,19 @@ import (
 	"time"
 )
 
+const nextUISettingPath = "/mnt/SDCARD/.userdata/shared/minuisettings.txt"
+const nextUIBackgroundPath = "/mnt/SDCARD/bg.png"
+
+const envSettingsFile = "SETTINGS_FILE"
+const envBackgroundPath = "BACKGROUND_PATH"
+
+const Development = "DEV"
+
+const (
+	DefaultWindowWidth  = int32(1024)
+	DefaultWindowHeight = int32(768)
+)
+
 type TextAlignment int
 
 const (

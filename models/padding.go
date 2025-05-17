@@ -15,12 +15,3 @@ func UniformPadding(value int32) Padding {
 		Left:   value,
 	}
 }
-
-func HVPadding(horizontal, vertical int32) Padding {
-	return Padding{
-		Top:    vertical,
-		Right:  horizontal,
-		Bottom: vertical,
-		Left:   horizontal,
-	}
-}

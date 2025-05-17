@@ -6,13 +6,16 @@ import (
 	"time"
 )
 
+type ProcessMessageOptions struct {
+	ShowBackground bool
+}
 type ProcessReturn struct {
 	Success bool
 	Result  interface{}
 	Error   error
 }
 
-type blockingProcess struct {
+type processMessage struct {
 	window       *internal.Window
 	showBG       bool
 	message      string
@@ -20,10 +23,10 @@ type blockingProcess struct {
 	completeTime time.Time
 }
 
-func BlockingProcess(message string, showGB bool, fn func() (interface{}, error)) (ProcessReturn, error) {
-	processor := &blockingProcess{
+func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessReturn, error) {
+	processor := &processMessage{
 		window:       internal.GetWindow(),
-		showBG:       showGB,
+		showBG:       options.ShowBackground,
 		message:      message,
 		isProcessing: true,
 	}
@@ -110,14 +113,14 @@ func BlockingProcess(message string, showGB bool, fn func() (interface{}, error)
 	return result, err
 }
 
-func (p *blockingProcess) render(renderer *sdl.Renderer) {
+func (p *processMessage) render(renderer *sdl.Renderer) {
 
 	if !p.showBG {
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 	}
 
-	font := internal.GetMediumFont()
+	font := internal.GetSmallFont()
 
 	maxWidth := p.window.Width * 3 / 4
 	renderMultilineText(renderer, p.message, font, maxWidth, p.window.Width/2, p.window.Height/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
