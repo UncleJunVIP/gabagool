@@ -44,6 +44,30 @@ type downloadManager struct {
 	headers map[string]string
 }
 
+func newDownloadManager(downloads []models.Download, headers map[string]string) *downloadManager {
+	window := internal.GetWindow()
+
+	progressBarWidth := window.Width * 3 / 4
+	progressBarHeight := int32(30)
+	progressBarX := (window.Width - progressBarWidth) / 2
+	progressBarY := window.Height / 2
+
+	return &downloadManager{
+		window:            window,
+		downloads:         downloads,
+		headers:           headers,
+		currentIndex:      0,
+		isDownloading:     false,
+		downloadComplete:  false,
+		cancelDownload:    make(chan struct{}),
+		downloadDone:      make(chan bool),
+		progressBarWidth:  progressBarWidth,
+		progressBarHeight: progressBarHeight,
+		progressBarX:      progressBarX,
+		progressBarY:      progressBarY,
+	}
+}
+
 func Download(downloads []models.Download, headers map[string]string) (DownloadReturn, error) {
 	downloadManager := newDownloadManager(downloads, headers)
 
@@ -175,30 +199,6 @@ func Download(downloads []models.Download, headers map[string]string) (DownloadR
 	}
 
 	return result, err
-}
-
-func newDownloadManager(downloads []models.Download, headers map[string]string) *downloadManager {
-	window := internal.GetWindow()
-
-	progressBarWidth := window.Width * 3 / 4
-	progressBarHeight := int32(30)
-	progressBarX := (window.Width - progressBarWidth) / 2
-	progressBarY := window.Height / 2
-
-	return &downloadManager{
-		window:            window,
-		downloads:         downloads,
-		headers:           headers,
-		currentIndex:      0,
-		isDownloading:     false,
-		downloadComplete:  false,
-		cancelDownload:    make(chan struct{}),
-		downloadDone:      make(chan bool),
-		progressBarWidth:  progressBarWidth,
-		progressBarHeight: progressBarHeight,
-		progressBarX:      progressBarX,
-		progressBarY:      progressBarY,
-	}
 }
 
 func (dm *downloadManager) startDownload() {

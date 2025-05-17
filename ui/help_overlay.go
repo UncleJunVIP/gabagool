@@ -43,48 +43,12 @@ func newHelpOverlay(lines []string) *helpOverlay {
 	}
 }
 
-func (h *helpOverlay) toggle() {
-	h.ShowingHelp = !h.ShowingHelp
-	if h.ShowingHelp {
-		h.ScrollOffset = 0
-	}
-}
-
-func (h *helpOverlay) scroll(direction int) {
-	if !h.ShowingHelp {
-		return
-	}
-
-	newOffset := h.ScrollOffset + int32(direction)*h.LineHeight
-
-	if newOffset < 0 {
-		newOffset = 0
-	}
-
-	if newOffset > h.MaxScrollOffset {
-		newOffset = h.MaxScrollOffset
-	}
-
-	h.ScrollOffset = newOffset
-}
-
-func (h *helpOverlay) calculateMaxScroll(renderer *sdl.Renderer, font *ttf.Font) {
-	totalHeight := int32(len(h.Lines)) * h.LineHeight
-	visibleHeight := h.Height - (h.Padding * 2) - h.LineHeight - h.ExitTextPadding
-
-	if totalHeight > visibleHeight {
-		h.MaxScrollOffset = totalHeight - visibleHeight
-	} else {
-		h.MaxScrollOffset = 0
-	}
-}
-
 func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 	if !h.ShowingHelp {
 		return
 	}
 
-	h.calculateMaxScroll(renderer, font)
+	h.calculateMaxScroll()
 
 	bgRect := &sdl.Rect{X: 0, Y: 0, W: h.Width, H: h.Height}
 	renderer.SetDrawColor(h.BackgroundColor.R, h.BackgroundColor.G, h.BackgroundColor.B, h.BackgroundColor.A)
@@ -201,5 +165,41 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 			exitTexture.Destroy()
 		}
 		exitSurface.Free()
+	}
+}
+
+func (h *helpOverlay) calculateMaxScroll() {
+	totalHeight := int32(len(h.Lines)) * h.LineHeight
+	visibleHeight := h.Height - (h.Padding * 2) - h.LineHeight - h.ExitTextPadding
+
+	if totalHeight > visibleHeight {
+		h.MaxScrollOffset = totalHeight - visibleHeight
+	} else {
+		h.MaxScrollOffset = 0
+	}
+}
+
+func (h *helpOverlay) scroll(direction int) {
+	if !h.ShowingHelp {
+		return
+	}
+
+	newOffset := h.ScrollOffset + int32(direction)*h.LineHeight
+
+	if newOffset < 0 {
+		newOffset = 0
+	}
+
+	if newOffset > h.MaxScrollOffset {
+		newOffset = h.MaxScrollOffset
+	}
+
+	h.ScrollOffset = newOffset
+}
+
+func (h *helpOverlay) toggle() {
+	h.ShowingHelp = !h.ShowingHelp
+	if h.ShowingHelp {
+		h.ScrollOffset = 0
 	}
 }

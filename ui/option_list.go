@@ -633,7 +633,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 				W: window.Width - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
 				H: olc.Settings.ItemSpacing,
 			}
-			DrawRoundedRect(renderer, selectionRect, 20)
+			drawRoundedRect(renderer, selectionRect, 20)
 		}
 
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
@@ -713,7 +713,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	RenderFooter(
+	renderFooter(
 		renderer,
 		internal.GetSmallFont(),
 		olc.Settings.FooterHelpItems,

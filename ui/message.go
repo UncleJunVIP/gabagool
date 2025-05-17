@@ -30,8 +30,10 @@ type messageSettings struct {
 	InputDelay       time.Duration
 }
 
+type MessageOptions struct {
+	ImagePath string
+}
 type MessageReturn struct {
-	SelectedButton int
 	ButtonName     string
 	LastPressedKey sdl.Keycode
 	LastPressedBtn uint8
@@ -55,22 +57,21 @@ func defaultMessageSettings(title, message string) messageSettings {
 	}
 }
 
-func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath string) (types.Option[MessageReturn], error) {
+func Message(title, message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[MessageReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
 	settings := defaultMessageSettings(title, message)
 	settings.FooterHelpItems = footerHelpItems
 
-	if imagePath != "" {
-		settings.ImagePath = imagePath
+	if options.ImagePath != "" {
+		settings.ImagePath = options.ImagePath
 		settings.MaxImageHeight = int32(float64(window.Height) / 1.75)
 		settings.MaxImageWidth = int32(float64(window.Width) / 1.75)
 	}
 
 	running := true
 	result := MessageReturn{
-		SelectedButton: -1,
 		ButtonName:     "",
 		LastPressedKey: 0,
 		LastPressedBtn: 0,
@@ -137,7 +138,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 
 				switch e.Keysym.Sym {
 				case sdl.K_a, sdl.K_RETURN:
-					result.SelectedButton = 0
 					result.ButtonName = "Yes"
 					result.Cancelled = false
 					running = false
@@ -162,7 +162,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 
 				switch e.Button {
 				case BrickButton_A:
-					result.SelectedButton = 0
 					result.ButtonName = "Yes"
 					result.Cancelled = false
 					running = false
@@ -216,7 +215,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, imagePath 
 			startY,
 			settings.MessageTextColor)
 
-		RenderFooter(
+		renderFooter(
 			renderer,
 			internal.GetSmallFont(),
 			settings.FooterHelpItems,

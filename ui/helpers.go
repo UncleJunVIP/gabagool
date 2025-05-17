@@ -67,7 +67,7 @@ func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 	}
 }
 
-func DrawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
+func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
 	if radius <= 0 {
 		renderer.FillRect(rect)
 		return

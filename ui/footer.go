@@ -7,12 +7,15 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
+// FooterHelpItem represents a button and its help text that should be displayed in the footer.
+// ButtonName is the text that will be displayed in the inner pill.
+// HelpText is the text that will be displayed in the outer pill to the right of the button.
 type FooterHelpItem struct {
 	HelpText   string
 	ButtonName string
 }
 
-func RenderFooter(
+func renderFooter(
 	renderer *sdl.Renderer,
 	font *ttf.Font,
 	footerHelpItems []FooterHelpItem,
@@ -44,24 +47,19 @@ func RenderFooter(
 		leftItems = footerHelpItems[0:2]
 		rightItems = footerHelpItems[2:4]
 	}
-	// Render left group if it exists
+
 	if len(leftItems) > 0 {
 		renderGroupAsContinuousPill(renderer, font, leftItems, bottomPadding, y, outerPillHeight, innerPillMargin)
 	}
-	// Render right group if it exists
 	if len(rightItems) > 0 {
-		// Calculate total width of right group
 		rightGroupWidth := calculateContinuousPillWidth(font, rightItems, outerPillHeight, innerPillMargin)
 		rightX := windowWidth - bottomPadding - rightGroupWidth
 		renderGroupAsContinuousPill(renderer, font, rightItems, rightX, y, outerPillHeight, innerPillMargin)
 	}
 }
 
-// Helper function to calculate the width of a continuous pill containing multiple items
 func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerPillHeight, innerPillMargin int32) int32 {
-	var totalWidth int32 = 0
-	// Add left padding for the outer pill
-	totalWidth += 20
+	var totalWidth int32 = 20
 
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
@@ -76,36 +74,28 @@ func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerP
 			continue
 		}
 
-		// Determine if inner pill should be circle or pill
 		innerPillWidth := calculateInnerPillWidth(buttonSurface, innerPillHeight)
 
-		// Calculate item width (button + help text + spacing)
 		itemWidth := innerPillWidth + 15 + helpSurface.W
 		totalWidth += itemWidth
-		// Add spacing between items
 		if i < len(items)-1 {
 			totalWidth += 20
 		}
 		buttonSurface.Free()
 		helpSurface.Free()
 	}
-	// Add right padding for the outer pill
 	totalWidth += 15
 	return totalWidth
 }
 
-// Helper function to calculate inner pill width based on content
 func calculateInnerPillWidth(buttonSurface *sdl.Surface, innerPillHeight int32) int32 {
-	// If text width is small enough, make a circle
-	if buttonSurface.W <= innerPillHeight-20 { // Allow some padding
-		return innerPillHeight // Circle has width = height
+	if buttonSurface.W <= innerPillHeight-20 {
+		return innerPillHeight
 	} else {
-		// Otherwise, make a pill with padding
 		return buttonSurface.W + 20
 	}
 }
 
-// Helper function to render a group of items as one continuous pill
 func renderGroupAsContinuousPill(
 	renderer *sdl.Renderer,
 	font *ttf.Font,
@@ -117,9 +107,7 @@ func renderGroupAsContinuousPill(
 	if len(items) == 0 {
 		return
 	}
-	// Calculate the total width of the continuous pill
 	pillWidth := calculateContinuousPillWidth(font, items, outerPillHeight, innerPillMargin)
-	// Draw the outer pill (purple background)
 	outerPillRect := &sdl.Rect{
 		X: startX,
 		Y: y,
@@ -128,11 +116,11 @@ func renderGroupAsContinuousPill(
 	}
 
 	renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().PrimaryAccentColor))
-	DrawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
-	// Start position for rendering items
-	currentX := startX + 10 // Left padding
+	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
+
+	currentX := startX + 10
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
-	// Render each button-text pair in sequence
+
 	for _, item := range items {
 		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().SecondaryAccentColor)
 		if err != nil {
@@ -144,25 +132,21 @@ func renderGroupAsContinuousPill(
 			continue
 		}
 
-		// Determine if inner pill should be circle or pill
 		innerPillWidth := calculateInnerPillWidth(buttonSurface, innerPillHeight)
 		isCircle := (innerPillWidth == innerPillHeight)
 
-		// Set white color for inner pill
 		renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().MainColor))
 
 		if isCircle {
-			// Draw as circle
-			DrawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2)
+			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2)
 		} else {
-			// Draw as pill
 			innerPillRect := &sdl.Rect{
 				X: currentX,
 				Y: y + innerPillMargin,
 				W: innerPillWidth,
 				H: innerPillHeight,
 			}
-			DrawRoundedRect(renderer, innerPillRect, innerPillHeight/2)
+			drawRoundedRect(renderer, innerPillRect, innerPillHeight/2)
 		}
 
 		buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
@@ -176,9 +160,9 @@ func renderGroupAsContinuousPill(
 			renderer.Copy(buttonTexture, nil, buttonTextRect)
 			buttonTexture.Destroy()
 		}
-		// Move to position for help text
+
 		currentX += innerPillWidth + 10
-		// Render help text (white text)
+
 		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
 		if err == nil {
 			helpTextRect := &sdl.Rect{
@@ -190,19 +174,17 @@ func renderGroupAsContinuousPill(
 			renderer.Copy(helpTexture, nil, helpTextRect)
 			helpTexture.Destroy()
 		}
-		// Move to the next item position
+
 		currentX += helpSurface.W + 30
 		buttonSurface.Free()
 		helpSurface.Free()
 	}
 }
 
-func DrawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
-	// Get current draw color
+func drawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
 	r, g, b, a, _ := renderer.GetDrawColor()
 	color := sdl.Color{R: r, G: g, B: b, A: a}
 
-	// Draw the main filled circle
 	gfx.FilledCircleColor(
 		renderer,
 		centerX,
@@ -211,7 +193,6 @@ func DrawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
 		color,
 	)
 
-	// Draw anti-aliased outline to smooth the edges
 	gfx.AACircleColor(
 		renderer,
 		centerX,
@@ -220,7 +201,6 @@ func DrawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
 		color,
 	)
 
-	// Optional: Draw a slightly smaller anti-aliased circle to further smooth inner edges
 	if radius > 2 {
 		gfx.AACircleColor(
 			renderer,

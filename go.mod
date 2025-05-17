@@ -8,3 +8,9 @@ require (
 	github.com/patrickhuber/go-types v0.6.0
 	github.com/veandco/go-sdl2 v0.4.40
 )
+
+require (
+	github.com/yuin/goldmark v1.4.13 // indirect
+	golang.org/x/mod v0.24.0 // indirect
+	golang.org/x/tools v0.33.0 // indirect
+)

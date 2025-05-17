@@ -198,6 +198,10 @@ func newListController(options ListOptions) *listController {
 	}
 }
 
+// List presents a basic list of items to the user.
+// Two specialty modes are provided: multi-select and reorder.
+//   - Multi-select allows the user to select multiple items.
+//   - Reorder allows the user to reorder the items in the list.
 func List(options ListOptions) (types.Option[models.ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
@@ -750,7 +754,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 
 	drawScrollableMenu(renderer, internal.GetSmallFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
-	RenderFooter(
+	renderFooter(
 		renderer,
 		internal.GetSmallFont(),
 		lc.Settings.FooterHelpItems,
@@ -832,7 +836,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 				W: pillWidth,
 				H: pillHeight,
 			}
-			drawRoundedRect(renderer, &pillRect, 30, bgColor)
+			drawListRoundedRect(renderer, &pillRect, 30, bgColor)
 		}
 
 		textVerticalOffset := (pillHeight-textHeight)/2 + 1
@@ -944,7 +948,7 @@ func renderStaticText(renderer *sdl.Renderer, texture *sdl.Texture, src *sdl.Rec
 	renderer.Copy(texture, src, &textRect)
 }
 
-func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
+func drawListRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
 	if radius <= 0 {
 
 		renderer.SetDrawColor(color.R, color.G, color.B, color.A)
