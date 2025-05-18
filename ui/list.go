@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/UncleJunVIP/gabagool/internal"
-	"github.com/UncleJunVIP/gabagool/models"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -13,7 +12,7 @@ import (
 
 type ListOptions struct {
 	Title             string
-	Items             []models.MenuItem
+	Items             []MenuItem
 	SelectedIndex     int
 	VisibleStartIndex int
 	MaxVisibleItems   int
@@ -23,7 +22,7 @@ type ListOptions struct {
 	EnableReordering  bool
 	HelpEnabled       bool
 
-	Margins         models.Padding
+	Margins         Padding
 	ItemSpacing     int32
 	TitleAlign      internal.TextAlignment
 	TitleSpacing    int32
@@ -40,11 +39,11 @@ type ListOptions struct {
 	ReorderKey        sdl.Keycode
 	ReorderButton     uint8
 
-	OnSelect  func(index int, item *models.MenuItem)
+	OnSelect  func(index int, item *MenuItem)
 	OnReorder func(from, to int)
 }
 
-func DefaultListOptions(title string, items []models.MenuItem) ListOptions {
+func DefaultListOptions(title string, items []MenuItem) ListOptions {
 	return ListOptions{
 		Title:             title,
 		Items:             items,
@@ -54,7 +53,7 @@ func DefaultListOptions(title string, items []models.MenuItem) ListOptions {
 		EnableMultiSelect: false,
 		EnableReordering:  false,
 		HelpEnabled:       false,
-		Margins:           models.UniformPadding(20),
+		Margins:           UniformPadding(20),
 		TitleAlign:        internal.AlignLeft,
 		TitleSpacing:      internal.DefaultTitleSpacing,
 		FooterText:        "",
@@ -82,7 +81,7 @@ type textScrollData struct {
 }
 
 type listSettings struct {
-	Margins           models.Padding
+	Margins           Padding
 	ItemSpacing       int32
 	InputDelay        time.Duration
 	Title             string
@@ -100,7 +99,7 @@ type listSettings struct {
 }
 
 type listController struct {
-	Items             []models.MenuItem
+	Items             []MenuItem
 	SelectedIndex     int
 	SelectedItems     map[int]bool
 	MultiSelect       bool
@@ -110,7 +109,7 @@ type listController struct {
 	Settings          listSettings
 	StartY            int32
 	lastInputTime     time.Time
-	OnSelect          func(index int, item *models.MenuItem)
+	OnSelect          func(index int, item *MenuItem)
 
 	VisibleStartIndex int
 	MaxVisibleItems   int
@@ -202,7 +201,7 @@ func newListController(options ListOptions) *listController {
 // Two specialty modes are provided: multi-select and reorder.
 //   - Multi-select allows the user to select multiple items.
 //   - Reorder allows the user to reorder the items in the list.
-func List(options ListOptions) (types.Option[models.ListReturn], error) {
+func List(options ListOptions) (types.Option[ListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
@@ -217,7 +216,7 @@ func List(options ListOptions) (types.Option[models.ListReturn], error) {
 	}
 
 	running := true
-	result := models.ListReturn{
+	result := ListReturn{
 		SelectedIndex:  -1,
 		SelectedItem:   nil,
 		LastPressedBtn: 0,
@@ -252,7 +251,7 @@ func List(options ListOptions) (types.Option[models.ListReturn], error) {
 	}
 
 	if err != nil || result.Cancelled {
-		return option.None[models.ListReturn](), err
+		return option.None[ListReturn](), err
 	}
 
 	return option.Some(result), nil
@@ -377,7 +376,7 @@ func (lc *listController) scrollTo(index int) {
 	}
 }
 
-func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *bool, result *models.ListReturn) {
+func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *bool, result *ListReturn) {
 	if e.Type != sdl.KEYDOWN {
 		return
 	}
@@ -436,7 +435,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 	}
 }
 
-func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, running *bool, result *models.ListReturn) {
+func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, running *bool, result *ListReturn) {
 	if e.Type != sdl.CONTROLLERBUTTONDOWN && e.Type != sdl.CONTROLLERBUTTONUP {
 		return
 	}
@@ -725,7 +724,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	}
 
 	endIndex := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
-	visibleItems := make([]models.MenuItem, endIndex-lc.VisibleStartIndex)
+	visibleItems := make([]MenuItem, endIndex-lc.VisibleStartIndex)
 	copy(visibleItems, lc.Items[lc.VisibleStartIndex:endIndex])
 
 	if lc.MultiSelect {
@@ -769,12 +768,12 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	}
 }
 
-func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []models.MenuItem,
+func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []MenuItem,
 	startY int32, settings listSettings, multiSelect bool, controller *listController) {
 
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
 		settings.Margins.Top <= 0 && settings.Margins.Bottom <= 0 {
-		settings.Margins = models.UniformPadding(10)
+		settings.Margins = UniformPadding(10)
 	}
 
 	if settings.TitleSpacing <= 0 {
@@ -851,7 +850,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []m
 	}
 }
 
-func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
+func getItemColors(item MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
 	if multiSelect {
 		if item.Focused && item.Selected {
 			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
@@ -874,7 +873,7 @@ func getItemColors(item models.MenuItem, multiSelect bool) (textColor, bgColor s
 	return internal.GetTheme().ListTextColor, sdl.Color{}
 }
 
-func formatItemText(item models.MenuItem, multiSelect bool) string {
+func formatItemText(item MenuItem, multiSelect bool) string {
 	if !multiSelect {
 		return item.Text
 	}
@@ -1038,7 +1037,7 @@ func (lc *listController) updateScrollingAnimations() {
 	}
 }
 
-func (lc *listController) createScrollDataForItem(idx int, item models.MenuItem, maxWidth int32) *textScrollData {
+func (lc *listController) createScrollDataForItem(idx int, item MenuItem, maxWidth int32) *textScrollData {
 	prefix := ""
 	if lc.MultiSelect {
 		if item.Selected {

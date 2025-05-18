@@ -13,7 +13,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type APNGPlayer struct {
+type apngPlayer struct {
 	renderer     *sdl.Renderer
 	texture      *sdl.Texture
 	animation    apng.APNG
@@ -26,6 +26,14 @@ type APNGPlayer struct {
 	isLooping    bool
 }
 
+type AnimationOption struct {
+	Looping        bool
+	AutoClose      bool
+	DisplayTime    time.Duration
+	MaxDisplayTime time.Duration
+	BGColor        sdl.Color
+}
+
 type AnimationReturn struct {
 	CompletedNormally bool
 	LoopCount         int
@@ -35,7 +43,144 @@ type AnimationReturn struct {
 	Cancelled         bool
 }
 
-func NewAPNGPlayer(renderer *sdl.Renderer, filePath string) (*APNGPlayer, error) {
+// Animation plays an APNG file. Yeah, that's it.
+func Animation(filePath string, options AnimationOption) (AnimationReturn, error) {
+	window := internal.GetWindow()
+	renderer := window.Renderer
+
+	player, err := newAPNGPlayer(renderer, filePath)
+	if err != nil {
+		return AnimationReturn{Cancelled: true}, err
+	}
+	defer player.destroy()
+
+	player.isLooping = true
+
+	screenW, screenH, _ := renderer.GetOutputSize()
+	rect := player.getRect()
+
+	x := (screenW - rect.W) / 2
+
+	y := (screenH - rect.H) / 2
+
+	player.setPosition(x, y)
+
+	result := AnimationReturn{
+		CompletedNormally: false,
+		LoopCount:         0,
+		PlayedFrames:      0,
+		LastPressedKey:    0,
+		LastPressedBtn:    0,
+		Cancelled:         false,
+	}
+
+	running := true
+	prevFrame := player.currentFrame
+	startTime := time.Now()
+
+	loopCount := 0
+	lastFrameIndex := len(player.frames) - 1
+
+	showingHelp := false
+
+	for running {
+		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+			switch e := event.(type) {
+			case *sdl.QuitEvent:
+				running = false
+				result.Cancelled = true
+
+			case *sdl.KeyboardEvent:
+				if e.Type == sdl.KEYDOWN {
+					result.LastPressedKey = e.Keysym.Sym
+
+					if showingHelp {
+						showingHelp = false
+						continue
+					}
+
+					switch e.Keysym.Sym {
+					case sdl.K_ESCAPE:
+						running = false
+						result.Cancelled = true
+					case sdl.K_SPACE:
+						player.isPlaying = !player.isPlaying
+					case sdl.K_r:
+						player.reset()
+						result.PlayedFrames = 0
+						loopCount = 0
+					case sdl.K_h:
+						showingHelp = !showingHelp
+					}
+				}
+
+			case *sdl.ControllerButtonEvent:
+				if e.Type == sdl.CONTROLLERBUTTONDOWN {
+					result.LastPressedBtn = e.Button
+
+					if showingHelp {
+						showingHelp = false
+						continue
+					}
+
+					switch e.Button {
+					case BrickButton_B:
+						running = false
+						result.Cancelled = true
+					case BrickButton_A:
+						player.isPlaying = !player.isPlaying
+					case BrickButton_X:
+						player.reset()
+						result.PlayedFrames = 0
+						loopCount = 0
+					case BrickButton_MENU:
+						showingHelp = !showingHelp
+					}
+				}
+			}
+		}
+
+		if player.currentFrame != prevFrame {
+			result.PlayedFrames++
+
+			if prevFrame == lastFrameIndex && player.currentFrame == 0 {
+				loopCount++
+				result.LoopCount = loopCount
+			}
+
+			prevFrame = player.currentFrame
+		}
+
+		player.update()
+
+		if player.isPlaying && player.isLooping {
+			if options.AutoClose {
+
+				if time.Since(startTime) > options.DisplayTime && options.DisplayTime > 0 {
+					running = false
+					result.CompletedNormally = true
+				}
+			}
+		}
+
+		if options.MaxDisplayTime > 0 && time.Since(startTime) > options.MaxDisplayTime {
+			running = false
+			result.CompletedNormally = true
+		}
+
+		renderer.SetDrawColor(options.BGColor.R, options.BGColor.G, options.BGColor.B, options.BGColor.A)
+		renderer.Clear()
+
+		player.render()
+
+		renderer.Present()
+		sdl.Delay(16)
+	}
+
+	return result, nil
+}
+
+func newAPNGPlayer(renderer *sdl.Renderer, filePath string) (*apngPlayer, error) {
 	if renderer == nil {
 		return nil, errors.New("renderer cannot be nil")
 	}
@@ -83,9 +228,9 @@ func NewAPNGPlayer(renderer *sdl.Renderer, filePath string) (*APNGPlayer, error)
 		frameTimes[i] = time.Duration(numDenomMs) * time.Millisecond
 	}
 
-	updateTextureFromFrame(renderer, texture, frames[0])
+	updateTextureFromFrame(texture, frames[0])
 
-	player := &APNGPlayer{
+	player := &apngPlayer{
 		renderer:     renderer,
 		texture:      texture,
 		animation:    animation,
@@ -101,47 +246,27 @@ func NewAPNGPlayer(renderer *sdl.Renderer, filePath string) (*APNGPlayer, error)
 	return player, nil
 }
 
-func (p *APNGPlayer) SetPosition(x, y int32) {
+func (p *apngPlayer) setPosition(x, y int32) {
 	p.rect.X = x
 	p.rect.Y = y
 }
 
-func (p *APNGPlayer) GetRect() sdl.Rect {
+func (p *apngPlayer) getRect() sdl.Rect {
 	return p.rect
 }
 
-func (p *APNGPlayer) SetScale(width, height int32) {
+func (p *apngPlayer) setScale(width, height int32) {
 	p.rect.W = width
 	p.rect.H = height
 }
 
-func (p *APNGPlayer) SetLooping(looping bool) {
-	p.isLooping = looping
-}
-
-func (p *APNGPlayer) IsLooping() bool {
-	return p.isLooping
-}
-
-func (p *APNGPlayer) Play() {
-	p.isPlaying = true
-}
-
-func (p *APNGPlayer) Pause() {
-	p.isPlaying = false
-}
-
-func (p *APNGPlayer) IsPlaying() bool {
-	return p.isPlaying
-}
-
-func (p *APNGPlayer) Reset() {
+func (p *apngPlayer) reset() {
 	p.currentFrame = 0
 	p.lastUpdate = time.Now()
-	updateTextureFromFrame(p.renderer, p.texture, p.frames[0])
+	updateTextureFromFrame(p.texture, p.frames[0])
 }
 
-func (p *APNGPlayer) Update() bool {
+func (p *apngPlayer) update() bool {
 	if !p.isPlaying {
 		return false
 	}
@@ -161,7 +286,7 @@ func (p *APNGPlayer) Update() bool {
 			}
 		}
 
-		updateTextureFromFrame(p.renderer, p.texture, p.frames[p.currentFrame])
+		updateTextureFromFrame(p.texture, p.frames[p.currentFrame])
 		p.lastUpdate = now
 		frameChanged = true
 	}
@@ -169,17 +294,17 @@ func (p *APNGPlayer) Update() bool {
 	return frameChanged
 }
 
-func (p *APNGPlayer) Render() {
+func (p *apngPlayer) render() {
 	p.renderer.Copy(p.texture, nil, &p.rect)
 }
 
-func (p *APNGPlayer) Destroy() {
+func (p *apngPlayer) destroy() {
 	if p.texture != nil {
 		p.texture.Destroy()
 	}
 }
 
-func updateTextureFromFrame(renderer *sdl.Renderer, texture *sdl.Texture, img image.Image) error {
+func updateTextureFromFrame(texture *sdl.Texture, img image.Image) error {
 	rgba, ok := img.(*image.RGBA)
 	if !ok {
 
@@ -191,320 +316,4 @@ func updateTextureFromFrame(renderer *sdl.Renderer, texture *sdl.Texture, img im
 	pitch := rgba.Stride
 
 	return texture.Update(nil, unsafe.Pointer(&rgba.Pix[0]), pitch)
-}
-
-type animationConfig struct {
-	x              int32
-	y              int32
-	width          int32
-	height         int32
-	loop           bool
-	autoClose      bool
-	displayTime    time.Duration
-	maxDisplayTime time.Duration
-	bgColor        sdl.Color
-}
-
-func defaultAnimationConfig() *animationConfig {
-	return &animationConfig{
-		x:              -1,
-		y:              -1,
-		width:          0,
-		height:         0,
-		loop:           false,
-		autoClose:      true,
-		displayTime:    time.Second * 2,
-		maxDisplayTime: 0,
-		bgColor:        sdl.Color{R: 0, G: 0, B: 0, A: 255},
-	}
-}
-
-type AnimationOption func(*animationConfig)
-
-func WithPosition(x, y int32) AnimationOption {
-	return func(c *animationConfig) {
-		c.x = x
-		c.y = y
-	}
-}
-
-func WithCenteredPosition() AnimationOption {
-	return func(c *animationConfig) {
-		c.x = -1
-		c.y = -1
-	}
-}
-
-func WithScale(width, height int32) AnimationOption {
-	return func(c *animationConfig) {
-		c.width = width
-		c.height = height
-	}
-}
-
-func WithLooping(loop bool) AnimationOption {
-	return func(c *animationConfig) {
-		c.loop = loop
-	}
-}
-
-func WithAutoClose(autoClose bool) AnimationOption {
-	return func(c *animationConfig) {
-		c.autoClose = autoClose
-	}
-}
-
-func WithDisplayTime(duration time.Duration) AnimationOption {
-	return func(c *animationConfig) {
-		c.displayTime = duration
-	}
-}
-
-func WithMaxDisplayTime(duration time.Duration) AnimationOption {
-	return func(c *animationConfig) {
-		c.maxDisplayTime = duration
-	}
-}
-
-func WithBackgroundColor(color sdl.Color) AnimationOption {
-	return func(c *animationConfig) {
-		c.bgColor = color
-	}
-}
-
-func NewBlockingAnimation(filePath string, options ...AnimationOption) (AnimationReturn, error) {
-	window := internal.GetWindow()
-	renderer := window.Renderer
-
-	player, err := NewAPNGPlayer(renderer, filePath)
-	if err != nil {
-		return AnimationReturn{Cancelled: true}, err
-	}
-	defer player.Destroy()
-
-	config := defaultAnimationConfig()
-	for _, option := range options {
-		option(config)
-	}
-
-	player.SetLooping(config.loop)
-
-	if config.x == -1 || config.y == -1 {
-		screenW, screenH, _ := renderer.GetOutputSize()
-		rect := player.GetRect()
-
-		x := config.x
-		if x == -1 {
-			x = (screenW - rect.W) / 2
-		}
-
-		y := config.y
-		if y == -1 {
-			y = (screenH - rect.H) / 2
-		}
-
-		player.SetPosition(x, y)
-	} else {
-		player.SetPosition(config.x, config.y)
-	}
-
-	if config.width > 0 && config.height > 0 {
-		player.SetScale(config.width, config.height)
-	}
-
-	result := AnimationReturn{
-		CompletedNormally: false,
-		LoopCount:         0,
-		PlayedFrames:      0,
-		LastPressedKey:    0,
-		LastPressedBtn:    0,
-		Cancelled:         false,
-	}
-
-	running := true
-	prevFrame := player.currentFrame
-	startTime := time.Now()
-
-	loopCount := 0
-	lastFrameIndex := len(player.frames) - 1
-
-	helpLines := []string{
-		"Animation Controls",
-		"Space/A: Pause/Resume",
-		"Esc/B: Exit animation",
-		"R/X: Reset animation",
-		"H/Menu: Show/hide help",
-	}
-	showingHelp := false
-
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
-			case *sdl.QuitEvent:
-				running = false
-				result.Cancelled = true
-
-			case *sdl.KeyboardEvent:
-				if e.Type == sdl.KEYDOWN {
-					result.LastPressedKey = e.Keysym.Sym
-
-					if showingHelp {
-						showingHelp = false
-						continue
-					}
-
-					switch e.Keysym.Sym {
-					case sdl.K_ESCAPE:
-						running = false
-						result.Cancelled = true
-					case sdl.K_SPACE:
-						if player.IsPlaying() {
-							player.Pause()
-						} else {
-							player.Play()
-						}
-					case sdl.K_r:
-						player.Reset()
-						result.PlayedFrames = 0
-						loopCount = 0
-					case sdl.K_h:
-						showingHelp = !showingHelp
-					}
-				}
-
-			case *sdl.ControllerButtonEvent:
-				if e.Type == sdl.CONTROLLERBUTTONDOWN {
-					result.LastPressedBtn = e.Button
-
-					if showingHelp {
-						showingHelp = false
-						continue
-					}
-
-					switch e.Button {
-					case BrickButton_B:
-						running = false
-						result.Cancelled = true
-					case BrickButton_A:
-						if player.IsPlaying() {
-							player.Pause()
-						} else {
-							player.Play()
-						}
-					case BrickButton_X:
-						player.Reset()
-						result.PlayedFrames = 0
-						loopCount = 0
-					case BrickButton_MENU:
-						showingHelp = !showingHelp
-					}
-				}
-			}
-		}
-
-		if player.currentFrame != prevFrame {
-			result.PlayedFrames++
-
-			if prevFrame == lastFrameIndex && player.currentFrame == 0 {
-				loopCount++
-				result.LoopCount = loopCount
-			}
-
-			prevFrame = player.currentFrame
-		}
-
-		player.Update()
-
-		if !player.IsPlaying() && !player.IsLooping() {
-			if config.autoClose {
-
-				if time.Since(startTime) > config.displayTime && config.displayTime > 0 {
-					running = false
-					result.CompletedNormally = true
-				}
-			}
-		}
-
-		if config.maxDisplayTime > 0 && time.Since(startTime) > config.maxDisplayTime {
-			running = false
-			result.CompletedNormally = true
-		}
-
-		renderer.SetDrawColor(config.bgColor.R, config.bgColor.G, config.bgColor.B, config.bgColor.A)
-		renderer.Clear()
-
-		player.Render()
-
-		if showingHelp {
-			renderHelpOverlay(renderer, helpLines)
-		}
-
-		renderer.Present()
-		sdl.Delay(16)
-	}
-
-	return result, nil
-}
-
-func renderHelpOverlay(renderer *sdl.Renderer, helpLines []string) {
-	screenW, screenH, _ := renderer.GetOutputSize()
-	overlay := sdl.Rect{X: 0, Y: 0, W: screenW, H: screenH}
-	renderer.SetDrawColor(0, 0, 0, 200)
-	renderer.FillRect(&overlay)
-
-	font := internal.GetLargeFont()
-	titleSurface, err := font.RenderUTF8Solid("Animation Help", sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if err == nil {
-		texture, err := renderer.CreateTextureFromSurface(titleSurface)
-		if err == nil {
-			rect := &sdl.Rect{
-				X: (screenW - titleSurface.W) / 2,
-				Y: screenH/6 - titleSurface.H/2,
-				W: titleSurface.W,
-				H: titleSurface.H,
-			}
-			renderer.Copy(texture, nil, rect)
-			texture.Destroy()
-		}
-		titleSurface.Free()
-	}
-
-	normalFont := internal.GetMediumFont()
-	lineHeight := int32(30)
-	startY := screenH/6 + lineHeight*2
-
-	for i, line := range helpLines {
-		lineSurface, err := normalFont.RenderUTF8Solid(line, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-		if err == nil {
-			texture, err := renderer.CreateTextureFromSurface(lineSurface)
-			if err == nil {
-				rect := &sdl.Rect{
-					X: (screenW - lineSurface.W) / 2,
-					Y: startY + int32(i)*lineHeight,
-					W: lineSurface.W,
-					H: lineSurface.H,
-				}
-				renderer.Copy(texture, nil, rect)
-				texture.Destroy()
-			}
-			lineSurface.Free()
-		}
-	}
-
-	dismissText := "Press any key to dismiss"
-	dismissSurface, err := normalFont.RenderUTF8Solid(dismissText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
-	if err == nil {
-		texture, err := renderer.CreateTextureFromSurface(dismissSurface)
-		if err == nil {
-			rect := &sdl.Rect{
-				X: (screenW - dismissSurface.W) / 2,
-				Y: screenH - dismissSurface.H - 40,
-				W: dismissSurface.W,
-				H: dismissSurface.H,
-			}
-			renderer.Copy(texture, nil, rect)
-			texture.Destroy()
-		}
-		dismissSurface.Free()
-	}
 }

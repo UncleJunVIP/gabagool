@@ -7,6 +7,13 @@ import (
 	"strings"
 )
 
+type padding struct {
+	Top    int32
+	Right  int32
+	Bottom int32
+	Left   int32
+}
+
 func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) {
 	words := strings.Fields(text)
 	if len(words) == 0 {
@@ -39,7 +46,7 @@ func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 		lines = append(lines, currentLine)
 	}
 
-	// Render each line
+	// render each line
 	lineHeight := int32(font.Height())
 	totalHeight := lineHeight * int32(len(lines))
 	currentY := startY - totalHeight/2 // Center vertically around startY

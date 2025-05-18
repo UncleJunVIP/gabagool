@@ -1,4 +1,4 @@
-package models
+package ui
 
 type MenuItem struct {
 	Text     string

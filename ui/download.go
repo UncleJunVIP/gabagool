@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 	"github.com/UncleJunVIP/gabagool/internal"
-	"github.com/UncleJunVIP/gabagool/models"
 	"io"
 	"net/http"
 	"os"
@@ -13,9 +12,15 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type Download struct {
+	URL         string
+	Location    string
+	DisplayName string
+}
+
 type DownloadReturn struct {
-	CompletedDownloads []models.Download
-	FailedDownloads    []models.Download
+	CompletedDownloads []Download
+	FailedDownloads    []Download
 	Errors             []error
 	LastPressedKey     sdl.Keycode
 	LastPressedBtn     uint8
@@ -24,7 +29,7 @@ type DownloadReturn struct {
 
 type downloadManager struct {
 	window            *internal.Window
-	downloads         []models.Download
+	downloads         []Download
 	currentIndex      int
 	downloadProgress  float64
 	totalSize         int64
@@ -44,7 +49,7 @@ type downloadManager struct {
 	headers map[string]string
 }
 
-func newDownloadManager(downloads []models.Download, headers map[string]string) *downloadManager {
+func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
 	window := internal.GetWindow()
 
 	progressBarWidth := window.Width * 3 / 4
@@ -68,12 +73,12 @@ func newDownloadManager(downloads []models.Download, headers map[string]string) 
 	}
 }
 
-func Download(downloads []models.Download, headers map[string]string) (DownloadReturn, error) {
+func DownloadManager(downloads []Download, headers map[string]string) (DownloadReturn, error) {
 	downloadManager := newDownloadManager(downloads, headers)
 
 	result := DownloadReturn{
-		CompletedDownloads: []models.Download{},
-		FailedDownloads:    []models.Download{},
+		CompletedDownloads: []Download{},
+		FailedDownloads:    []Download{},
 		Errors:             []error{},
 		LastPressedKey:     0,
 		LastPressedBtn:     0,

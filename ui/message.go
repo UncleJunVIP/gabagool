@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/UncleJunVIP/gabagool/internal"
-	"github.com/UncleJunVIP/gabagool/models"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/img"
@@ -12,7 +11,7 @@ import (
 )
 
 type messageSettings struct {
-	Margins          models.Padding
+	Margins          Padding
 	Title            string
 	TitleAlign       internal.TextAlignment
 	TitleSpacing     int32
@@ -42,7 +41,7 @@ type MessageReturn struct {
 
 func defaultMessageSettings(title, message string) messageSettings {
 	return messageSettings{
-		Margins:          models.UniformPadding(20),
+		Margins:          UniformPadding(20),
 		Title:            title,
 		TitleAlign:       internal.AlignCenter,
 		TitleSpacing:     internal.DefaultTitleSpacing,

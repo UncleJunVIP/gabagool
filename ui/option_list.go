@@ -4,7 +4,6 @@ import (
 	"time"
 
 	"github.com/UncleJunVIP/gabagool/internal"
-	"github.com/UncleJunVIP/gabagool/models"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -39,7 +38,7 @@ type Option struct {
 // Options is the list of options for the menu item.
 // SelectedOption is the index of the currently selected option.
 type ItemWithOptions struct {
-	Item           models.MenuItem
+	Item           MenuItem
 	Options        []Option
 	SelectedOption int
 }
@@ -57,7 +56,7 @@ type OptionsListReturn struct {
 }
 
 type optionsListSettings struct {
-	Margins         models.Padding
+	Margins         Padding
 	ItemSpacing     int32
 	InputDelay      time.Duration
 	Title           string
@@ -89,7 +88,7 @@ type optionsListController struct {
 
 func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
-		Margins:         models.UniformPadding(20),
+		Margins:         UniformPadding(20),
 		ItemSpacing:     60,
 		InputDelay:      internal.DefaultInputDelay,
 		Title:           title,
