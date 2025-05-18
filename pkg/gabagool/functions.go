@@ -1,4 +1,4 @@
-package internal
+package gabagool
 
 func getFontScale(width, height int32) int {
 	if width == DefaultWindowWidth && height == DefaultWindowHeight {

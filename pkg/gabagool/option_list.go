@@ -1,9 +1,8 @@
-package ui
+package gabagool
 
 import (
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -56,11 +55,11 @@ type OptionsListReturn struct {
 }
 
 type optionsListSettings struct {
-	Margins         Padding
+	Margins         padding
 	ItemSpacing     int32
 	InputDelay      time.Duration
 	Title           string
-	TitleAlign      internal.TextAlignment
+	TitleAlign      TextAlignment
 	TitleSpacing    int32
 	ScrollSpeed     float32
 	ScrollPauseTime int
@@ -88,12 +87,12 @@ type optionsListController struct {
 
 func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
-		Margins:         UniformPadding(20),
+		Margins:         uniformPadding(20),
 		ItemSpacing:     60,
-		InputDelay:      internal.DefaultInputDelay,
+		InputDelay:      DefaultInputDelay,
 		Title:           title,
-		TitleAlign:      internal.AlignLeft,
-		TitleSpacing:    internal.DefaultTitleSpacing,
+		TitleAlign:      AlignLeft,
+		TitleSpacing:    DefaultTitleSpacing,
 		ScrollSpeed:     150.0,
 		ScrollPauseTime: 25,
 		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
@@ -128,7 +127,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 // OptionsList presents a list of options to the user.
 // This blocks until a selection is made or the user cancels.
 func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	optionsListController := newOptionsListController(title, items)
@@ -570,13 +569,13 @@ func (olc *optionsListController) scrollHelpOverlay(direction int) {
 
 func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	if olc.ShowingHelp && olc.helpOverlay != nil {
-		olc.helpOverlay.render(renderer, internal.GetSmallFont())
+		olc.helpOverlay.render(renderer, fonts.smallFont)
 		return
 	}
 
-	window := internal.GetWindow()
-	titleFont := internal.GetLargeFont()
-	font := internal.GetSmallFont()
+	window := GetWindow()
+	titleFont := fonts.largeSymbolFont
+	font := fonts.smallFont
 
 	if olc.Settings.Title != "" {
 		titleSurface, _ := titleFont.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
@@ -588,11 +587,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 				var titleX int32
 				switch olc.Settings.TitleAlign {
-				case internal.AlignLeft:
+				case AlignLeft:
 					titleX = olc.Settings.Margins.Left
-				case internal.AlignCenter:
+				case AlignCenter:
 					titleX = (window.Width - titleSurface.W) / 2
-				case internal.AlignRight:
+				case AlignRight:
 					titleX = window.Width - olc.Settings.Margins.Right - titleSurface.W
 				}
 
@@ -614,12 +613,12 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
 
-		textColor := internal.GetTheme().ListTextColor
+		textColor := GetTheme().ListTextColor
 		bgColor := sdl.Color{R: 0, G: 0, B: 0, A: 0}
 
 		if item.Item.Selected {
-			textColor = internal.GetTheme().ListTextSelectedColor
-			bgColor = internal.GetTheme().MainColor
+			textColor = GetTheme().ListTextSelectedColor
+			bgColor = GetTheme().MainColor
 		}
 
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
@@ -714,7 +713,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 	renderFooter(
 		renderer,
-		internal.GetSmallFont(),
+		fonts.smallFont,
 		olc.Settings.FooterHelpItems,
 		olc.Settings.Margins.Bottom,
 	)

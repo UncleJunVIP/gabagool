@@ -1,7 +1,6 @@
-package ui
+package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
@@ -23,7 +22,7 @@ type helpOverlay struct {
 }
 
 func newHelpOverlay(lines []string) *helpOverlay {
-	window := internal.GetWindow()
+	window := GetWindow()
 	width, height := window.Window.GetSize()
 
 	return &helpOverlay{

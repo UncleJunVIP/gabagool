@@ -1,8 +1,7 @@
-package ui
+package gabagool
 
 import (
 	"errors"
-	"github.com/UncleJunVIP/gabagool/internal"
 	"image"
 	"image/draw"
 	"os"
@@ -45,7 +44,7 @@ type AnimationReturn struct {
 
 // Animation plays an APNG file. Yeah, that's it.
 func Animation(filePath string, options AnimationOption) (AnimationReturn, error) {
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	player, err := newAPNGPlayer(renderer, filePath)

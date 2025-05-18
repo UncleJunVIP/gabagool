@@ -1,7 +1,6 @@
-package ui
+package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"time"
 )
@@ -16,7 +15,7 @@ type ProcessReturn struct {
 }
 
 type processMessage struct {
-	window       *internal.Window
+	window       *Window
 	showBG       bool
 	message      string
 	isProcessing bool
@@ -25,7 +24,7 @@ type processMessage struct {
 
 func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessReturn, error) {
 	processor := &processMessage{
-		window:       internal.GetWindow(),
+		window:       GetWindow(),
 		showBG:       options.ShowBackground,
 		message:      message,
 		isProcessing: true,
@@ -37,7 +36,7 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		Error:   nil,
 	}
 
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	if processor.showBG {
@@ -120,7 +119,7 @@ func (p *processMessage) render(renderer *sdl.Renderer) {
 		renderer.Clear()
 	}
 
-	font := internal.GetSmallFont()
+	font := fonts.smallFont
 
 	maxWidth := p.window.Width * 3 / 4
 	renderMultilineText(renderer, p.message, font, maxWidth, p.window.Width/2, p.window.Height/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})

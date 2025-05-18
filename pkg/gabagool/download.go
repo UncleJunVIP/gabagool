@@ -1,8 +1,7 @@
-package ui
+package gabagool
 
 import (
 	"fmt"
-	"github.com/UncleJunVIP/gabagool/internal"
 	"io"
 	"net/http"
 	"os"
@@ -28,7 +27,7 @@ type DownloadReturn struct {
 }
 
 type downloadManager struct {
-	window            *internal.Window
+	window            *Window
 	downloads         []Download
 	currentIndex      int
 	downloadProgress  float64
@@ -50,7 +49,7 @@ type downloadManager struct {
 }
 
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
-	window := internal.GetWindow()
+	window := GetWindow()
 
 	progressBarWidth := window.Width * 3 / 4
 	progressBarHeight := int32(30)
@@ -89,7 +88,7 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 		return result, nil
 	}
 
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	downloadManager.render(renderer)
@@ -319,10 +318,10 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	font := internal.GetSmallFont()
+	font := fonts.smallFont
 
 	if len(dm.downloads) > 1 {
-		titleFont := internal.GetXLargeFont()
+		titleFont := fonts.extraLargeFont
 		titleText := "Download Manager"
 		titleSurface, err := titleFont.RenderUTF8Solid(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
@@ -366,7 +365,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	displayNameY := dm.progressBarY - 75
 
 	if dm.currentIndex < len(dm.downloads) {
-		font := internal.GetSmallFont()
+		font := fonts.smallFont
 		var displayText string
 		if dm.downloads[dm.currentIndex].DisplayName != "" {
 			displayText = dm.downloads[dm.currentIndex].DisplayName
@@ -379,7 +378,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	}
 
 	if dm.downloadComplete && len(dm.downloads) == 1 {
-		font := internal.GetSmallFont()
+		font := fonts.smallFont
 		var displayText string
 		if dm.downloads[0].DisplayName != "" {
 			displayText = dm.downloads[0].DisplayName

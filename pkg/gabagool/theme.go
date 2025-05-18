@@ -1,4 +1,4 @@
-package internal
+package gabagool
 
 import (
 	"bufio"
@@ -33,9 +33,9 @@ func initTheme() {
 		BGColor:               hexToColor(0x000000),
 	}
 
-	settingsPath := nextUISettingPath
-	if isDev {
-		settingsPath = os.Getenv(envSettingsFile)
+	settingsPath := NextUISettingPath
+	if IsDev {
+		settingsPath = os.Getenv(EnvSettingsFile)
 	}
 
 	file, err := os.Open(settingsPath)

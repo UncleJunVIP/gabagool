@@ -1,4 +1,4 @@
-package ui
+package gabagool
 
 type MenuItem struct {
 	Text     string
@@ -18,7 +18,7 @@ type ListReturn struct {
 	Cancelled       bool
 }
 
-func (r *ListReturn) PopulateSingleSelection(index int, items []MenuItem, visibleStartIndex int) {
+func (r *ListReturn) populateSingleSelection(index int, items []MenuItem, visibleStartIndex int) {
 	r.SelectedIndex = index
 	r.SelectedItem = &items[index]
 	r.SelectedIndices = []int{index}
@@ -26,8 +26,7 @@ func (r *ListReturn) PopulateSingleSelection(index int, items []MenuItem, visibl
 	r.VisiblePosition = index - visibleStartIndex
 }
 
-// PopulateMultiSelection populates the result with multiple selections
-func (r *ListReturn) PopulateMultiSelection(indices []int, items []MenuItem) {
+func (r *ListReturn) populateMultiSelection(indices []int, items []MenuItem) {
 	r.SelectedIndex = indices[0]
 	r.SelectedItem = &items[indices[0]]
 	r.SelectedIndices = indices

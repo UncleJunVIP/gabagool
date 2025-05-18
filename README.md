@@ -18,6 +18,8 @@ It has the following notable features:
 3. Alternative exits for non-selections (exiting, action button, etc)
 4. Customizable Footer
 
+---
+
 ### Option List
 
 New look, same bad taste.
@@ -31,15 +33,19 @@ A variable on the basic list that offers some extract functionality.
 Why two different lists? `¯\_(ツ)_/¯` it was easier to make. Don't like it? That's fine you are entitled to your
 opinion.
 
+---
+
 ### Keyboard
 
-Yeah you type stuff and hit enter.
+Yeah, you type stuff and hit enter.
 
 It also features:
 
 1. Initial text
 2. Cursor support (move left / right in existing text)
 3. Button shortcuts for everything
+
+---
 
 ### Download Manager
 
@@ -49,13 +55,19 @@ Self-explanatory, but here are some features:
 2. Cancel single / all downloads
 3. Real progress bar
 
+---
+
 ### Message
 
 Show a message and button options. Can optionally also show an image.
 
-## Processs Message
+---
 
-Pass in a function and the message will display until the function returns. Easy peasy.
+### Processs Message
+
+Pass in a function and the message will display until the function returns. Easy-peasy.
+
+---
 
 ### Animation
 

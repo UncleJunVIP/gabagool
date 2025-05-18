@@ -1,4 +1,4 @@
-package internal
+package gabagool
 
 import (
 	"fmt"
@@ -26,7 +26,7 @@ func initWindow(title string, displayBackground bool) *Window {
 	width := DefaultWindowWidth
 	height := DefaultWindowHeight
 
-	if isDev {
+	if IsDev {
 		width = DefaultWindowWidth
 		height = DefaultWindowHeight
 	} else if err == nil {
@@ -51,7 +51,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		os.Exit(1)
 	}
 
-	InitFonts(getFontScale(width, height))
+	initFonts(getFontScale(width, height))
 
 	win := &Window{
 		Window:            window,
@@ -70,10 +70,10 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 func (window *Window) loadBackground() {
 	img.Init(img.INIT_PNG)
 
-	bgPath := nextUIBackgroundPath
+	bgPath := NextUIBackgroundPath
 
-	if isDev {
-		bgPath = os.Getenv(envBackgroundPath)
+	if IsDev {
+		bgPath = os.Getenv(EnvBackgroundPath)
 	}
 
 	bgTexture, err := img.LoadTexture(window.Renderer, bgPath)
@@ -85,8 +85,6 @@ func (window *Window) loadBackground() {
 }
 
 func (window Window) closeWindow() {
-	CloseFonts()
-
 	if window.Background != nil {
 		window.Background.Destroy()
 	}

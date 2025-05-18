@@ -1,4 +1,4 @@
-package ui
+package gabagool
 
 import (
 	"github.com/veandco/go-sdl2/gfx"
@@ -6,13 +6,6 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 	"strings"
 )
-
-type padding struct {
-	Top    int32
-	Right  int32
-	Bottom int32
-	Left   int32
-}
 
 func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, centerX, startY int32, color sdl.Color) {
 	words := strings.Fields(text)

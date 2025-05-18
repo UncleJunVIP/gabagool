@@ -1,7 +1,6 @@
-package ui
+package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -24,7 +23,7 @@ func renderFooter(
 	if len(footerHelpItems) == 0 {
 		return
 	}
-	window := internal.GetWindow()
+	window := GetWindow()
 	windowWidth, windowHeight := window.Window.GetSize()
 	y := windowHeight - bottomPadding - 50
 	outerPillHeight := int32(60)
@@ -64,11 +63,11 @@ func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerP
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
 	for i, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().MainColor)
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, GetTheme().MainColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, internal.GetTheme().PrimaryAccentColor)
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, GetTheme().PrimaryAccentColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -115,18 +114,18 @@ func renderGroupAsContinuousPill(
 		H: outerPillHeight,
 	}
 
-	renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().PrimaryAccentColor))
+	renderer.SetDrawColor(GetSDLColorValues(GetTheme().PrimaryAccentColor))
 	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
 
 	currentX := startX + 10
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
 	for _, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, internal.GetTheme().SecondaryAccentColor)
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, GetTheme().SecondaryAccentColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, internal.GetTheme().HintInfoColor)
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, GetTheme().HintInfoColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -135,7 +134,7 @@ func renderGroupAsContinuousPill(
 		innerPillWidth := calculateInnerPillWidth(buttonSurface, innerPillHeight)
 		isCircle := (innerPillWidth == innerPillHeight)
 
-		renderer.SetDrawColor(internal.GetSDLColorValues(internal.GetTheme().MainColor))
+		renderer.SetDrawColor(GetSDLColorValues(GetTheme().MainColor))
 
 		if isCircle {
 			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2)

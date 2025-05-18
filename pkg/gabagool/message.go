@@ -1,9 +1,8 @@
-package ui
+package gabagool
 
 import (
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/img"
@@ -11,12 +10,12 @@ import (
 )
 
 type messageSettings struct {
-	Margins          Padding
+	Margins          padding
 	Title            string
-	TitleAlign       internal.TextAlignment
+	TitleAlign       TextAlignment
 	TitleSpacing     int32
 	MessageText      string
-	MessageAlign     internal.TextAlignment
+	MessageAlign     TextAlignment
 	ButtonSpacing    int32
 	ImagePath        string
 	MaxImageHeight   int32
@@ -41,23 +40,23 @@ type MessageReturn struct {
 
 func defaultMessageSettings(title, message string) messageSettings {
 	return messageSettings{
-		Margins:          UniformPadding(20),
+		Margins:          uniformPadding(20),
 		Title:            title,
-		TitleAlign:       internal.AlignCenter,
-		TitleSpacing:     internal.DefaultTitleSpacing,
+		TitleAlign:       AlignCenter,
+		TitleSpacing:     DefaultTitleSpacing,
 		MessageText:      message,
-		MessageAlign:     internal.AlignCenter,
+		MessageAlign:     AlignCenter,
 		ButtonSpacing:    20,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		FooterTextColor:  sdl.Color{R: 180, G: 180, B: 180, A: 255},
-		InputDelay:       internal.DefaultInputDelay,
+		InputDelay:       DefaultInputDelay,
 		FooterHelpItems:  []FooterHelpItem{},
 	}
 }
 
 func Message(title, message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[MessageReturn], error) {
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	settings := defaultMessageSettings(title, message)
@@ -179,7 +178,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 			settings.BackgroundColor.A)
 		renderer.Clear()
 
-		titleFont := internal.GetXLargeFont()
+		titleFont := fonts.extraLargeFont
 		titleSurface, err := titleFont.RenderUTF8Solid(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
 			titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
@@ -203,7 +202,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 			startY = imageRect.Y + imageRect.H + 30
 		}
 
-		messageFont := internal.GetSmallFont()
+		messageFont := fonts.smallFont
 		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
 		renderMultilineText(
 			renderer,
@@ -216,7 +215,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 
 		renderFooter(
 			renderer,
-			internal.GetSmallFont(),
+			fonts.smallFont,
 			settings.FooterHelpItems,
 			settings.Margins.Bottom,
 		)

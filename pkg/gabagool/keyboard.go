@@ -1,7 +1,6 @@
-package ui
+package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -226,9 +225,9 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 // If the user hits enter, the Option[string] will contain the text entered by the user.
 // If the user exits, the Option[string] will be empty.
 func Keyboard(initialText string) (types.Option[string], error) {
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
-	font := internal.GetMediumFont()
+	font := fonts.mediumFont
 
 	kb := createKeyboard(window.Width, window.Height)
 
@@ -751,7 +750,7 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 	}
 
 	if kb.ShowingHelp && kb.helpOverlay != nil {
-		kb.helpOverlay.render(renderer, internal.GetSmallFont())
+		kb.helpOverlay.render(renderer, fonts.smallFont)
 	} else {
 
 		kb.renderHelpPrompt(renderer, font)
@@ -892,7 +891,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 	backspaceText := "⌫"
 	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-	backspaceSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(backspaceText, textColor)
+	backspaceSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(backspaceText, textColor)
 	if err == nil {
 		backspaceTexture, err := renderer.CreateTextureFromSurface(backspaceSurface)
 		if err == nil {
@@ -920,7 +919,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.DrawRect(&kb.EnterRect)
 
 	enterText := "↵"
-	enterSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(enterText, textColor)
+	enterSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(enterText, textColor)
 	if err == nil {
 		enterTexture, err := renderer.CreateTextureFromSurface(enterSurface)
 		if err == nil {
@@ -970,7 +969,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.DrawRect(&kb.ShiftRect)
 
 	shiftText := "⇧"
-	shiftSurface, err := internal.GetLargeSymbolFont().RenderUTF8Blended(shiftText, textColor)
+	shiftSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(shiftText, textColor)
 	if err == nil {
 		shiftTexture, err := renderer.CreateTextureFromSurface(shiftSurface)
 		if err == nil {

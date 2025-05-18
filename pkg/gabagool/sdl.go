@@ -1,19 +1,16 @@
-package internal
+package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/models"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 	"os"
 )
 
-var isDev = os.Getenv("ENVIRONMENT") == Development
-
 var window *Window
 var gameControllers []*sdl.GameController
 
-func Init(options models.GabagoolOptions) {
+func Init(title string, showBackground bool) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO |
 		img.INIT_PNG | img.INIT_JPG | img.INIT_TIF | img.INIT_WEBP |
 		sdl.INIT_GAMECONTROLLER | sdl.INIT_JOYSTICK); err != nil {
@@ -35,9 +32,7 @@ func Init(options models.GabagoolOptions) {
 		}
 	}
 
-	initTheme()
-
-	window = initWindow(options.WindowTitle, options.ShowBackground)
+	window = initWindow(title, showBackground)
 }
 
 func SDLCleanup() {

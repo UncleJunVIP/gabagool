@@ -1,9 +1,8 @@
-package ui
+package gabagool
 
 import (
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -22,9 +21,9 @@ type ListOptions struct {
 	EnableReordering  bool
 	HelpEnabled       bool
 
-	Margins         Padding
+	Margins         padding
 	ItemSpacing     int32
-	TitleAlign      internal.TextAlignment
+	TitleAlign      TextAlignment
 	TitleSpacing    int32
 	FooterText      string
 	FooterTextColor sdl.Color
@@ -53,15 +52,15 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		EnableMultiSelect: false,
 		EnableReordering:  false,
 		HelpEnabled:       false,
-		Margins:           UniformPadding(20),
-		TitleAlign:        internal.AlignLeft,
-		TitleSpacing:      internal.DefaultTitleSpacing,
+		Margins:           uniformPadding(20),
+		TitleAlign:        AlignLeft,
+		TitleSpacing:      DefaultTitleSpacing,
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
 		ScrollSpeed:       1.0,
 		ScrollPauseTime:   1000,
-		InputDelay:        internal.DefaultInputDelay,
+		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
 		MultiSelectButton: BrickButton_SELECT,
 		ReorderKey:        sdl.K_SPACE,
@@ -81,11 +80,11 @@ type textScrollData struct {
 }
 
 type listSettings struct {
-	Margins           Padding
+	Margins           padding
 	ItemSpacing       int32
 	InputDelay        time.Duration
 	Title             string
-	TitleAlign        internal.TextAlignment
+	TitleAlign        TextAlignment
 	TitleSpacing      int32
 	MultiSelectKey    sdl.Keycode
 	MultiSelectButton uint8
@@ -202,7 +201,7 @@ func newListController(options ListOptions) *listController {
 //   - Multi-select allows the user to select multiple items.
 //   - Reorder allows the user to reorder the items in the list.
 func List(options ListOptions) (types.Option[ListReturn], error) {
-	window := internal.GetWindow()
+	window := GetWindow()
 	renderer := window.Renderer
 
 	if options.MaxVisibleItems <= 0 {
@@ -396,7 +395,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 			lc.toggleSelection(lc.SelectedIndex)
 		} else {
 			*running = false
-			result.PopulateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
+			result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
 			result.Cancelled = false
 		}
 	case sdl.K_b:
@@ -419,7 +418,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		if lc.MultiSelect {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
-				result.PopulateMultiSelection(indices, lc.Items)
+				result.populateMultiSelection(indices, lc.Items)
 				result.Cancelled = false
 			}
 		}
@@ -482,7 +481,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 				lc.toggleSelection(lc.SelectedIndex)
 			} else {
 				*running = false
-				result.PopulateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
+				result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
 				result.Cancelled = false
 			}
 		}
@@ -508,7 +507,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
-				result.PopulateMultiSelection(indices, lc.Items)
+				result.populateMultiSelection(indices, lc.Items)
 				result.Cancelled = false
 			}
 		}
@@ -743,7 +742,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 
 	if lc.ReorderMode {
 		lc.Settings.Title = "Reordering Mode"
-		lc.Settings.TitleAlign = internal.AlignCenter
+		lc.Settings.TitleAlign = AlignCenter
 
 		selectedIdx := lc.SelectedIndex - lc.VisibleStartIndex
 		if selectedIdx >= 0 && selectedIdx < len(visibleItems) {
@@ -751,11 +750,11 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	drawScrollableMenu(renderer, internal.GetSmallFont(), visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
+	drawScrollableMenu(renderer, fonts.smallFont, visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
 	renderFooter(
 		renderer,
-		internal.GetSmallFont(),
+		fonts.smallFont,
 		lc.Settings.FooterHelpItems,
 		lc.Settings.Margins.Bottom,
 	)
@@ -764,7 +763,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	lc.Settings.TitleAlign = originalAlign
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
-		lc.helpOverlay.render(renderer, internal.GetSmallFont())
+		lc.helpOverlay.render(renderer, fonts.smallFont)
 	}
 }
 
@@ -773,17 +772,17 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
 		settings.Margins.Top <= 0 && settings.Margins.Bottom <= 0 {
-		settings.Margins = UniformPadding(10)
+		settings.Margins = uniformPadding(10)
 	}
 
 	if settings.TitleSpacing <= 0 {
-		settings.TitleSpacing = internal.DefaultTitleSpacing
+		settings.TitleSpacing = DefaultTitleSpacing
 	}
 
 	itemStartY := startY
 
 	if settings.Title != "" {
-		itemStartY = drawTitle(renderer, internal.GetXLargeFont(), settings.Title,
+		itemStartY = drawTitle(renderer, fonts.extraLargeFont, settings.Title,
 			settings.TitleAlign, startY, settings.Margins.Left+10) + settings.TitleSpacing
 	}
 
@@ -853,24 +852,24 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 func getItemColors(item MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
 	if multiSelect {
 		if item.Focused && item.Selected {
-			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
+			return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 		} else if item.Focused {
-			return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
+			return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 		} else if item.Selected {
-			return internal.GetTheme().HintInfoColor, internal.GetTheme().PrimaryAccentColor
+			return GetTheme().HintInfoColor, GetTheme().PrimaryAccentColor
 		}
-		return internal.GetTheme().ListTextColor, sdl.Color{}
+		return GetTheme().ListTextColor, sdl.Color{}
 	}
 
 	if item.Focused && item.Selected {
-		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
+		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 	} else if item.Focused {
-		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
+		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 	} else if item.Selected {
-		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().PrimaryAccentColor
+		return GetTheme().ListTextSelectedColor, GetTheme().PrimaryAccentColor
 	}
 
-	return internal.GetTheme().ListTextColor, sdl.Color{}
+	return GetTheme().ListTextColor, sdl.Color{}
 }
 
 func formatItemText(item MenuItem, multiSelect bool) string {
@@ -1006,7 +1005,7 @@ func drawListRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, c
 }
 
 func (lc *listController) updateScrollingAnimations() {
-	screenWidth, _, err := internal.GetWindow().Renderer.GetOutputSize()
+	screenWidth, _, err := GetWindow().Renderer.GetOutputSize()
 	if err != nil {
 		screenWidth = 768
 	}
@@ -1052,7 +1051,7 @@ func (lc *listController) createScrollDataForItem(idx int, item MenuItem, maxWid
 	}
 
 	// Use a consistent font to ensure proper rendering
-	textSurface, err := internal.GetSmallFont().RenderUTF8Blended(
+	textSurface, err := fonts.smallFont.RenderUTF8Blended(
 		prefix+item.Text,
 		sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	)
@@ -1120,7 +1119,7 @@ func (lc *listController) updateScrollAnimation(data *textScrollData) {
 	}
 }
 
-func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign internal.TextAlignment, startY int32, titleXMargin int32) int32 {
+func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
 	titleSurface, err := font.RenderUTF8Blended(title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err != nil {
 		return startY
@@ -1151,11 +1150,11 @@ func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign 
 	return titleSurface.H + 20
 }
 
-func getTitleXPosition(align internal.TextAlignment, screenWidth, titleWidth, margin int32) int32 {
+func getTitleXPosition(align TextAlignment, screenWidth, titleWidth, margin int32) int32 {
 	switch align {
-	case internal.AlignCenter:
+	case AlignCenter:
 		return (screenWidth - titleWidth) / 2
-	case internal.AlignRight:
+	case AlignRight:
 		return screenWidth - titleWidth - margin
 	default:
 		return margin
