@@ -446,7 +446,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 			descHeight := calculateMultilineTextHeight(options.Description, descriptionFont, contentWidth)
 
-			totalContentHeight = descriptionY + descHeight + margins.Bottom + scrollY
+			totalContentHeight = descriptionY + descHeight + margins.Bottom + scrollY + 35
 		}
 
 		if firstRender {
