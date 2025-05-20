@@ -19,6 +19,7 @@ func renderFooter(
 	font *ttf.Font,
 	footerHelpItems []FooterHelpItem,
 	bottomPadding int32,
+	transparentBackground bool,
 ) {
 	if len(footerHelpItems) == 0 {
 		return
@@ -27,6 +28,22 @@ func renderFooter(
 	windowWidth, windowHeight := window.Window.GetSize()
 	y := windowHeight - bottomPadding - 50
 	outerPillHeight := int32(60)
+
+	if !transparentBackground {
+		// Add a black background for the entire footer area
+		footerBackgroundRect := &sdl.Rect{
+			X: 0,                    // Start from left edge
+			Y: y - 10,               // Same Y as the pills
+			W: windowWidth - 15,     // Full window width
+			H: outerPillHeight + 50, // Same height as the pills
+		}
+
+		// Set color to black and draw the footer background
+		renderer.SetDrawColor(0, 0, 0, 255) // Black with full opacity
+		renderer.FillRect(footerBackgroundRect)
+	}
+
+	// Rest of the function remains the same
 	innerPillMargin := int32(6)
 	var leftItems []FooterHelpItem
 	var rightItems []FooterHelpItem

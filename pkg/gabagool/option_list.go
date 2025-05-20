@@ -716,5 +716,6 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		fonts.smallFont,
 		olc.Settings.FooterHelpItems,
 		olc.Settings.Margins.Bottom,
+		true,
 	)
 }

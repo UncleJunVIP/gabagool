@@ -757,6 +757,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 		fonts.smallFont,
 		lc.Settings.FooterHelpItems,
 		lc.Settings.Margins.Bottom,
+		true,
 	)
 
 	lc.Settings.Title = originalTitle

@@ -225,6 +225,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 			fonts.smallFont,
 			settings.FooterHelpItems,
 			settings.Margins.Bottom,
+			false,
 		)
 
 		renderer.Present()

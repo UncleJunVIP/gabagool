@@ -47,8 +47,8 @@ const (
 	FontSizeLarge  = 16
 	FontSizeMedium = 14
 	FontSizeSmall  = 12
-	FontSizeTiny   = 10
-	FontSizeMicro  = 8
+	FontSizeTiny   = 8
+	FontSizeMicro  = 6
 )
 
 type TextAlignment int
