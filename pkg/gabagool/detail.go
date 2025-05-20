@@ -17,17 +17,18 @@ type MetadataItem struct {
 }
 
 type DetailScreenOptions struct {
-	ImagePaths       []string
-	Metadata         []MetadataItem
-	InfoLabel        string
-	Description      string
-	TitleColor       sdl.Color
-	MetadataColor    sdl.Color
-	DescriptionColor sdl.Color
-	BackgroundColor  sdl.Color
-	MaxImageHeight   int32
-	MaxImageWidth    int32
-	ShowScrollbar    bool
+	ImagePaths          []string
+	Metadata            []MetadataItem
+	InfoLabel           string
+	Description         string
+	TitleColor          sdl.Color
+	MetadataColor       sdl.Color
+	DescriptionColor    sdl.Color
+	BackgroundColor     sdl.Color
+	MaxImageHeight      int32
+	MaxImageWidth       int32
+	ShowScrollbar       bool
+	ShowThemeBackground bool
 }
 
 type DetailScreenReturn struct {
@@ -63,12 +64,25 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		options.MaxImageWidth = int32(float64(window.Width) / 2)
 	}
 
+	// Target scroll position for smooth scrolling
+	targetScrollY := int32(0)
+	// Current scroll position that will be animated
 	scrollY := int32(0)
 	maxScrollY := int32(0)
-	scrollSpeed := int32(15)
+	scrollSpeed := int32(85)
 	scrollbarWidth := int32(10)
-	lastScrollTime := time.Now()
-	scrollDelay := time.Millisecond * 150
+
+	// Smooth scrolling variables
+	scrollAnimationSpeed := float32(0.15) // Lower for smoother animation (0.1-0.3 is good)
+
+	// Directional repeat tracking
+	heldDirections := struct {
+		up   bool
+		down bool
+	}{}
+	lastRepeatTime := time.Now()
+	repeatDelay := time.Millisecond * 100    // Initial delay before repeating
+	repeatInterval := time.Millisecond * 100 // Interval between repeats
 
 	currentImageIndex := 0
 	imageTextures := []*sdl.Texture{}
@@ -124,6 +138,31 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	running := true
 	firstRender := true
 
+	// Function to handle directional repeats
+	handleDirectionalRepeats := func() {
+		now := time.Now()
+		timeSinceLastRepeat := now.Sub(lastRepeatTime)
+
+		// Initial delay before repeating
+		if timeSinceLastRepeat < repeatDelay {
+			return
+		}
+
+		// After initial delay, repeat at the specified interval
+		if repeatInterval > 0 && timeSinceLastRepeat < repeatInterval {
+			return
+		}
+
+		// Process held directions
+		if heldDirections.up {
+			targetScrollY = max(0, targetScrollY-scrollSpeed)
+			lastRepeatTime = now
+		} else if heldDirections.down {
+			targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+			lastRepeatTime = now
+		}
+	}
+
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
@@ -132,93 +171,115 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				result.Cancelled = true
 
 			case *sdl.KeyboardEvent:
-				if e.Type != sdl.KEYDOWN {
-					continue
-				}
+				if e.Type == sdl.KEYDOWN {
+					result.LastPressedKey = e.Keysym.Sym
 
-				result.LastPressedKey = e.Keysym.Sym
+					currentTime := time.Now()
+					if currentTime.Sub(lastInputTime) < inputDelay {
+						continue
+					}
+					lastInputTime = currentTime
 
-				currentTime := time.Now()
-				if currentTime.Sub(lastInputTime) < inputDelay {
-					continue
-				}
-				lastInputTime = currentTime
-
-				switch e.Keysym.Sym {
-				case sdl.K_UP:
-					if currentTime.Sub(lastScrollTime) > scrollDelay {
-						lastScrollTime = currentTime
-						scrollY = max(0, scrollY-scrollSpeed)
+					switch e.Keysym.Sym {
+					case sdl.K_UP:
+						heldDirections.up = true
+						targetScrollY = max(0, targetScrollY-scrollSpeed)
+						lastRepeatTime = currentTime
+					case sdl.K_DOWN:
+						heldDirections.down = true
+						targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+						lastRepeatTime = currentTime
+					case sdl.K_LEFT:
+						if len(imageTextures) > 1 {
+							currentImageIndex = (currentImageIndex - 1 + len(imageTextures)) % len(imageTextures)
+							lastRepeatTime = currentTime
+						}
+					case sdl.K_RIGHT:
+						if len(imageTextures) > 1 {
+							currentImageIndex = (currentImageIndex + 1) % len(imageTextures)
+							lastRepeatTime = currentTime
+						}
+					case sdl.K_b, sdl.K_ESCAPE:
+						result.Cancelled = true
+						running = false
+					case sdl.K_a, sdl.K_RETURN:
+						result.Cancelled = false
+						running = false
 					}
-				case sdl.K_DOWN:
-					if currentTime.Sub(lastScrollTime) > scrollDelay {
-						lastScrollTime = currentTime
-						scrollY = min(maxScrollY, scrollY+scrollSpeed)
+				} else if e.Type == sdl.KEYUP {
+					switch e.Keysym.Sym {
+					case sdl.K_UP:
+						heldDirections.up = false
+					case sdl.K_DOWN:
+						heldDirections.down = false
 					}
-				case sdl.K_LEFT:
-					if len(imageTextures) > 1 {
-						currentImageIndex = (currentImageIndex - 1 + len(imageTextures)) % len(imageTextures)
-					}
-				case sdl.K_RIGHT:
-					if len(imageTextures) > 1 {
-						currentImageIndex = (currentImageIndex + 1) % len(imageTextures)
-					}
-				case sdl.K_b, sdl.K_ESCAPE:
-					result.Cancelled = true
-					running = false
-				case sdl.K_a, sdl.K_RETURN:
-					result.Cancelled = false
-					running = false
 				}
 
 			case *sdl.ControllerButtonEvent:
-				if e.Type != sdl.CONTROLLERBUTTONDOWN {
-					continue
-				}
+				if e.Type == sdl.CONTROLLERBUTTONDOWN {
+					result.LastPressedBtn = e.Button
 
-				result.LastPressedBtn = e.Button
+					currentTime := time.Now()
+					if currentTime.Sub(lastInputTime) < inputDelay {
+						continue
+					}
+					lastInputTime = currentTime
 
-				currentTime := time.Now()
-				if currentTime.Sub(lastInputTime) < inputDelay {
-					continue
-				}
-				lastInputTime = currentTime
-
-				switch e.Button {
-				case BrickButton_UP:
-					if currentTime.Sub(lastScrollTime) > scrollDelay {
-						lastScrollTime = currentTime
-						scrollY = max(0, scrollY-scrollSpeed)
+					switch e.Button {
+					case BrickButton_UP:
+						heldDirections.up = true
+						targetScrollY = max(0, targetScrollY-scrollSpeed)
+						lastRepeatTime = currentTime
+					case BrickButton_DOWN:
+						heldDirections.down = true
+						targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+						lastRepeatTime = currentTime
+					case BrickButton_LEFT:
+						if len(imageTextures) > 1 {
+							currentImageIndex = (currentImageIndex - 1 + len(imageTextures)) % len(imageTextures)
+							lastRepeatTime = currentTime
+						}
+					case BrickButton_RIGHT:
+						if len(imageTextures) > 1 {
+							currentImageIndex = (currentImageIndex + 1) % len(imageTextures)
+							lastRepeatTime = currentTime
+						}
+					case BrickButton_B:
+						result.Cancelled = true
+						running = false
+					case BrickButton_A:
+						result.Cancelled = false
+						running = false
 					}
-				case BrickButton_DOWN:
-					if currentTime.Sub(lastScrollTime) > scrollDelay {
-						lastScrollTime = currentTime
-						scrollY = min(maxScrollY, scrollY+scrollSpeed)
+				} else if e.Type == sdl.CONTROLLERBUTTONUP {
+					switch e.Button {
+					case BrickButton_UP:
+						heldDirections.up = false
+					case BrickButton_DOWN:
+						heldDirections.down = false
 					}
-				case BrickButton_LEFT:
-					if len(imageTextures) > 1 {
-						currentImageIndex = (currentImageIndex - 1 + len(imageTextures)) % len(imageTextures)
-					}
-				case BrickButton_RIGHT:
-					if len(imageTextures) > 1 {
-						currentImageIndex = (currentImageIndex + 1) % len(imageTextures)
-					}
-				case BrickButton_B:
-					result.Cancelled = true
-					running = false
-				case BrickButton_A:
-					result.Cancelled = false
-					running = false
 				}
 			}
 		}
 
-		renderer.SetDrawColor(
-			options.BackgroundColor.R,
-			options.BackgroundColor.G,
-			options.BackgroundColor.B,
-			options.BackgroundColor.A)
-		renderer.Clear()
+		// Handle directional repeats
+		handleDirectionalRepeats()
+
+		// Smooth scrolling animation - interpolate between current position and target
+		scrollY += int32(float32(targetScrollY-scrollY) * scrollAnimationSpeed)
+
+		// Set background color - FIXED
+		if options.ShowThemeBackground {
+			window.RenderBackground()
+		} else {
+			// Set and apply the background color
+			renderer.SetDrawColor(
+				options.BackgroundColor.R,
+				options.BackgroundColor.G,
+				options.BackgroundColor.B,
+				options.BackgroundColor.A)
+			renderer.Clear()
+		}
 
 		margins := uniformPadding(30)
 		contentWidth := window.Width - (margins.Left + margins.Right)
@@ -228,6 +289,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		var imageHeight int32 = 0
 		var totalContentHeight int32 = 0
 
+		// Render title
 		titleFont := fonts.largeFont
 		titleSurface, err := titleFont.RenderUTF8Solid(title, options.TitleColor)
 		if err == nil {
@@ -449,45 +511,61 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			totalContentHeight = descriptionY + descHeight + margins.Bottom + scrollY + 35
 		}
 
+		// Update maxScrollY based on total content height
 		if firstRender {
+			maxScrollY = max(0, totalContentHeight-safeAreaHeight+margins.Bottom)
 			firstRender = false
-			maxScrollY = max(0, totalContentHeight-safeAreaHeight)
-			scrollY = 0
 		}
 
+		// Render scrollbar with smoother animation
 		if options.ShowScrollbar && maxScrollY > 0 {
-			scrollbarX := window.Width - scrollbarWidth - 5
-			scrollbarHeight := max(int32(30), safeAreaHeight*safeAreaHeight/totalContentHeight)
-			scrollbarY := (safeAreaHeight - scrollbarHeight) * scrollY / maxScrollY
+			scrollbarHeight := int32(float64(safeAreaHeight) * float64(safeAreaHeight) / float64(maxScrollY+safeAreaHeight))
+			scrollbarHeight = max(scrollbarHeight, 30) // Minimum height
 
-			renderer.SetDrawColor(50, 50, 50, 150)
+			scrollbarY := int32(float64(scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(maxScrollY))
+
+			// Draw scrollbar background
+			renderer.SetDrawColor(50, 50, 50, 120)
 			renderer.FillRect(&sdl.Rect{
-				X: scrollbarX,
+				X: window.Width - scrollbarWidth - 5,
 				Y: 5,
 				W: scrollbarWidth,
 				H: safeAreaHeight - 10,
 			})
 
-			renderer.SetDrawColor(180, 180, 180, 255)
-			renderer.FillRect(&sdl.Rect{
-				X: scrollbarX,
-				Y: scrollbarY,
+			// Draw scrollbar handle with rounded corners
+			renderer.SetDrawColor(180, 180, 180, 200)
+			scrollbarRect := &sdl.Rect{
+				X: window.Width - scrollbarWidth - 5,
+				Y: 5 + scrollbarY,
 				W: scrollbarWidth,
 				H: scrollbarHeight,
-			})
+			}
+			drawRoundedRect(renderer, scrollbarRect, 4)
 		}
 
-		renderFooter(
-			renderer,
-			fonts.smallFont,
-			footerHelpItems,
-			margins.Bottom,
-			false,
-		)
+		// Render footer if there are help items
+		if len(footerHelpItems) > 0 {
+			renderFooter(
+				renderer,
+				fonts.smallFont,
+				footerHelpItems,
+				margins.Bottom,
+				false,
+			)
+		}
 
 		renderer.Present()
-		sdl.Delay(4)
+
+		// Adjust delay based on whether we're animating
+		if abs(scrollY-targetScrollY) > 3 { // Still animating?
+			sdl.Delay(8) // Smoother frame rate during animation
+		} else {
+			sdl.Delay(16) // Standard frame rate when not animating
+		}
 	}
+
+	// Clean up resources...
 
 	for _, texture := range imageTextures {
 		texture.Destroy()
@@ -500,12 +578,30 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	return option.Some(result), nil
 }
 
-func isRectVisible(rect sdl.Rect, safeAreaHeight int32) bool {
-	return rect.Y+rect.H > 0 && rect.Y < safeAreaHeight
+// Helper function to get absolute value of int32
+func abs(x int32) int32 {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
-func isLineVisible(x, y, width, safeAreaHeight int32) bool {
-	return y > 0 && y < safeAreaHeight
+// Helper function to check if a rectangle is visible in the viewport
+func isRectVisible(rect sdl.Rect, viewportHeight int32) bool {
+	// Check if the rectangle is completely above or below the viewport
+	if rect.Y+rect.H < 0 || rect.Y > viewportHeight {
+		return false
+	}
+	return true
+}
+
+// Helper function to check if a line is visible in the viewport
+func isLineVisible(x, y, width int32, viewportHeight int32) bool {
+	// Check if the line is completely above or below the viewport
+	if y < 0 || y > viewportHeight {
+		return false
+	}
+	return true
 }
 
 func calculateMultilineTextHeight(text string, font *ttf.Font, maxWidth int32) int32 {
