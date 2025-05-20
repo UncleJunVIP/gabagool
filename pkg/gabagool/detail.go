@@ -367,7 +367,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		metadataY -= scrollY
 
 		if len(options.Metadata) > 0 {
-			metadataFont := fonts.tinyFont
+			metadataFont := fonts.smallFont
 			labelWidth := contentWidth / 4
 			valueX := margins.Left + labelWidth
 			valueWidth := contentWidth - labelWidth - 10
@@ -380,7 +380,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				infoLabel = options.InfoLabel
 			}
 
-			metadataTitleSurface, err := fonts.smallFont.RenderUTF8Solid(infoLabel, options.TitleColor)
+			metadataTitleSurface, err := fonts.mediumFont.RenderUTF8Solid(infoLabel, options.TitleColor)
 			if err == nil {
 				defer metadataTitleSurface.Free()
 
@@ -462,9 +462,9 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		descriptionY := totalContentHeight - scrollY
 
 		if options.Description != "" {
-			descriptionFont := fonts.tinyFont
+			descriptionFont := fonts.smallFont
 
-			descTitleSurface, err := fonts.smallFont.RenderUTF8Solid("Description", options.TitleColor)
+			descTitleSurface, err := fonts.mediumFont.RenderUTF8Solid("Description", options.TitleColor)
 			if err == nil {
 				defer descTitleSurface.Free()
 
