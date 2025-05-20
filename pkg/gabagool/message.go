@@ -78,6 +78,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 
 	var imageTexture *sdl.Texture
 	var imageRect sdl.Rect
+	var imageW, imageH int32
 
 	if settings.ImagePath != "" {
 		image, err := img.Load(settings.ImagePath)
@@ -86,9 +87,8 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 
 			imageTexture, err = renderer.CreateTextureFromSurface(image)
 			if err == nil {
-
-				imageW := image.W
-				imageH := image.H
+				imageW = image.W
+				imageH = image.H
 
 				if imageW > settings.MaxImageWidth {
 					ratio := float32(settings.MaxImageWidth) / float32(imageW)
@@ -100,13 +100,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 					ratio := float32(settings.MaxImageHeight) / float32(imageH)
 					imageH = settings.MaxImageHeight
 					imageW = int32(float32(imageW) * ratio)
-				}
-
-				imageRect = sdl.Rect{
-					X: (window.Width - imageW) / 2,
-					Y: settings.Margins.Top + settings.TitleSpacing + 40,
-					W: imageW,
-					H: imageH,
 				}
 			}
 		}
@@ -178,6 +171,10 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 			settings.BackgroundColor.A)
 		renderer.Clear()
 
+		// Calculate initial startY position - will be updated if title renders successfully
+		startY := settings.Margins.Top + settings.TitleSpacing + 40
+
+		// Render title
 		titleFont := fonts.extraLargeFont
 		titleSurface, err := titleFont.RenderUTF8Solid(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
@@ -191,17 +188,27 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 				}
 				renderer.Copy(titleTexture, nil, titleRect)
 				titleTexture.Destroy()
+
+				// Update startY based on the actual title height
+				startY = titleRect.Y + titleRect.H + settings.TitleSpacing
 			}
 			titleSurface.Free()
 		}
 
-		startY := settings.Margins.Top + settings.TitleSpacing + 40
-
+		// Render image if available
 		if imageTexture != nil {
+			imageRect = sdl.Rect{
+				X: (window.Width - imageW) / 2,
+				Y: startY,
+				W: imageW,
+				H: imageH,
+			}
+
 			renderer.Copy(imageTexture, nil, &imageRect)
-			startY = imageRect.Y + imageRect.H + 30
+			startY = imageRect.Y + imageRect.H + 30 // Update startY after image
 		}
 
+		// Render message text
 		messageFont := fonts.smallFont
 		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
 		renderMultilineText(

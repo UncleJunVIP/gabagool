@@ -1,12 +1,14 @@
 package gabagool
 
 import (
+	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"time"
 )
 
 type ProcessMessageOptions struct {
-	ShowBackground bool
+	Image               string
+	ShowThemeBackground bool
 }
 type ProcessReturn struct {
 	Success bool
@@ -20,14 +22,24 @@ type processMessage struct {
 	message      string
 	isProcessing bool
 	completeTime time.Time
+	imageTexture *sdl.Texture
 }
 
 func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessReturn, error) {
 	processor := &processMessage{
 		window:       GetWindow(),
-		showBG:       options.ShowBackground,
+		showBG:       options.ShowThemeBackground,
 		message:      message,
 		isProcessing: true,
+	}
+
+	// Load image texture if provided
+	if options.Image != "" {
+		img.Init(img.INIT_PNG)
+		texture, err := img.LoadTexture(processor.window.Renderer, options.Image)
+		if err == nil {
+			processor.imageTexture = texture
+		}
 	}
 
 	result := ProcessReturn{
@@ -109,14 +121,24 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		sdl.Delay(16)
 	}
 
+	// Clean up the texture if it was created
+	if processor.imageTexture != nil {
+		processor.imageTexture.Destroy()
+	}
+
 	return result, err
 }
 
 func (p *processMessage) render(renderer *sdl.Renderer) {
 
-	if !p.showBG {
+	if !p.showBG && p.imageTexture == nil {
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
+	}
+
+	// If we have an image texture, render it as background
+	if p.imageTexture != nil {
+		renderer.Copy(p.imageTexture, nil, &sdl.Rect{X: 0, Y: 0, W: p.window.Width, H: p.window.Height})
 	}
 
 	font := fonts.smallFont

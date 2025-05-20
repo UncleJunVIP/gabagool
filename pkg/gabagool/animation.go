@@ -43,11 +43,11 @@ type AnimationReturn struct {
 }
 
 // Animation plays an APNG file. Yeah, that's it.
-func Animation(filePath string, options AnimationOption) (AnimationReturn, error) {
+func Animation(imagePath string, options AnimationOption) (AnimationReturn, error) {
 	window := GetWindow()
 	renderer := window.Renderer
 
-	player, err := newAPNGPlayer(renderer, filePath)
+	player, err := newAPNGPlayer(renderer, imagePath)
 	if err != nil {
 		return AnimationReturn{Cancelled: true}, err
 	}
