@@ -13,7 +13,7 @@ type ListReturn struct {
 	SelectedIndices []int
 	SelectedItems   []*MenuItem
 	VisiblePosition int
-	LastPressedBtn  uint8
+	LastPressedBtn  Button
 	ActionTriggered bool
 	Cancelled       bool
 }

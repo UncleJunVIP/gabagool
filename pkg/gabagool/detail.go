@@ -40,6 +40,7 @@ type DetailScreenOptions struct {
 	MetadataColor       sdl.Color
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
+	ConfirmButton       Button
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
@@ -53,6 +54,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
+		ConfirmButton:    ButtonA,
 		ShowScrollbar:    true,
 	}
 }
@@ -100,40 +102,12 @@ type DetailScreenReturn struct {
 	Cancelled      bool
 }
 
-type TextureCache struct {
-	textures map[string]*sdl.Texture
-}
-
-func NewTextureCache() *TextureCache {
-	return &TextureCache{
-		textures: make(map[string]*sdl.Texture),
-	}
-}
-
-func (c *TextureCache) Get(key string) *sdl.Texture {
-	if texture, exists := c.textures[key]; exists {
-		return texture
-	}
-	return nil
-}
-
-func (c *TextureCache) Set(key string, texture *sdl.Texture) {
-	c.textures[key] = texture
-}
-
-func (c *TextureCache) Destroy() {
-	for _, texture := range c.textures {
-		texture.Destroy()
-	}
-	c.textures = make(map[string]*sdl.Texture)
-}
-
 func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (types.Option[DetailScreenReturn], error) {
 	window := GetWindow()
 	renderer := window.Renderer
 
-	textureCache := NewTextureCache()
-	defer textureCache.Destroy()
+	textureCache := newTextureCache()
+	defer textureCache.destroy()
 
 	footerHeight := int32(30)
 	safeAreaHeight := window.Height - footerHeight
@@ -413,16 +387,16 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					}
 					lastInputTime = currentTime
 
-					switch e.Button {
-					case BrickButton_UP:
+					switch Button(e.Button) {
+					case ButtonUp:
 						heldDirections.up = true
 						targetScrollY = max(0, targetScrollY-scrollSpeed)
 						lastRepeatTime = currentTime
-					case BrickButton_DOWN:
+					case ButtonDown:
 						heldDirections.down = true
 						targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
 						lastRepeatTime = currentTime
-					case BrickButton_LEFT:
+					case ButtonLeft:
 						if activeSlideshow >= 0 {
 							if state, ok := slideshowStates[activeSlideshow]; ok && len(state.textures) > 1 {
 								state.currentIndex = (state.currentIndex - 1 + len(state.textures)) % len(state.textures)
@@ -430,7 +404,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 								slideshowIndexChanged = true
 							}
 						}
-					case BrickButton_RIGHT:
+					case ButtonRight:
 						if activeSlideshow >= 0 {
 							if state, ok := slideshowStates[activeSlideshow]; ok && len(state.textures) > 1 {
 								state.currentIndex = (state.currentIndex + 1) % len(state.textures)
@@ -438,18 +412,18 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 								slideshowIndexChanged = true
 							}
 						}
-					case BrickButton_B:
+					case ButtonB:
 						result.Cancelled = true
 						running = false
-					case BrickButton_A:
+					case options.ConfirmButton:
 						result.Cancelled = false
 						running = false
 					}
 				} else if e.Type == sdl.CONTROLLERBUTTONUP {
-					switch e.Button {
-					case BrickButton_UP:
+					switch Button(e.Button) {
+					case ButtonUp:
 						heldDirections.up = false
-					case BrickButton_DOWN:
+					case ButtonDown:
 						heldDirections.down = false
 					}
 				}
@@ -472,7 +446,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			renderer.Clear()
 		}
 
-		margins := uniformPadding(30)
+		margins := uniformPadding(20)
 		contentWidth := window.Width - (margins.Left + margins.Right)
 
 		var titleHeight int32 = 0
@@ -623,12 +597,12 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 						valueText := item.Value
 						if valueText != "" {
 							cacheKey := "value_" + valueText + "_" + section.Title
-							valueTexture := textureCache.Get(cacheKey)
+							valueTexture := textureCache.get(cacheKey)
 
 							if valueTexture == nil {
 								valueTexture = renderText(renderer, valueText, fonts.smallFont, options.MetadataColor)
 								if valueTexture != nil {
-									textureCache.Set(cacheKey, valueTexture)
+									textureCache.set(cacheKey, valueTexture)
 								}
 							}
 
@@ -767,7 +741,7 @@ func renderMultilineTextOptimized(
 	x, y int32,
 	color sdl.Color,
 	align TextAlign,
-	cache *TextureCache) {
+	cache *textureCache) {
 
 	if text == "" {
 		return
@@ -793,7 +767,7 @@ func renderMultilineTextOptimized(
 			width, _, err := font.SizeUTF8(remainingText)
 			if err != nil || int32(width) <= maxWidth {
 				cacheKey := "line_" + remainingText + "_" + string(color.R) + string(color.G) + string(color.B)
-				lineTexture := cache.Get(cacheKey)
+				lineTexture := cache.get(cacheKey)
 
 				if lineTexture == nil {
 					lineSurface, err := font.RenderUTF8Blended(remainingText, color)
@@ -802,7 +776,7 @@ func renderMultilineTextOptimized(
 						lineSurface.Free()
 
 						if err == nil {
-							cache.Set(cacheKey, lineTexture)
+							cache.set(cacheKey, lineTexture)
 						}
 					}
 				}
@@ -851,7 +825,7 @@ func renderMultilineTextOptimized(
 
 			lineText := remainingText[:min(charsPerLine, len(remainingText))]
 			cacheKey := "line_" + lineText + "_" + string(color.R) + string(color.G) + string(color.B)
-			lineTexture := cache.Get(cacheKey)
+			lineTexture := cache.get(cacheKey)
 
 			if lineTexture == nil {
 				lineSurface, err := font.RenderUTF8Blended(lineText, color)
@@ -860,7 +834,7 @@ func renderMultilineTextOptimized(
 					lineSurface.Free()
 
 					if err == nil {
-						cache.Set(cacheKey, lineTexture)
+						cache.set(cacheKey, lineTexture)
 					}
 				}
 			}

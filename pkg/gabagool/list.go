@@ -34,9 +34,9 @@ type ListOptions struct {
 
 	InputDelay        time.Duration
 	MultiSelectKey    sdl.Keycode
-	MultiSelectButton uint8
+	MultiSelectButton Button
 	ReorderKey        sdl.Keycode
-	ReorderButton     uint8
+	ReorderButton     Button
 
 	OnSelect  func(index int, item *MenuItem)
 	OnReorder func(from, to int)
@@ -62,9 +62,9 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		ScrollPauseTime:   1000,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
-		MultiSelectButton: BrickButton_SELECT,
+		MultiSelectButton: ButtonSelect,
 		ReorderKey:        sdl.K_SPACE,
-		ReorderButton:     BrickButton_SELECT,
+		ReorderButton:     ButtonSelect,
 		OnSelect:          nil,
 		OnReorder:         nil,
 	}
@@ -87,9 +87,9 @@ type listSettings struct {
 	TitleAlign        TextAlign
 	TitleSpacing      int32
 	MultiSelectKey    sdl.Keycode
-	MultiSelectButton uint8
+	MultiSelectButton Button
 	ReorderKey        sdl.Keycode
-	ReorderButton     uint8
+	ReorderButton     Button
 	ScrollSpeed       float32
 	ScrollPauseTime   int
 	FooterText        string
@@ -439,10 +439,10 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 		return
 	}
 
-	result.LastPressedBtn = e.Button
+	result.LastPressedBtn = Button(e.Button)
 
-	switch e.Button {
-	case BrickButton_UP:
+	switch Button(e.Button) {
+	case ButtonUp:
 		lc.heldDirections.up = e.Type == sdl.CONTROLLERBUTTONDOWN
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 
@@ -450,7 +450,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 
 			lc.lastRepeatTime = time.Now()
 		}
-	case BrickButton_DOWN:
+	case ButtonDown:
 		lc.heldDirections.down = e.Type == sdl.CONTROLLERBUTTONDOWN
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 
@@ -458,7 +458,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 
 			lc.lastRepeatTime = time.Now()
 		}
-	case BrickButton_LEFT:
+	case ButtonLeft:
 		lc.heldDirections.left = e.Type == sdl.CONTROLLERBUTTONDOWN
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 
@@ -466,7 +466,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 
 			lc.lastRepeatTime = time.Now()
 		}
-	case BrickButton_RIGHT:
+	case ButtonRight:
 		lc.heldDirections.right = e.Type == sdl.CONTROLLERBUTTONDOWN
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 
@@ -475,7 +475,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 			lc.lastRepeatTime = time.Now()
 		}
 
-	case BrickButton_A:
+	case ButtonA:
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 			if lc.MultiSelect {
 				lc.toggleSelection(lc.SelectedIndex)
@@ -485,25 +485,25 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 				result.Cancelled = false
 			}
 		}
-	case BrickButton_B:
+	case ButtonB:
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			result.SelectedIndex = -1
 			result.Cancelled = true
 		}
-	case BrickButton_X:
+	case ButtonX:
 		if lc.EnableAction && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			result.ActionTriggered = true
 			result.Cancelled = false
 		}
 
-	case BrickButton_MENU:
+	case ButtonMenu:
 		if lc.HelpEnabled && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 
-	case BrickButton_START:
+	case ButtonStart:
 		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
@@ -887,7 +887,7 @@ func formatItemText(item MenuItem, multiSelect bool) string {
 func renderScrollingText(renderer *sdl.Renderer, texture *sdl.Texture, textHeight, maxWidth, marginLeft,
 	itemY, vertOffset, scrollOffset int32) {
 
-	// Get the full texture size
+	// get the full texture size
 	_, _, fullWidth, _, err := texture.Query()
 	if err != nil {
 		return

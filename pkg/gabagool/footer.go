@@ -38,7 +38,7 @@ func renderFooter(
 			H: outerPillHeight + 50, // Same height as the pills
 		}
 
-		// Set color to black and draw the footer background
+		// set color to black and draw the footer background
 		renderer.SetDrawColor(0, 0, 0, 255) // Black with full opacity
 		renderer.FillRect(footerBackgroundRect)
 	}

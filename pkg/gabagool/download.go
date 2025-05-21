@@ -141,7 +141,7 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 						continue
 					}
 
-					if e.Button == BrickButton_B {
+					if Button(e.Button) == ButtonB {
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})
@@ -149,7 +149,7 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 						}
 						result.Cancelled = true
 						downloadManager.downloadComplete = true
-					} else if e.Button == BrickButton_Y {
+					} else if Button(e.Button) == ButtonY {
 						if downloadManager.isDownloading {
 							close(downloadManager.cancelDownload)
 							downloadManager.cancelDownload = make(chan struct{})

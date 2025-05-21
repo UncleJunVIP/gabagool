@@ -11,12 +11,10 @@ import (
 
 type messageSettings struct {
 	Margins          padding
-	Title            string
-	TitleAlign       TextAlign
-	TitleSpacing     int32
 	MessageText      string
 	MessageAlign     TextAlign
 	ButtonSpacing    int32
+	ConfirmButton    Button
 	ImagePath        string
 	MaxImageHeight   int32
 	MaxImageWidth    int32
@@ -29,24 +27,20 @@ type messageSettings struct {
 }
 
 type MessageOptions struct {
-	ImagePath string
+	ImagePath     string
+	ConfirmButton Button
 }
 type MessageReturn struct {
-	ButtonName     string
-	LastPressedKey sdl.Keycode
-	LastPressedBtn uint8
-	Cancelled      bool
+	Cancelled bool
 }
 
-func defaultMessageSettings(title, message string) messageSettings {
+func defaultMessageSettings(message string) messageSettings {
 	return messageSettings{
 		Margins:          uniformPadding(20),
-		Title:            title,
-		TitleAlign:       AlignCenter,
-		TitleSpacing:     DefaultTitleSpacing,
 		MessageText:      message,
 		MessageAlign:     AlignCenter,
 		ButtonSpacing:    20,
+		ConfirmButton:    ButtonA,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		FooterTextColor:  sdl.Color{R: 180, G: 180, B: 180, A: 255},
@@ -55,11 +49,11 @@ func defaultMessageSettings(title, message string) messageSettings {
 	}
 }
 
-func Message(title, message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[MessageReturn], error) {
+func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[MessageReturn], error) {
 	window := GetWindow()
 	renderer := window.Renderer
 
-	settings := defaultMessageSettings(title, message)
+	settings := defaultMessageSettings(message)
 	settings.FooterHelpItems = footerHelpItems
 
 	if options.ImagePath != "" {
@@ -68,12 +62,13 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 		settings.MaxImageWidth = int32(float64(window.Width) / 1.75)
 	}
 
+	if options.ConfirmButton != 0 {
+		settings.ConfirmButton = options.ConfirmButton
+	}
+
 	running := true
 	result := MessageReturn{
-		ButtonName:     "",
-		LastPressedKey: 0,
-		LastPressedBtn: 0,
-		Cancelled:      true,
+		Cancelled: true,
 	}
 
 	var imageTexture *sdl.Texture
@@ -119,8 +114,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 					continue
 				}
 
-				result.LastPressedKey = e.Keysym.Sym
-
 				currentTime := time.Now()
 				if currentTime.Sub(lastInputTime) < settings.InputDelay {
 					continue
@@ -129,7 +122,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 
 				switch e.Keysym.Sym {
 				case sdl.K_a, sdl.K_RETURN:
-					result.ButtonName = "Yes"
 					result.Cancelled = false
 					running = false
 
@@ -143,21 +135,18 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 					continue
 				}
 
-				result.LastPressedBtn = e.Button
-
 				currentTime := time.Now()
 				if currentTime.Sub(lastInputTime) < settings.InputDelay {
 					continue
 				}
 				lastInputTime = currentTime
 
-				switch e.Button {
-				case BrickButton_A:
-					result.ButtonName = "Yes"
+				switch Button(e.Button) {
+				case settings.ConfirmButton:
 					result.Cancelled = false
 					running = false
 
-				case BrickButton_B:
+				case ButtonB:
 					result.Cancelled = true
 					running = false
 				}
@@ -171,31 +160,29 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 			settings.BackgroundColor.A)
 		renderer.Clear()
 
-		// Calculate initial startY position - will be updated if title renders successfully
-		startY := settings.Margins.Top + settings.TitleSpacing + 40
+		// Calculate the total content height
+		var contentHeight int32 = 0
 
-		// Render title
-		titleFont := fonts.extraLargeFont
-		titleSurface, err := titleFont.RenderUTF8Blended(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-		if err == nil {
-			titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
-			if err == nil {
-				titleRect := &sdl.Rect{
-					X: (window.Width - titleSurface.W) / 2,
-					Y: settings.Margins.Top,
-					W: titleSurface.W,
-					H: titleSurface.H,
-				}
-				renderer.Copy(titleTexture, nil, titleRect)
-				titleTexture.Destroy()
-
-				// Update startY based on the actual title height
-				startY = titleRect.Y + titleRect.H + settings.TitleSpacing
-			}
-			titleSurface.Free()
+		// Image height if available
+		if imageTexture != nil {
+			contentHeight += imageH + 30 // Add image height plus spacing
 		}
 
-		// Render image if available
+		// ConfirmationMessage height (estimate based on font size)
+		messageFont := fonts.smallFont
+		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
+		// Estimate text height - actual implementation might need adjustment based on renderMultilineText
+		var messageHeight int32 = 30 // Basic estimate for single line
+		if len(settings.MessageText) > 0 {
+			// This is a rough estimate - you might have better ways to calculate text height
+			lineCount := (len(settings.MessageText)*8)/int(maxWidth) + 1
+			messageHeight = int32(lineCount * 22) // Assuming ~22 pixels per line
+			contentHeight += messageHeight
+		}
+
+		// Calculate startY to center all content vertically
+		startY := (window.Height - contentHeight) / 2
+
 		if imageTexture != nil {
 			imageRect = sdl.Rect{
 				X: (window.Width - imageW) / 2,
@@ -209,8 +196,6 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 		}
 
 		// Render message text
-		messageFont := fonts.smallFont
-		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
 		renderMultilineText(
 			renderer,
 			settings.MessageText,

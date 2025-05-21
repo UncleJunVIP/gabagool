@@ -5,26 +5,28 @@ import (
 	"time"
 )
 
+type Button uint8
+
 const (
-	BrickButton_UP    = 11
-	BrickButton_DOWN  = 12
-	BrickButton_LEFT  = 13
-	BrickButton_RIGHT = 14
+	ButtonUp    Button = 11
+	ButtonDown  Button = 12
+	ButtonLeft  Button = 13
+	ButtonRight Button = 14
 
-	BrickButton_A = 1
-	BrickButton_B = 0
-	BrickButton_X = 3
-	BrickButton_Y = 2
+	ButtonA Button = 1
+	ButtonB Button = 0
+	ButtonX Button = 3
+	ButtonY Button = 2
 
-	BrickButton_START  = 6
-	BrickButton_SELECT = 4
-	BrickButton_MENU   = 5
+	ButtonStart  Button = 6
+	ButtonSelect Button = 4
+	ButtonMenu   Button = 5
 
-	BrickButton_F1 = 7
-	BrickButton_F2 = 8
+	ButtonF1 Button = 7
+	ButtonF2 Button = 8
 
-	BrickButton_L1 = 9
-	BrickButton_R1 = 10
+	ButtonL1 Button = 9
+	ButtonR1 Button = 10
 )
 
 const NextUIBackgroundPath = "/mnt/SDCARD/bg.png"

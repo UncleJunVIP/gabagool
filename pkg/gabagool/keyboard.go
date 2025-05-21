@@ -282,12 +282,12 @@ func Keyboard(initialText string) (types.Option[string], error) {
 						break
 					}
 
-					if e.Button == BrickButton_START && !kb.ShowingHelp {
+					if Button(e.Button) == ButtonStart && !kb.ShowingHelp {
 						running = false
 						result = kb.TextBuffer
 						exitType = 0
 						break
-					} else if e.Button == BrickButton_Y && !kb.ShowingHelp {
+					} else if Button(e.Button) == ButtonY && !kb.ShowingHelp {
 						running = false
 						result = ""
 						exitType = 1
@@ -614,19 +614,20 @@ func (kb *virtualKeyboard) handleKeyDown(key sdl.Keycode) bool {
 	}
 }
 
-func (kb *virtualKeyboard) handleButtonPress(button uint8) bool {
+func (kb *virtualKeyboard) handleButtonPress(rawButton uint8) bool {
+	button := Button(rawButton)
 
-	if button == BrickButton_MENU {
+	if button == ButtonMenu {
 		kb.toggleHelp()
 		return true
 	}
 
 	if kb.ShowingHelp {
-		if button == BrickButton_UP {
+		if button == ButtonUp {
 			kb.scrollHelpOverlay(-1)
 			return true
 		}
-		if button == BrickButton_DOWN {
+		if button == ButtonDown {
 			kb.scrollHelpOverlay(1)
 			return true
 		}
@@ -636,42 +637,42 @@ func (kb *virtualKeyboard) handleButtonPress(button uint8) bool {
 	}
 
 	switch button {
-	case BrickButton_UP, BrickButton_DOWN, BrickButton_LEFT, BrickButton_RIGHT:
+	case ButtonUp, ButtonDown, ButtonLeft, ButtonRight:
 		direction := 0
 		switch button {
-		case BrickButton_UP:
+		case ButtonUp:
 			direction = 3
-		case BrickButton_DOWN:
+		case ButtonDown:
 			direction = 4
-		case BrickButton_LEFT:
+		case ButtonLeft:
 			direction = 2
-		case BrickButton_RIGHT:
+		case ButtonRight:
 			direction = 1
 		}
 		kb.processNavigation(direction)
 		return true
 
-	case BrickButton_A:
+	case ButtonA:
 		kb.processSelection()
 		return true
 
-	case BrickButton_B:
+	case ButtonB:
 		kb.backspace()
 		return true
 
-	case BrickButton_X:
+	case ButtonX:
 		kb.insertSpace()
 		return true
 
-	case BrickButton_SELECT:
+	case ButtonSelect:
 		kb.toggleShift()
 		return true
 
-	case BrickButton_L1:
+	case ButtonL1:
 		kb.moveCursor(-1)
 		return true
 
-	case BrickButton_R1:
+	case ButtonR1:
 		kb.moveCursor(1)
 		return true
 

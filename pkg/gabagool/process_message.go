@@ -8,6 +8,8 @@ import (
 
 type ProcessMessageOptions struct {
 	Image               string
+	ImageWidth          int32
+	ImageHeight         int32
 	ShowThemeBackground bool
 }
 type ProcessReturn struct {
@@ -23,12 +25,16 @@ type processMessage struct {
 	isProcessing bool
 	completeTime time.Time
 	imageTexture *sdl.Texture
+	imageWidth   int32
+	imageHeight  int32
 }
 
 func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessReturn, error) {
 	processor := &processMessage{
 		window:       GetWindow(),
 		showBG:       options.ShowThemeBackground,
+		imageWidth:   options.ImageWidth,
+		imageHeight:  options.ImageHeight,
 		message:      message,
 		isProcessing: true,
 	}
@@ -140,9 +146,22 @@ func (p *processMessage) render(renderer *sdl.Renderer) {
 		renderer.Clear()
 	}
 
-	// If we have an image texture, render it as background
 	if p.imageTexture != nil {
-		renderer.Copy(p.imageTexture, nil, &sdl.Rect{X: 0, Y: 0, W: p.window.Width, H: p.window.Height})
+		width := p.imageWidth
+		height := p.imageHeight
+
+		if width == 0 {
+			width = p.window.Width
+		}
+
+		if height == 0 {
+			height = p.window.Height
+		}
+
+		x := (p.window.Width - width) / 2
+		y := (p.window.Height - height) / 2
+
+		renderer.Copy(p.imageTexture, nil, &sdl.Rect{X: x, Y: y, W: width, H: height})
 	}
 
 	font := fonts.smallFont

@@ -213,13 +213,13 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 					continue
 				}
 
-				switch e.Button {
-				case BrickButton_B:
+				switch Button(e.Button) {
+				case ButtonB:
 					result.SelectedIndex = -1
 					result.Canceled = true
 					running = false
 
-				case BrickButton_A:
+				case ButtonA:
 					if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(optionsListController.Items) {
 						item := &optionsListController.Items[optionsListController.SelectedIndex]
 						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
@@ -249,16 +249,16 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 						}
 					}
 
-				case BrickButton_START:
+				case ButtonStart:
 					running = false
 					result.SelectedIndex = optionsListController.SelectedIndex
 					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
 					result.Canceled = false
 
-				case BrickButton_LEFT:
+				case ButtonLeft:
 					optionsListController.cycleOptionLeft()
 
-				case BrickButton_RIGHT:
+				case ButtonRight:
 					optionsListController.cycleOptionRight()
 
 				default:
@@ -456,7 +456,7 @@ func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
 func (olc *optionsListController) handleButtonPress(button uint8) bool {
 	olc.lastInputTime = time.Now()
 
-	if button == BrickButton_MENU {
+	if Button(button) == ButtonMenu {
 		olc.toggleHelp()
 		return true
 	}
@@ -469,11 +469,11 @@ func (olc *optionsListController) handleButtonPress(button uint8) bool {
 }
 
 func (olc *optionsListController) handleHelpScreenButton(button uint8) bool {
-	switch button {
-	case BrickButton_UP:
+	switch Button(button) {
+	case ButtonUp:
 		olc.scrollHelpOverlay(-1)
 		return true
-	case BrickButton_DOWN:
+	case ButtonDown:
 		olc.scrollHelpOverlay(1)
 		return true
 	default:
@@ -483,8 +483,8 @@ func (olc *optionsListController) handleHelpScreenButton(button uint8) bool {
 }
 
 func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
-	switch button {
-	case BrickButton_UP:
+	switch Button(button) {
+	case ButtonUp:
 		olc.Items[olc.SelectedIndex].Item.Selected = false
 		if olc.SelectedIndex > 0 {
 			olc.SelectedIndex--
@@ -498,7 +498,7 @@ func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 		}
 		return true
 
-	case BrickButton_DOWN:
+	case ButtonDown:
 		olc.Items[olc.SelectedIndex].Item.Selected = false
 		if olc.SelectedIndex < len(olc.Items)-1 {
 			olc.SelectedIndex++
@@ -512,7 +512,7 @@ func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
 		}
 		return true
 
-	case BrickButton_A:
+	case ButtonA:
 		if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 			item := &olc.Items[olc.SelectedIndex]
 			if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {

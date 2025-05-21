@@ -122,17 +122,17 @@ func Animation(imagePath string, options AnimationOption) (AnimationReturn, erro
 						continue
 					}
 
-					switch e.Button {
-					case BrickButton_B:
+					switch Button(e.Button) {
+					case ButtonB:
 						running = false
 						result.Cancelled = true
-					case BrickButton_A:
+					case ButtonA:
 						player.isPlaying = !player.isPlaying
-					case BrickButton_X:
+					case ButtonX:
 						player.reset()
 						result.PlayedFrames = 0
 						loopCount = 0
-					case BrickButton_MENU:
+					case ButtonMenu:
 						showingHelp = !showingHelp
 					}
 				}
