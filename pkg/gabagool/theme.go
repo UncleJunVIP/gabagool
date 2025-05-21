@@ -73,7 +73,7 @@ func initTheme() {
 		staticNextVal := os.Getenv(EnvSettingsFile)
 		nextval, err = loadStaticNextVal(staticNextVal)
 	} else {
-		_ = loadNextVal()
+		nextval = loadNextVal()
 	}
 
 	if err != nil {

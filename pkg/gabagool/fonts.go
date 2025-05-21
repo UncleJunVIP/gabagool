@@ -24,18 +24,18 @@ type fontsManager struct {
 }
 
 func initFonts(scale int) {
-	xlFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeXLarge*scale)
-	largeFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
-	mediumFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
-	smallFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)
-	tinyFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
-	microFont := loadFont(currentTheme.FontPath, "fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
+	xlFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeXLarge*scale)
+	largeFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
+	mediumFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
+	smallFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)
+	tinyFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
+	microFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
 
-	largeSymbolFont := loadFont("fonts/CFPG.ttf", "", FontSizeLarge*scale)
-	mediumSymbolFont := loadFont("fonts/CFPG.ttf", "", FontSizeMedium*scale)
-	smallSymbolFont := loadFont("fonts/CFPG.ttf", "", FontSizeSmall*scale)
-	tinySymbolFont := loadFont("fonts/CFPG.ttf", "", FontSizeTiny*scale)
-	microSymbolFont := loadFont("fonts/CFPG.ttf", "", FontSizeMicro*scale)
+	largeSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeLarge*scale)
+	mediumSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeMedium*scale)
+	smallSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeSmall*scale)
+	tinySymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeTiny*scale)
+	microSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeMicro*scale)
 
 	fonts = fontsManager{
 		extraLargeFont: xlFont,
