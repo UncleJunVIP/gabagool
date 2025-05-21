@@ -31,11 +31,11 @@ func initFonts(scale int) {
 	tinyFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
 	microFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
 
-	largeSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeLarge*scale)
-	mediumSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeMedium*scale)
-	smallSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeSmall*scale)
-	tinySymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeTiny*scale)
-	microSymbolFont := loadFont("resources/fonts/CFPG.ttf", "", FontSizeMicro*scale)
+	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
+	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
+	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)
+	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
+	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
 
 	fonts = fontsManager{
 		extraLargeFont: xlFont,
