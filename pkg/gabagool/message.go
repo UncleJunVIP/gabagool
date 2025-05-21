@@ -12,10 +12,10 @@ import (
 type messageSettings struct {
 	Margins          padding
 	Title            string
-	TitleAlign       TextAlignment
+	TitleAlign       TextAlign
 	TitleSpacing     int32
 	MessageText      string
-	MessageAlign     TextAlignment
+	MessageAlign     TextAlign
 	ButtonSpacing    int32
 	ImagePath        string
 	MaxImageHeight   int32

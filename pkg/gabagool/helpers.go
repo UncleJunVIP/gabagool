@@ -8,12 +8,12 @@ import (
 )
 
 const (
-	TextAlignLeft TextAlignment = iota
+	TextAlignLeft TextAlign = iota
 
 	TextAlignCenter
 )
 
-func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...TextAlignment) {
+func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...TextAlign) {
 
 	textAlign := TextAlignCenter
 	if len(alignment) > 0 {

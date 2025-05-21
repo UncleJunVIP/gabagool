@@ -59,7 +59,7 @@ type optionsListSettings struct {
 	ItemSpacing     int32
 	InputDelay      time.Duration
 	Title           string
-	TitleAlign      TextAlignment
+	TitleAlign      TextAlign
 	TitleSpacing    int32
 	ScrollSpeed     float32
 	ScrollPauseTime int

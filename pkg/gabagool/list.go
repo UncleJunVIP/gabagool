@@ -23,7 +23,7 @@ type ListOptions struct {
 
 	Margins         padding
 	ItemSpacing     int32
-	TitleAlign      TextAlignment
+	TitleAlign      TextAlign
 	TitleSpacing    int32
 	FooterText      string
 	FooterTextColor sdl.Color
@@ -84,7 +84,7 @@ type listSettings struct {
 	ItemSpacing       int32
 	InputDelay        time.Duration
 	Title             string
-	TitleAlign        TextAlignment
+	TitleAlign        TextAlign
 	TitleSpacing      int32
 	MultiSelectKey    sdl.Keycode
 	MultiSelectButton uint8
@@ -1120,7 +1120,7 @@ func (lc *listController) updateScrollAnimation(data *textScrollData) {
 	}
 }
 
-func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlignment, startY int32, titleXMargin int32) int32 {
+func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlign, startY int32, titleXMargin int32) int32 {
 	titleSurface, err := font.RenderUTF8Blended(title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err != nil {
 		return startY
@@ -1151,7 +1151,7 @@ func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign 
 	return titleSurface.H + 20
 }
 
-func getTitleXPosition(align TextAlignment, screenWidth, titleWidth, margin int32) int32 {
+func getTitleXPosition(align TextAlign, screenWidth, titleWidth, margin int32) int32 {
 	switch align {
 	case AlignCenter:
 		return (screenWidth - titleWidth) / 2

@@ -51,10 +51,10 @@ const (
 	FontSizeMicro  = 6
 )
 
-type TextAlignment int
+type TextAlign int
 
 const (
-	AlignLeft TextAlignment = iota
+	AlignLeft TextAlign = iota
 	AlignCenter
 	AlignRight
 )
