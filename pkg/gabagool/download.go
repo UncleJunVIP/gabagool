@@ -323,7 +323,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	if len(dm.downloads) > 1 {
 		titleFont := fonts.extraLargeFont
 		titleText := "Download Manager"
-		titleSurface, err := titleFont.RenderUTF8Solid(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		titleSurface, err := titleFont.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
 			titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 			if err == nil {
@@ -345,7 +345,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		}
 
 		progressText := fmt.Sprintf("Download %d of %d", currentDownloadIndex, len(dm.downloads))
-		progressSurface, err := font.RenderUTF8Solid(progressText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
+		progressSurface, err := font.RenderUTF8Blended(progressText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
 		if err == nil {
 			progressTexture, err := renderer.CreateTextureFromSurface(progressSurface)
 			if err == nil {
@@ -420,7 +420,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		percentText = fmt.Sprintf("%.1f%% (%.2f MB / %.2f MB)", dm.downloadProgress*100, downloadedMB, totalMB)
 	}
 
-	percentSurface, err := font.RenderUTF8Solid(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err == nil {
 		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
 		if err == nil {
@@ -438,7 +438,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 	if dm.downloadError != nil {
 		errorText := fmt.Sprintf("%s", dm.downloadError.Error())
-		errorSurface, err := font.RenderUTF8Solid(errorText, sdl.Color{R: 255, G: 100, B: 100, A: 255})
+		errorSurface, err := font.RenderUTF8Blended(errorText, sdl.Color{R: 255, G: 100, B: 100, A: 255})
 		if err == nil {
 			errorTexture, err := renderer.CreateTextureFromSurface(errorSurface)
 			if err == nil {
@@ -465,7 +465,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		helpText = "B: Cancel Download"
 	}
 
-	helpSurface, err := font.RenderUTF8Solid(helpText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
+	helpSurface, err := font.RenderUTF8Blended(helpText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
 	if err == nil {
 		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
 		if err == nil {

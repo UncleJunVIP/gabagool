@@ -176,7 +176,7 @@ func Message(title, message string, footerHelpItems []FooterHelpItem, options Me
 
 		// Render title
 		titleFont := fonts.extraLargeFont
-		titleSurface, err := titleFont.RenderUTF8Solid(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		titleSurface, err := titleFont.RenderUTF8Blended(settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if err == nil {
 			titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 			if err == nil {

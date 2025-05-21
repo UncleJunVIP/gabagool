@@ -48,7 +48,6 @@ type virtualKeyboard struct {
 }
 
 var defaultKeyboardHelpLines = []string{
-	"Keyboard Controls:",
 	"• D-Pad: Navigate between keys",
 	"• A: Type the selected key",
 	"• B: backspace",
@@ -73,7 +72,7 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 		ShowingHelp:      false,
 	}
 
-	kb.helpOverlay = newHelpOverlay(defaultKeyboardHelpLines)
+	kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
 
 	keyboardWidth := (windowWidth * 85) / 100
 	keyboardHeight := (windowHeight * 85) / 100
@@ -320,7 +319,7 @@ func Keyboard(initialText string) (types.Option[string], error) {
 
 func (kb *virtualKeyboard) toggleHelp() {
 	if kb.helpOverlay == nil {
-		kb.helpOverlay = newHelpOverlay(defaultKeyboardHelpLines)
+		kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
 	}
 
 	kb.helpOverlay.toggle()
@@ -753,7 +752,15 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 		kb.helpOverlay.render(renderer, fonts.smallFont)
 	} else {
 
-		kb.renderHelpPrompt(renderer, font)
+		renderFooter(
+			renderer,
+			fonts.smallFont,
+			[]FooterHelpItem{
+				{ButtonName: "Menu", HelpText: "Help"},
+			},
+			20,
+			true,
+		)
 	}
 }
 
@@ -984,39 +991,4 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		}
 		shiftSurface.Free()
 	}
-}
-
-func (kb *virtualKeyboard) renderHelpPrompt(renderer *sdl.Renderer, font *ttf.Font) {
-	_, screenHeight, err := renderer.GetOutputSize()
-	if err != nil {
-		return
-	}
-
-	promptText := "Help (Menu)"
-
-	promptColor := sdl.Color{R: 180, G: 180, B: 180, A: 200}
-	promptSurface, err := font.RenderUTF8Blended(promptText, promptColor)
-	if err != nil {
-		return
-	}
-
-	promptTexture, err := renderer.CreateTextureFromSurface(promptSurface)
-	if err != nil {
-		promptSurface.Free()
-		return
-	}
-
-	padding := int32(20)
-
-	promptRect := sdl.Rect{
-		X: padding,
-		Y: screenHeight - promptSurface.H - padding,
-		W: promptSurface.W,
-		H: promptSurface.H,
-	}
-
-	renderer.Copy(promptTexture, nil, &promptRect)
-
-	promptTexture.Destroy()
-	promptSurface.Free()
 }

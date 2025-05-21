@@ -6,6 +6,7 @@ import (
 )
 
 type helpOverlay struct {
+	Title           string
 	Lines           []string
 	ShowingHelp     bool
 	ScrollOffset    int32
@@ -21,11 +22,16 @@ type helpOverlay struct {
 	ExitTextPadding int32
 }
 
-func newHelpOverlay(lines []string) *helpOverlay {
+func newHelpOverlay(title string, lines []string) *helpOverlay {
 	window := GetWindow()
 	width, height := window.Window.GetSize()
 
+	if title == "" {
+		title = "Help"
+	}
+
 	return &helpOverlay{
+		Title:           title,
 		Lines:           lines,
 		ShowingHelp:     false,
 		ScrollOffset:    0,
@@ -53,7 +59,7 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.SetDrawColor(h.BackgroundColor.R, h.BackgroundColor.G, h.BackgroundColor.B, h.BackgroundColor.A)
 	renderer.FillRect(bgRect)
 
-	titleText, err := font.RenderUTF8Blended("Help", h.TextColor)
+	titleText, err := font.RenderUTF8Blended(h.Title, h.TextColor)
 	if err == nil {
 		titleTexture, err := renderer.CreateTextureFromSurface(titleText)
 		if err == nil {

@@ -745,7 +745,7 @@ func renderText(renderer *sdl.Renderer, text string, font *ttf.Font, color sdl.C
 		return nil
 	}
 
-	surface, err := font.RenderUTF8Solid(text, color)
+	surface, err := font.RenderUTF8Blended(text, color)
 	if err != nil {
 		return nil
 	}

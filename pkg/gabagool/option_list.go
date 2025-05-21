@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/patrickhuber/go-types"
@@ -556,7 +557,7 @@ func (olc *optionsListController) toggleHelp() {
 			"• A: Select or input text for keyboard options",
 			"• B: Cancel and exit",
 		}
-		olc.helpOverlay = newHelpOverlay(helpLines)
+		olc.helpOverlay = newHelpOverlay(fmt.Sprintf("%s Help", olc.Settings.Title), helpLines)
 	}
 }
 

@@ -773,7 +773,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 
 	if settings.Margins.Left <= 0 && settings.Margins.Right <= 0 &&
 		settings.Margins.Top <= 0 && settings.Margins.Bottom <= 0 {
-		settings.Margins = uniformPadding(10)
+		settings.Margins = uniformPadding(20)
 	}
 
 	if settings.TitleSpacing <= 0 {

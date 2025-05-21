@@ -40,7 +40,7 @@ func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 		for _, word := range words[1:] {
 
 			testLine := currentLine + " " + word
-			testSurface, err := font.RenderUTF8Solid(testLine, color)
+			testSurface, err := font.RenderUTF8Blended(testLine, color)
 			if err != nil {
 				continue
 			}
@@ -83,7 +83,7 @@ func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 			continue
 		}
 
-		surface, err := font.RenderUTF8Solid(line, color)
+		surface, err := font.RenderUTF8Blended(line, color)
 		if err != nil {
 			continue
 		}
