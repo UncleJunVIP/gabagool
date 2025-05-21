@@ -1,9 +1,11 @@
 package gabagool
 
 import (
-	"bufio"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -18,6 +20,37 @@ type Theme struct {
 	ListTextColor         sdl.Color
 	ListTextSelectedColor sdl.Color
 	BGColor               sdl.Color
+	FontPath              string
+}
+
+type NextVal struct {
+	Font            int    `json:"font"`
+	Color1          string `json:"color1"`
+	Color2          string `json:"color2"`
+	Color3          string `json:"color3"`
+	Color4          string `json:"color4"`
+	Color5          string `json:"color5"`
+	Color6          string `json:"color6"`
+	BGColor         string `json:"bgcolor"`
+	Radius          int    `json:"radius"`
+	ShowClock       int    `json:"showclock"`
+	Clock24h        int    `json:"clock24h"`
+	BatteryPerc     int    `json:"batteryperc"`
+	MenuAnim        int    `json:"menuanim"`
+	MenuTransitions int    `json:"menutransitions"`
+	Recents         int    `json:"recents"`
+	GameArt         int    `json:"gameart"`
+	ScreenTimeout   int    `json:"screentimeout"`
+	SuspendTimeout  int    `json:"suspendTimeout"`
+	SwitcherScale   int    `json:"switcherscale"`
+	Haptics         int    `json:"haptics"`
+	RomFolderBg     int    `json:"romfolderbg"`
+	SaveFormat      int    `json:"saveFormat"`
+	StateFormat     int    `json:"stateFormat"`
+	MuteLeds        int    `json:"muteLeds"`
+	ArtWidth        int    `json:"artWidth"`
+	Wifi            int    `json:"wifi"`
+	FontPath        string `json:"fontpath"`
 }
 
 var currentTheme Theme
@@ -33,76 +66,45 @@ func initTheme() {
 		BGColor:               hexToColor(0x000000),
 	}
 
-	settingsPath := NextUISettingPath
+	var nextval *NextVal
+	var err error
+
 	if IsDev {
-		settingsPath = os.Getenv(EnvSettingsFile)
+		staticNextVal := os.Getenv(EnvSettingsFile)
+		nextval, err = loadStaticNextVal(staticNextVal)
+	} else {
+		_ = loadNextVal()
 	}
 
-	file, err := os.Open(settingsPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Could not load theme settings: %v\n", err)
-		return
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		if line == "" || strings.HasPrefix(line, "#") {
-			continue
-		}
-
-		parts := strings.SplitN(line, "=", 2)
-		if len(parts) != 2 {
-			continue
-		}
-
-		key := strings.TrimSpace(parts[0])
-		value := strings.TrimSpace(parts[1])
-
-		switch key {
-		case "color1", "color2", "color3", "color4", "color5", "color6", "bgcolor":
-			color, err := parseHexColor(value)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Invalid color value for %s: %s\n", key, value)
-				continue
-			}
-
-			switch key {
-			case "color1":
-				currentTheme.MainColor = color
-			case "color2":
-				currentTheme.PrimaryAccentColor = color
-			case "color3":
-				currentTheme.SecondaryAccentColor = color
-			case "color4":
-				currentTheme.ListTextColor = color
-			case "color5":
-				currentTheme.ListTextSelectedColor = color
-			case "color6":
-				currentTheme.HintInfoColor = color
-			case "bgcolor":
-				currentTheme.BGColor = color
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error reading theme settings: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading nextval: %v\n", err)
 		return
 	}
 
+	currentTheme.MainColor = parseHexColor(nextval.Color1)
+	currentTheme.PrimaryAccentColor = parseHexColor(nextval.Color2)
+	currentTheme.SecondaryAccentColor = parseHexColor(nextval.Color3)
+	currentTheme.ListTextColor = parseHexColor(nextval.Color4)
+	currentTheme.ListTextSelectedColor = parseHexColor(nextval.Color5)
+	currentTheme.HintInfoColor = parseHexColor(nextval.Color6)
+	currentTheme.BGColor = parseHexColor(nextval.BGColor)
+	currentTheme.FontPath = nextval.FontPath
 }
 
-func parseHexColor(hexStr string) (sdl.Color, error) {
+func parseHexColor(hexStr string) sdl.Color {
 	hexStr = strings.TrimPrefix(hexStr, "0x")
 
 	hex, err := strconv.ParseUint(hexStr, 16, 32)
 	if err != nil {
-		return sdl.Color{}, err
+		return sdl.Color{
+			R: 255,
+			G: 0,
+			B: 0,
+			A: 255,
+		}
 	}
 
-	return hexToColor(uint32(hex)), nil
+	return hexToColor(uint32(hex))
 }
 
 func hexToColor(hex uint32) sdl.Color {
@@ -119,4 +121,43 @@ func GetTheme() Theme {
 
 func GetSDLColorValues(color sdl.Color) (uint8, uint8, uint8, uint8) {
 	return color.R, color.G, color.B, color.A
+}
+
+func loadNextVal() *NextVal {
+	execPath := "/mnt/SDCARD/.system/tg5040/bin/nextval.elf"
+
+	cmd := exec.Command(execPath)
+	output, err := cmd.Output()
+	if err != nil {
+		fmt.Printf("Error executing command: %v\n", err)
+		return nil
+	}
+
+	jsonStr := strings.TrimSpace(string(output))
+
+	var nextval NextVal
+	err = json.Unmarshal([]byte(jsonStr), &nextval)
+	if err != nil {
+		fmt.Printf("Error parsing JSON: %v\n", err)
+		return nil
+	}
+
+	return &nextval
+}
+
+func loadStaticNextVal(filePath string) (*NextVal, error) {
+	// Read the file
+	data, err := ioutil.ReadFile(filePath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config file: %w", err)
+	}
+
+	// Parse the JSON
+	var nextval NextVal
+	err = json.Unmarshal(data, &nextval)
+	if err != nil {
+		return nil, fmt.Errorf("error parsing JSON from file: %w", err)
+	}
+
+	return &nextval, nil
 }

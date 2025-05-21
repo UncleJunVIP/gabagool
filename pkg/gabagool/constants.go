@@ -27,7 +27,6 @@ const (
 	BrickButton_R1 = 10
 )
 
-const NextUISettingPath = "/mnt/SDCARD/.userdata/shared/minuisettings.txt"
 const NextUIBackgroundPath = "/mnt/SDCARD/bg.png"
 
 const EnvSettingsFile = "SETTINGS_FILE"

@@ -53,7 +53,11 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 
 	if processor.showBG {
 		window.RenderBackground()
+	} else {
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
 	}
+
 	processor.render(renderer)
 	renderer.Present()
 
@@ -114,14 +118,14 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 
 		if processor.showBG {
 			window.RenderBackground()
+		} else {
+			renderer.SetDrawColor(0, 0, 0, 255)
+			renderer.Clear()
 		}
-		processor.render(renderer)
-		renderer.Present()
 
 		sdl.Delay(16)
 	}
 
-	// Clean up the texture if it was created
 	if processor.imageTexture != nil {
 		processor.imageTexture.Destroy()
 	}
