@@ -897,7 +897,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.BackspaceRect)
 
-	backspaceText := "⌫"
+	backspaceText := "←"
 	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
 	backspaceSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(backspaceText, textColor)
 	if err == nil {
