@@ -23,7 +23,6 @@ const (
 	SectionTypeImage
 )
 
-// Section struct with all necessary fields
 type Section struct {
 	Type        int
 	Title       string
@@ -35,7 +34,6 @@ type Section struct {
 	Alignment   int
 }
 
-// Updated DetailScreenOptions to use sections
 type DetailScreenOptions struct {
 	Sections            []Section
 	TitleColor          sdl.Color
@@ -59,7 +57,6 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 	}
 }
 
-// Helper function to create a slideshow section
 func NewSlideshowSection(title string, imagePaths []string, maxWidth, maxHeight int32) Section {
 	return Section{
 		Type:       SectionTypeSlideshow,
@@ -70,7 +67,6 @@ func NewSlideshowSection(title string, imagePaths []string, maxWidth, maxHeight 
 	}
 }
 
-// Helper function to create an info section
 func NewInfoSection(title string, metadata []MetadataItem) Section {
 	return Section{
 		Type:     SectionTypeInfo,
@@ -79,7 +75,6 @@ func NewInfoSection(title string, metadata []MetadataItem) Section {
 	}
 }
 
-// Helper function to create a description section
 func NewDescriptionSection(title string, description string) Section {
 	return Section{
 		Type:        SectionTypeDescription,
@@ -88,7 +83,6 @@ func NewDescriptionSection(title string, description string) Section {
 	}
 }
 
-// Helper function for image section
 func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, alignment TextAlign) Section {
 	return Section{
 		Type:       SectionTypeImage,
@@ -106,19 +100,16 @@ type DetailScreenReturn struct {
 	Cancelled      bool
 }
 
-// TextureCache stores pre-rendered textures for reuse
 type TextureCache struct {
 	textures map[string]*sdl.Texture
 }
 
-// NewTextureCache creates a new texture cache
 func NewTextureCache() *TextureCache {
 	return &TextureCache{
 		textures: make(map[string]*sdl.Texture),
 	}
 }
 
-// Get returns a cached texture if it exists
 func (c *TextureCache) Get(key string) *sdl.Texture {
 	if texture, exists := c.textures[key]; exists {
 		return texture
@@ -126,12 +117,10 @@ func (c *TextureCache) Get(key string) *sdl.Texture {
 	return nil
 }
 
-// Set adds a texture to the cache
 func (c *TextureCache) Set(key string, texture *sdl.Texture) {
 	c.textures[key] = texture
 }
 
-// Destroy destroys all cached textures and clears the cache
 func (c *TextureCache) Destroy() {
 	for _, texture := range c.textures {
 		texture.Destroy()
@@ -143,9 +132,8 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	window := GetWindow()
 	renderer := window.Renderer
 
-	// Create texture cache for text elements
 	textureCache := NewTextureCache()
-	defer textureCache.Destroy() // Clean up textures when function exits
+	defer textureCache.Destroy()
 
 	footerHeight := int32(30)
 	safeAreaHeight := window.Height - footerHeight
@@ -157,27 +145,23 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		options.MaxImageWidth = int32(float64(window.Width) / 2)
 	}
 
-	// Target scroll position for smooth scrolling
 	targetScrollY := int32(0)
-	// Current scroll position that will be animated
+
 	scrollY := int32(0)
 	maxScrollY := int32(0)
 	scrollSpeed := int32(85)
 	scrollbarWidth := int32(10)
 
-	// Smooth scrolling variables
-	scrollAnimationSpeed := float32(0.15) // Lower for smoother animation (0.1-0.3 is good)
+	scrollAnimationSpeed := float32(0.15)
 
-	// Directional repeat tracking
 	heldDirections := struct {
 		up   bool
 		down bool
 	}{}
 	lastRepeatTime := time.Now()
-	repeatDelay := time.Millisecond * 100    // Initial delay before repeating
-	repeatInterval := time.Millisecond * 100 // Interval between repeats
+	repeatDelay := time.Millisecond * 100
+	repeatInterval := time.Millisecond * 100
 
-	// Slideshow state for each slideshow section
 	type slideshowState struct {
 		currentIndex int
 		textures     []*sdl.Texture
@@ -185,14 +169,12 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	}
 	slideshowStates := make(map[int]slideshowState)
 
-	// Pre-load all slideshow images
 	for i, section := range options.Sections {
-		// For both slideshow and image sections, we load images
+
 		if section.Type == SectionTypeSlideshow || section.Type == SectionTypeImage {
 			textures := []*sdl.Texture{}
 			dimensions := []sdl.Rect{}
 
-			// Get the max dimensions
 			maxWidth := section.MaxWidth
 			maxHeight := section.MaxHeight
 
@@ -203,17 +185,16 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				maxHeight = options.MaxImageHeight
 			}
 
-			// For slideshows we use all images, for image sections just the first one
 			imagesToLoad := section.ImagePaths
 			if section.Type == SectionTypeImage && len(imagesToLoad) > 0 {
-				// Just to be safe, only use the first image for image sections
+
 				imagesToLoad = imagesToLoad[:1]
 			}
 
 			for _, imagePath := range imagesToLoad {
 				image, err := img.Load(imagePath)
 				if err == nil {
-					// Calculate dimensions
+
 					imageW := image.W
 					imageH := image.H
 
@@ -235,15 +216,14 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					if err == nil {
 						textures = append(textures, texture)
 
-						// Calculate X position based on section type and alignment
 						var imageX int32
 
 						if section.Type == SectionTypeImage {
-							// For image sections, use the alignment
+
 							alignment := TextAlign(section.Alignment)
 							switch alignment {
 							case AlignLeft:
-								imageX = 20 // Use fixed padding for now
+								imageX = 20
 							case AlignRight:
 								imageX = window.Width - 20 - imageW
 							case AlignCenter:
@@ -252,13 +232,13 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 								imageX = (window.Width - imageW) / 2
 							}
 						} else {
-							// For slideshows, always center
+
 							imageX = (window.Width - imageW) / 2
 						}
 
 						rect := sdl.Rect{
 							X: imageX,
-							Y: 0, // Y will be set during rendering
+							Y: 0,
 							W: imageW,
 							H: imageH,
 						}
@@ -268,7 +248,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				}
 			}
 
-			// Only store state if there are textures
 			if len(textures) > 0 {
 				slideshowStates[i] = slideshowState{
 					currentIndex: 0,
@@ -279,7 +258,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 	}
 
-	// Clean up all slideshow textures when function exits
 	defer func() {
 		for _, state := range slideshowStates {
 			for _, texture := range state.textures {
@@ -300,7 +278,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	running := true
 	firstRender := true
 
-	// Pre-render static text elements that won't change
 	titleTexture := renderText(renderer, title, fonts.largeFont, options.TitleColor)
 	defer func() {
 		if titleTexture != nil {
@@ -308,7 +285,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 	}()
 
-	// Pre-render section title textures
 	sectionTitleTextures := make([]*sdl.Texture, len(options.Sections))
 	for i, section := range options.Sections {
 		if section.Title != "" {
@@ -323,7 +299,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 	}()
 
-	// Pre-render metadata label textures for info sections
 	metadataLabelTextures := make(map[int][](*sdl.Texture))
 	for i, section := range options.Sections {
 		if section.Type == SectionTypeInfo {
@@ -346,22 +321,18 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 	}()
 
-	// Function to handle directional repeats
 	handleDirectionalRepeats := func() {
 		now := time.Now()
 		timeSinceLastRepeat := now.Sub(lastRepeatTime)
 
-		// Initial delay before repeating
 		if timeSinceLastRepeat < repeatDelay {
 			return
 		}
 
-		// After initial delay, repeat at the specified interval
 		if repeatInterval > 0 && timeSinceLastRepeat < repeatInterval {
 			return
 		}
 
-		// Process held directions
 		if heldDirections.up {
 			targetScrollY = max(0, targetScrollY-scrollSpeed)
 			lastRepeatTime = now
@@ -371,7 +342,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 	}
 
-	// Function to handle slideshow navigation
 	slideshowIndexChanged := false
 	activeSlideshow := -1
 
@@ -486,17 +456,14 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			}
 		}
 
-		// Handle directional repeats
 		handleDirectionalRepeats()
 
-		// Smooth scrolling animation - interpolate between current position and target
 		scrollY += int32(float32(targetScrollY-scrollY) * scrollAnimationSpeed)
 
-		// Set background color
 		if options.ShowThemeBackground {
 			window.RenderBackground()
 		} else {
-			// Set and apply the background color
+
 			renderer.SetDrawColor(
 				options.BackgroundColor.R,
 				options.BackgroundColor.G,
@@ -512,7 +479,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		var titleRect sdl.Rect
 		var totalContentHeight int32 = 0
 
-		// Render title using pre-rendered texture
 		if titleTexture != nil {
 			_, _, titleW, titleH, err := titleTexture.Query()
 			if err == nil {
@@ -535,14 +501,12 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		currentY := margins.Top + titleHeight + DefaultTitleSpacing - scrollY
 		activeSlideshow = -1
 
-		// Render each section
 		for sectionIndex, section := range options.Sections {
-			// Add some spacing between sections
+
 			if sectionIndex > 0 {
 				currentY += 30
 			}
 
-			// Render section title
 			sectionTitleTexture := sectionTitleTextures[sectionIndex]
 			if sectionTitleTexture != nil {
 				_, _, titleW, titleH, err := sectionTitleTexture.Query()
@@ -562,7 +526,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				}
 			}
 
-			// Render section divider line
 			if isLineVisible(margins.Left, currentY, contentWidth, safeAreaHeight) {
 				renderer.SetDrawColor(80, 80, 80, 255)
 				renderer.DrawLine(
@@ -573,13 +536,9 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			}
 			currentY += 15
 
-			// Render section content based on type
-			// In the rendering loop for sections
 			switch section.Type {
 			case SectionTypeSlideshow:
-				// Keep existing slideshow rendering code
 				if state, ok := slideshowStates[sectionIndex]; ok && len(state.textures) > 0 {
-					// Existing slideshow code
 					imageRect := state.dimensions[state.currentIndex]
 					imageRect.Y = currentY
 
@@ -590,17 +549,42 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 					currentY += imageRect.H + 15
 
-					// Render indicators only for slideshows with multiple images
 					if len(state.textures) > 1 {
-						// Existing indicator rendering code
-						// ...
+
+						indicatorSize := int32(10)
+						indicatorSpacing := int32(5)
+						totalIndicatorsWidth := (indicatorSize * int32(len(state.textures))) +
+							(indicatorSpacing * int32(len(state.textures)-1))
+
+						indicatorX := (window.Width - totalIndicatorsWidth) / 2
+						indicatorY := currentY
+
+						for i := 0; i < len(state.textures); i++ {
+							if i == state.currentIndex {
+								renderer.SetDrawColor(255, 255, 255, 255)
+							} else {
+								renderer.SetDrawColor(150, 150, 150, 150)
+							}
+
+							indicatorRect := &sdl.Rect{
+								X: indicatorX,
+								Y: indicatorY,
+								W: indicatorSize,
+								H: indicatorSize,
+							}
+
+							renderer.FillRect(indicatorRect)
+							indicatorX += indicatorSize + indicatorSpacing
+						}
+
+						currentY += indicatorSize + 15
 					}
 				}
 
 			case SectionTypeImage:
-				// Image sections are similar but simpler - no indicators or navigation
+
 				if state, ok := slideshowStates[sectionIndex]; ok && len(state.textures) > 0 {
-					imageRect := state.dimensions[0] // Always use the first image
+					imageRect := state.dimensions[0]
 					imageRect.Y = currentY
 
 					if isRectVisible(imageRect, safeAreaHeight) {
@@ -611,12 +595,12 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				}
 
 			case SectionTypeInfo:
-				// Restore info section rendering
+
 				metadata := section.Metadata
 
 				if len(metadata) > 0 {
 					for j, item := range metadata {
-						// Get cached label texture
+
 						labelTextures, ok := metadataLabelTextures[sectionIndex]
 						if !ok || j >= len(labelTextures) || labelTextures[j] == nil {
 							continue
@@ -624,7 +608,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 						labelTexture := labelTextures[j]
 
-						// Calculate positions
 						_, _, labelWidth, labelHeight, _ := labelTexture.Query()
 						labelRect := &sdl.Rect{
 							X: margins.Left,
@@ -633,12 +616,10 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 							H: labelHeight,
 						}
 
-						// Render label if visible
 						if isRectVisible(*labelRect, safeAreaHeight) {
 							renderer.Copy(labelTexture, nil, labelRect)
 						}
 
-						// Render value
 						valueText := item.Value
 						if valueText != "" {
 							cacheKey := "value_" + valueText + "_" + section.Title
@@ -673,11 +654,10 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				}
 
 			case SectionTypeDescription:
-				// Restore description section rendering
+
 				if section.Description != "" {
 					contentWidth := window.Width - (margins.Left + margins.Right)
 
-					// Cache description height calculation
 					descHeight := calculateMultilineTextHeight(section.Description, fonts.smallFont, contentWidth)
 
 					if descHeight > 0 && isRectVisible(sdl.Rect{X: margins.Left, Y: currentY, W: contentWidth, H: descHeight}, safeAreaHeight) {
@@ -700,7 +680,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 		totalContentHeight = currentY + scrollY + margins.Bottom
 
-		// Update maxScrollY based on total content height
 		if firstRender || slideshowIndexChanged {
 			maxScrollY = max(0, totalContentHeight-safeAreaHeight+margins.Bottom)
 			if slideshowIndexChanged {
@@ -711,14 +690,12 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			}
 		}
 
-		// Render scrollbar with smoother animation
 		if options.ShowScrollbar && maxScrollY > 0 {
 			scrollbarHeight := int32(float64(safeAreaHeight) * float64(safeAreaHeight) / float64(maxScrollY+safeAreaHeight))
-			scrollbarHeight = max(scrollbarHeight, 30) // Minimum height
+			scrollbarHeight = max(scrollbarHeight, 30)
 
 			scrollbarY := int32(float64(scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(maxScrollY))
 
-			// Draw scrollbar background
 			renderer.SetDrawColor(50, 50, 50, 120)
 			renderer.FillRect(&sdl.Rect{
 				X: window.Width - scrollbarWidth - 5,
@@ -727,7 +704,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				H: safeAreaHeight - 10,
 			})
 
-			// Draw scrollbar handle with rounded corners
 			renderer.SetDrawColor(180, 180, 180, 200)
 			scrollbarRect := &sdl.Rect{
 				X: window.Width - scrollbarWidth - 5,
@@ -738,7 +714,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 			drawRoundedRect(renderer, scrollbarRect, 4)
 		}
 
-		// Render footer if there are help items
 		if len(footerHelpItems) > 0 {
 			renderFooter(
 				renderer,
@@ -751,11 +726,10 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 		renderer.Present()
 
-		// Adjust delay based on whether we're animating
-		if abs(scrollY-targetScrollY) > 3 { // Still animating?
-			sdl.Delay(8) // Smoother frame rate during animation
+		if abs(scrollY-targetScrollY) > 3 {
+			sdl.Delay(8)
 		} else {
-			sdl.Delay(16) // Standard frame rate when not animating
+			sdl.Delay(16)
 		}
 	}
 
@@ -766,7 +740,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 	return option.Some(result), nil
 }
 
-// Helper function to render text once and return the texture
 func renderText(renderer *sdl.Renderer, text string, font *ttf.Font, color sdl.Color) *sdl.Texture {
 	if text == "" {
 		return nil
@@ -786,7 +759,6 @@ func renderText(renderer *sdl.Renderer, text string, font *ttf.Font, color sdl.C
 	return texture
 }
 
-// Optimized version of renderMultilineText that uses the texture cache
 func renderMultilineTextOptimized(
 	renderer *sdl.Renderer,
 	text string,
@@ -827,7 +799,7 @@ func renderMultilineTextOptimized(
 					lineSurface, err := font.RenderUTF8Blended(remainingText, color)
 					if err == nil {
 						lineTexture, err = renderer.CreateTextureFromSurface(lineSurface)
-						lineSurface.Free() // Free surface immediately
+						lineSurface.Free()
 
 						if err == nil {
 							cache.Set(cacheKey, lineTexture)
@@ -844,7 +816,7 @@ func renderMultilineTextOptimized(
 						lineX = x + (maxWidth-lineW)/2
 					case AlignRight:
 						lineX = x + maxWidth - lineW
-					default: // TextAlignLeft
+					default:
 						lineX = x
 					}
 
@@ -862,14 +834,13 @@ func renderMultilineTextOptimized(
 				break
 			}
 
-			// If text is too long, find a good breaking point
 			charsPerLine := int(float32(len(remainingText)) * float32(maxWidth) / float32(width))
 			if charsPerLine <= 0 {
 				charsPerLine = 1
 			}
 
 			if charsPerLine < len(remainingText) {
-				// Look for a space to break at
+
 				for i := charsPerLine; i > 0; i-- {
 					if i < len(remainingText) && remainingText[i] == ' ' {
 						charsPerLine = i
@@ -886,7 +857,7 @@ func renderMultilineTextOptimized(
 				lineSurface, err := font.RenderUTF8Blended(lineText, color)
 				if err == nil {
 					lineTexture, err = renderer.CreateTextureFromSurface(lineSurface)
-					lineSurface.Free() // Free surface immediately
+					lineSurface.Free()
 
 					if err == nil {
 						cache.Set(cacheKey, lineTexture)
@@ -903,7 +874,7 @@ func renderMultilineTextOptimized(
 					lineX = x + (maxWidth-lineW)/2
 				case AlignRight:
 					lineX = x + maxWidth - lineW
-				default: // TextAlignLeft
+				default:
 					lineX = x
 				}
 
@@ -924,13 +895,12 @@ func renderMultilineTextOptimized(
 			}
 
 			remainingText = remainingText[charsPerLine:]
-			// Skip leading spaces in the next line
+
 			remainingText = strings.TrimLeft(remainingText, " ")
 		}
 	}
 }
 
-// Helper function to get absolute value of int32
 func abs(x int32) int32 {
 	if x < 0 {
 		return -x
@@ -938,18 +908,16 @@ func abs(x int32) int32 {
 	return x
 }
 
-// Helper function to check if a rectangle is visible in the viewport
 func isRectVisible(rect sdl.Rect, viewportHeight int32) bool {
-	// Check if the rectangle is completely above or below the viewport
+
 	if rect.Y+rect.H < 0 || rect.Y > viewportHeight {
 		return false
 	}
 	return true
 }
 
-// Helper function to check if a line is visible in the viewport
 func isLineVisible(x, y, width int32, viewportHeight int32) bool {
-	// Check if the line is completely above or below the viewport
+
 	if y < 0 || y > viewportHeight {
 		return false
 	}
@@ -1004,7 +972,7 @@ func calculateMultilineTextHeight(text string, font *ttf.Font, maxWidth int32) i
 				break
 			}
 			remainingText = remainingText[charsPerLine:]
-			// Skip leading spaces in the next line
+
 			remainingText = strings.TrimLeft(remainingText, " ")
 		}
 	}
