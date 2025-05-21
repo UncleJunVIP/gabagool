@@ -418,7 +418,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		if lc.MultiSelect {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
-				result.populateMultiSelection(indices, lc.Items)
+				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
 				result.Cancelled = false
 			}
 		}
@@ -507,7 +507,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
-				result.populateMultiSelection(indices, lc.Items)
+				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
 				result.Cancelled = false
 			}
 		}

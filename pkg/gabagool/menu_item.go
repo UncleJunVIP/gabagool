@@ -26,11 +26,12 @@ func (r *ListReturn) populateSingleSelection(index int, items []MenuItem, visibl
 	r.VisiblePosition = index - visibleStartIndex
 }
 
-func (r *ListReturn) populateMultiSelection(indices []int, items []MenuItem) {
+func (r *ListReturn) populateMultiSelection(indices []int, items []MenuItem, visibleStartIndex int) {
 	r.SelectedIndex = indices[0]
 	r.SelectedItem = &items[indices[0]]
 	r.SelectedIndices = indices
 	r.SelectedItems = make([]*MenuItem, len(indices))
+	r.VisiblePosition = indices[0] - visibleStartIndex
 	for i, idx := range indices {
 		r.SelectedItems[i] = &items[idx]
 	}
