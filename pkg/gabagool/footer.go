@@ -49,6 +49,7 @@ func renderFooter(
 	var rightItems []FooterHelpItem
 	switch len(footerHelpItems) {
 	case 1:
+		// For a single item, we'll center it
 		leftItems = footerHelpItems[0:1]
 	case 2:
 		leftItems = footerHelpItems[0:1]
@@ -65,7 +66,14 @@ func renderFooter(
 	}
 
 	if len(leftItems) > 0 {
-		renderGroupAsContinuousPill(renderer, font, leftItems, bottomPadding, y, outerPillHeight, innerPillMargin)
+		if len(footerHelpItems) == 1 {
+			// Center the single item
+			pillWidth := calculateContinuousPillWidth(font, leftItems, outerPillHeight, innerPillMargin)
+			centerX := (windowWidth - pillWidth) / 2
+			renderGroupAsContinuousPill(renderer, font, leftItems, centerX, y, outerPillHeight, innerPillMargin)
+		} else {
+			renderGroupAsContinuousPill(renderer, font, leftItems, bottomPadding, y, outerPillHeight, innerPillMargin)
+		}
 	}
 	if len(rightItems) > 0 {
 		rightGroupWidth := calculateContinuousPillWidth(font, rightItems, outerPillHeight, innerPillMargin)

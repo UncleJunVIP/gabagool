@@ -412,7 +412,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		spacing := dm.progressBarHeight + 120 // Increased spacing between downloads (from 100 to 120)
 
 		if len(dm.downloads) == 1 {
-			baseY += dm.window.Height/5 + 50
+			baseY += dm.window.Height/5 + 45
 			spacing = 0
 		}
 
@@ -517,29 +517,24 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		}
 	}
 
-	// Render status text
-	var statusText string
+	var footerHelpItems []FooterHelpItem
 	if dm.isAllComplete {
-		statusText = "Press Any Button To Continue"
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "Continue"})
 	} else {
-		statusText = "ESC: Cancel All Downloads"
+		helpText := "Cancel Download"
+		if len(dm.downloads) > 1 {
+			helpText = "Cancel All Downloads"
+		}
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "B", HelpText: helpText})
 	}
 
-	statusSurface, err := font.RenderUTF8Blended(statusText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
-	if err == nil {
-		statusTexture, err := renderer.CreateTextureFromSurface(statusSurface)
-		if err == nil {
-			statusRect := &sdl.Rect{
-				X: (dm.window.Width - statusSurface.W) / 2,
-				Y: dm.window.Height - statusSurface.H - 20,
-				W: statusSurface.W,
-				H: statusSurface.H,
-			}
-			renderer.Copy(statusTexture, nil, statusRect)
-			statusTexture.Destroy()
-		}
-		statusSurface.Free()
-	}
+	renderFooter(
+		renderer,
+		fonts.smallFont,
+		footerHelpItems,
+		20,
+		true,
+	)
 }
 
 type progressReader struct {
