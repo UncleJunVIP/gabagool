@@ -412,7 +412,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		spacing := dm.progressBarHeight + 120 // Increased spacing between downloads (from 100 to 120)
 
 		if len(dm.downloads) == 1 {
-			baseY += dm.window.Height/5 + 75
+			baseY += dm.window.Height/5 + 50
 			spacing = 0
 		}
 

@@ -23,24 +23,24 @@ func initWindow(title string, displayBackground bool) *Window {
 	displayIndex := 0
 	displayMode, err := sdl.GetCurrentDisplayMode(displayIndex)
 
-	width := DefaultWindowWidth
-	height := DefaultWindowHeight
-
-	if IsDev {
-		width = DefaultWindowWidth
-		height = DefaultWindowHeight
-	} else if err == nil {
-		width = displayMode.W
-		height = displayMode.H
-	} else {
+	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to get display mode: %s\n", err)
 	}
 
-	return initWindowWithSize(title, width, height, displayBackground)
+	return initWindowWithSize(title, displayMode.W, displayMode.H, displayBackground)
 }
 
 func initWindowWithSize(title string, width, height int32, displayBackground bool) *Window {
-	window, err := sdl.CreateWindow(title, 0, 0, width, height, sdl.WINDOW_SHOWN)
+	x, y := int32(0), int32(0)
+
+	if IsDev {
+		x = width/2 - DefaultWindowWidth/2
+		y = height/2 - DefaultWindowHeight/2
+		width = DefaultWindowWidth
+		height = DefaultWindowHeight
+	}
+
+	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_BORDERLESS)
 	if err != nil {
 		panic(err)
 	}
