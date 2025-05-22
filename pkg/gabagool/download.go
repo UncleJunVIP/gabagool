@@ -411,6 +411,11 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		baseY := int32(150) + titlePadding
 		spacing := dm.progressBarHeight + 100 // Increased spacing between downloads
 
+		if len(dm.downloads) == 1 {
+			baseY += dm.window.Height/5 + 75
+			spacing = 0
+		}
+
 		for i, job := range dm.activeJobs {
 			y := baseY + int32(i)*spacing
 
