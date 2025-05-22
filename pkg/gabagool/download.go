@@ -363,7 +363,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	font := fonts.tinyFont
+	font := fonts.smallFont
 
 	// Render title
 	titleText := "Download Manager"
@@ -409,7 +409,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		}
 
 		baseY := int32(150) + titlePadding
-		spacing := dm.progressBarHeight + 100 // Increased spacing between downloads
+		spacing := dm.progressBarHeight + 120 // Increased spacing between downloads (from 100 to 120)
 
 		if len(dm.downloads) == 1 {
 			baseY += dm.window.Height/5 + 75
@@ -429,16 +429,16 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 			// Truncate filename to fit on a single line
 			maxWidth := dm.window.Width * 3 / 4
-			displayText = truncateFilename(displayText, maxWidth, font)
+			displayText = truncateFilename(displayText, maxWidth, font) // Use filenameFont instead of font
 
-			// Render filename
+			// Render filename with smallFont
 			filenameSurface, err := font.RenderUTF8Blended(displayText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 			if err == nil {
 				filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
 				if err == nil {
 					filenameRect := &sdl.Rect{
 						X: (dm.window.Width - filenameSurface.W) / 2,
-						Y: y - 40,
+						Y: y - 50, // Increased vertical padding from 40 to 50
 						W: filenameSurface.W,
 						H: filenameSurface.H,
 					}

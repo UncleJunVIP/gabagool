@@ -44,12 +44,12 @@ const (
 )
 
 const (
-	FontSizeXLarge = 20
-	FontSizeLarge  = 17
-	FontSizeMedium = 15
-	FontSizeSmall  = 13
-	FontSizeTiny   = 9
-	FontSizeMicro  = 7
+	FontSizeXLarge = 22
+	FontSizeLarge  = 18
+	FontSizeMedium = 16
+	FontSizeSmall  = 12
+	FontSizeTiny   = 8
+	FontSizeMicro  = 6
 )
 
 type TextAlign int
