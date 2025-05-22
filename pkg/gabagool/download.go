@@ -73,7 +73,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		failedDownloads:    []Download{},
 		errors:             []error{},
 		isAllComplete:      false,
-		maxActiveJobs:      4,
+		maxActiveJobs:      3,
 		headers:            headers,
 		progressBarWidth:   progressBarWidth,
 		progressBarHeight:  progressBarHeight,
@@ -273,7 +273,7 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 	}
 
 	client := &http.Client{
-		Timeout: 15 * time.Minute,
+		Timeout: 120 * time.Minute,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
