@@ -2,6 +2,7 @@ package gabagool
 
 import (
 	"fmt"
+	"github.com/veandco/go-sdl2/ttf"
 	"io"
 	"net/http"
 	"os"
@@ -26,24 +27,32 @@ type DownloadReturn struct {
 	Cancelled          bool
 }
 
+type downloadJob struct {
+	download       Download
+	progress       float64
+	totalSize      int64
+	downloadedSize int64
+	isComplete     bool
+	hasError       bool
+	error          error
+	cancelChan     chan struct{}
+}
+
 type downloadManager struct {
-	window            *Window
-	downloads         []Download
-	currentIndex      int
-	downloadProgress  float64
-	totalSize         int64
-	downloadedSize    int64
-	isDownloading     bool
-	downloadComplete  bool
-	downloadError     error
-	cancelDownload    chan struct{}
-	downloadDone      chan bool
-	cancellationError error
+	window             *Window
+	downloads          []Download
+	downloadQueue      []*downloadJob
+	activeJobs         []*downloadJob
+	completedDownloads []Download
+	failedDownloads    []Download
+	errors             []error
+	isAllComplete      bool
+	maxActiveJobs      int
+	cancellationError  error
 
 	progressBarWidth  int32
 	progressBarHeight int32
 	progressBarX      int32
-	progressBarY      int32
 
 	headers map[string]string
 }
@@ -54,21 +63,21 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 	progressBarWidth := window.Width * 3 / 4
 	progressBarHeight := int32(30)
 	progressBarX := (window.Width - progressBarWidth) / 2
-	progressBarY := window.Height / 2
 
 	return &downloadManager{
-		window:            window,
-		downloads:         downloads,
-		headers:           headers,
-		currentIndex:      0,
-		isDownloading:     false,
-		downloadComplete:  false,
-		cancelDownload:    make(chan struct{}),
-		downloadDone:      make(chan bool),
-		progressBarWidth:  progressBarWidth,
-		progressBarHeight: progressBarHeight,
-		progressBarX:      progressBarX,
-		progressBarY:      progressBarY,
+		window:             window,
+		downloads:          downloads,
+		downloadQueue:      []*downloadJob{},
+		activeJobs:         []*downloadJob{},
+		completedDownloads: []Download{},
+		failedDownloads:    []Download{},
+		errors:             []error{},
+		isAllComplete:      false,
+		maxActiveJobs:      4,
+		headers:            headers,
+		progressBarWidth:   progressBarWidth,
+		progressBarHeight:  progressBarHeight,
+		progressBarX:       progressBarX,
 	}
 }
 
@@ -91,15 +100,27 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 	window := GetWindow()
 	renderer := window.Renderer
 
+	// Initialize the download queue
+	for _, download := range downloads {
+		job := &downloadJob{
+			download:   download,
+			progress:   0,
+			isComplete: false,
+			hasError:   false,
+			cancelChan: make(chan struct{}),
+		}
+		downloadManager.downloadQueue = append(downloadManager.downloadQueue, job)
+	}
+
+	// Start initial downloads
+	downloadManager.startNextDownloads()
+
 	downloadManager.render(renderer)
 	renderer.Present()
 
 	sdl.Delay(100)
 
-	downloadManager.startDownload()
-
 	running := true
-	allDownloadsComplete := false
 	var err error
 
 	for running {
@@ -108,27 +129,21 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 			case *sdl.QuitEvent:
 				running = false
 				err = sdl.GetError()
-				downloadManager.cancellationError = fmt.Errorf("download cancelled by user")
-				close(downloadManager.cancelDownload)
+				downloadManager.cancelAllDownloads()
 				result.Cancelled = true
 
 			case *sdl.KeyboardEvent:
 				if e.Type == sdl.KEYDOWN {
 					result.LastPressedKey = e.Keysym.Sym
 
-					if allDownloadsComplete {
+					if downloadManager.isAllComplete {
 						running = false
 						continue
 					}
 
 					if e.Keysym.Sym == sdl.K_ESCAPE {
-						if downloadManager.isDownloading {
-							close(downloadManager.cancelDownload)
-							downloadManager.cancelDownload = make(chan struct{})
-							downloadManager.cancellationError = fmt.Errorf("download cancelled by user")
-						}
+						downloadManager.cancelAllDownloads()
 						result.Cancelled = true
-						downloadManager.downloadComplete = true
 					}
 				}
 
@@ -136,111 +151,118 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 				if e.Type == sdl.CONTROLLERBUTTONDOWN {
 					result.LastPressedBtn = e.Button
 
-					if allDownloadsComplete {
+					if downloadManager.isAllComplete {
 						running = false
 						continue
 					}
 
-					if Button(e.Button) == ButtonB {
-						if downloadManager.isDownloading {
-							close(downloadManager.cancelDownload)
-							downloadManager.cancelDownload = make(chan struct{})
-							downloadManager.cancellationError = fmt.Errorf("download cancelled by user")
-						}
+					if Button(e.Button) == ButtonY {
+						downloadManager.cancelAllDownloads()
 						result.Cancelled = true
-						downloadManager.downloadComplete = true
-					} else if Button(e.Button) == ButtonY {
-						if downloadManager.isDownloading {
-							close(downloadManager.cancelDownload)
-							downloadManager.cancelDownload = make(chan struct{})
-						}
-						result.Cancelled = true
-						downloadManager.downloadComplete = true
-
-						for i := downloadManager.currentIndex; i < len(downloadManager.downloads); i++ {
-							result.FailedDownloads = append(result.FailedDownloads, downloadManager.downloads[i])
-							result.Errors = append(result.Errors, fmt.Errorf("download cancelled by user (Y button)"))
-						}
 					}
 				}
 			}
 		}
 
-		select {
-		case success := <-downloadManager.downloadDone:
-			if success {
-				result.CompletedDownloads = append(result.CompletedDownloads,
-					downloadManager.downloads[downloadManager.currentIndex])
+		// Check for completed or failed downloads
+		downloadManager.updateJobStatus()
 
-				downloadManager.currentIndex++
-				if downloadManager.currentIndex < len(downloadManager.downloads) {
-					downloadManager.startDownload()
-				} else {
+		// Start new downloads if there's room
+		if len(downloadManager.activeJobs) < downloadManager.maxActiveJobs && len(downloadManager.downloadQueue) > 0 {
+			downloadManager.startNextDownloads()
+		}
 
-					allDownloadsComplete = true
-				}
-			} else {
-				result.FailedDownloads = append(result.FailedDownloads,
-					downloadManager.downloads[downloadManager.currentIndex])
-				result.Errors = append(result.Errors, downloadManager.downloadError)
-
-				downloadManager.currentIndex++
-				if downloadManager.currentIndex < len(downloadManager.downloads) {
-					downloadManager.startDownload()
-				} else {
-
-					allDownloadsComplete = true
-				}
-			}
-		default:
+		// Check if all downloads are complete
+		if len(downloadManager.activeJobs) == 0 && len(downloadManager.downloadQueue) == 0 && !downloadManager.isAllComplete {
+			downloadManager.isAllComplete = true
 		}
 
 		downloadManager.render(renderer)
-
 		renderer.Present()
 
 		sdl.Delay(16)
 	}
 
+	result.CompletedDownloads = downloadManager.completedDownloads
+	result.FailedDownloads = downloadManager.failedDownloads
+	result.Errors = downloadManager.errors
+
 	return result, err
 }
 
-func (dm *downloadManager) startDownload() {
-	if dm.currentIndex >= len(dm.downloads) {
+func (dm *downloadManager) startNextDownloads() {
+	availableSlots := dm.maxActiveJobs - len(dm.activeJobs)
+	if availableSlots <= 0 {
 		return
 	}
 
-	download := dm.downloads[dm.currentIndex]
+	// Start as many downloads as we have slots for
+	for i := 0; i < availableSlots && len(dm.downloadQueue) > 0; i++ {
+		job := dm.downloadQueue[0]
+		dm.downloadQueue = dm.downloadQueue[1:]
+		dm.activeJobs = append(dm.activeJobs, job)
 
-	if dm.isDownloading {
-		close(dm.cancelDownload)
-		dm.cancelDownload = make(chan struct{})
+		go dm.downloadFile(job)
 	}
-
-	dm.downloadProgress = 0
-	dm.totalSize = 0
-	dm.downloadedSize = 0
-	dm.isDownloading = true
-	dm.downloadComplete = false
-	dm.downloadError = nil
-
-	go dm.downloadFile(download.URL, download.Location)
 }
 
-func (dm *downloadManager) downloadFile(url, filePath string) {
+func (dm *downloadManager) updateJobStatus() {
+	remaining := []*downloadJob{}
+
+	for _, job := range dm.activeJobs {
+		if job.isComplete {
+			dm.completedDownloads = append(dm.completedDownloads, job.download)
+		} else if job.hasError {
+			dm.failedDownloads = append(dm.failedDownloads, job.download)
+			dm.errors = append(dm.errors, job.error)
+		} else {
+			remaining = append(remaining, job)
+		}
+	}
+
+	dm.activeJobs = remaining
+}
+
+func (dm *downloadManager) cancelAllDownloads() {
+	// Cancel all active downloads
+	for _, job := range dm.activeJobs {
+		close(job.cancelChan)
+		if !job.isComplete && !job.hasError {
+			job.hasError = true
+			job.error = fmt.Errorf("download cancelled by user")
+			dm.failedDownloads = append(dm.failedDownloads, job.download)
+			dm.errors = append(dm.errors, job.error)
+		}
+	}
+
+	// Mark all queued downloads as failed
+	for _, job := range dm.downloadQueue {
+		job.hasError = true
+		job.error = fmt.Errorf("download cancelled by user")
+		dm.failedDownloads = append(dm.failedDownloads, job.download)
+		dm.errors = append(dm.errors, job.error)
+	}
+
+	dm.activeJobs = []*downloadJob{}
+	dm.downloadQueue = []*downloadJob{}
+	dm.isAllComplete = true
+}
+
+func (dm *downloadManager) downloadFile(job *downloadJob) {
+	url := job.download.URL
+	filePath := job.download.Location
+
 	dir := filepath.Dir(filePath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
-		dm.downloadError = err
-		dm.isDownloading = false
-		dm.downloadDone <- false
+		job.hasError = true
+		job.error = err
 		return
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		dm.downloadError = err
-		dm.isDownloading = false
-		dm.downloadDone <- false
+		job.hasError = true
+		job.error = err
 		return
 	}
 
@@ -255,27 +277,24 @@ func (dm *downloadManager) downloadFile(url, filePath string) {
 	}
 	resp, err := client.Do(req)
 	if err != nil {
-		dm.downloadError = err
-		dm.isDownloading = false
-		dm.downloadDone <- false
+		job.hasError = true
+		job.error = err
 		return
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		dm.downloadError = fmt.Errorf("bad status: %s", resp.Status)
-		dm.isDownloading = false
-		dm.downloadDone <- false
+		job.hasError = true
+		job.error = fmt.Errorf("bad status: %s", resp.Status)
 		return
 	}
 
-	dm.totalSize = resp.ContentLength
+	job.totalSize = resp.ContentLength
 
 	out, err := os.Create(filePath)
 	if err != nil {
-		dm.downloadError = err
-		dm.isDownloading = false
-		dm.downloadDone <- false
+		job.hasError = true
+		job.error = err
 		return
 	}
 	defer out.Close()
@@ -283,9 +302,9 @@ func (dm *downloadManager) downloadFile(url, filePath string) {
 	reader := &progressReader{
 		reader: resp.Body,
 		onProgress: func(bytesRead int64) {
-			dm.downloadedSize = bytesRead
-			if dm.totalSize > 0 {
-				dm.downloadProgress = float64(bytesRead) / float64(dm.totalSize)
+			job.downloadedSize = bytesRead
+			if job.totalSize > 0 {
+				job.progress = float64(bytesRead) / float64(job.totalSize)
 			}
 		},
 	}
@@ -299,186 +318,222 @@ func (dm *downloadManager) downloadFile(url, filePath string) {
 	select {
 	case err := <-done:
 		if err != nil {
-			dm.downloadError = err
-			dm.isDownloading = false
-			dm.downloadDone <- false
+			job.hasError = true
+			job.error = err
 		} else {
-			dm.downloadComplete = true
-			dm.isDownloading = false
-			dm.downloadDone <- true
+			job.isComplete = true
 		}
-	case <-dm.cancelDownload:
-		dm.downloadError = fmt.Errorf("Download Canceled")
-		dm.isDownloading = false
-		dm.downloadDone <- false
+	case <-job.cancelChan:
+		job.hasError = true
+		job.error = fmt.Errorf("download canceled")
 	}
+}
+
+func truncateFilename(filename string, maxWidth int32, font *ttf.Font) string {
+	// Check if filename needs truncation
+	surface, _ := font.RenderUTF8Blended(filename, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if surface == nil {
+		return filename // If surface creation failed, return original
+	}
+	defer surface.Free()
+
+	if surface.W <= maxWidth {
+		return filename // No truncation needed
+	}
+
+	// Truncate with ellipsis
+	ellipsis := "..."
+	for len(filename) > 5 { // Keep at least 1 char + ellipsis
+		filename = filename[:len(filename)-1]
+		surface, _ := font.RenderUTF8Blended(filename+ellipsis, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		if surface == nil {
+			break
+		}
+		if surface.W <= maxWidth {
+			surface.Free()
+			return filename + ellipsis
+		}
+		surface.Free()
+	}
+
+	return filename + ellipsis
 }
 
 func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	font := fonts.smallFont
+	font := fonts.tinyFont
 
-	if len(dm.downloads) > 1 {
-		titleFont := fonts.extraLargeFont
-		titleText := "Download Manager"
-		titleSurface, err := titleFont.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-		if err == nil {
-			titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
-			if err == nil {
-				titleRect := &sdl.Rect{
-					X: (dm.window.Width - titleSurface.W) / 2,
-					Y: dm.window.Height/4 - titleSurface.H/2,
-					W: titleSurface.W,
-					H: titleSurface.H,
-				}
-				renderer.Copy(titleTexture, nil, titleRect)
-				titleTexture.Destroy()
-			}
-			titleSurface.Free()
-		}
-
-		currentDownloadIndex := dm.currentIndex + 1
-		if currentDownloadIndex > len(dm.downloads) {
-			currentDownloadIndex = len(dm.downloads)
-		}
-
-		progressText := fmt.Sprintf("Download %d of %d", currentDownloadIndex, len(dm.downloads))
-		progressSurface, err := font.RenderUTF8Blended(progressText, sdl.Color{R: 200, G: 200, B: 200, A: 255})
-		if err == nil {
-			progressTexture, err := renderer.CreateTextureFromSurface(progressSurface)
-			if err == nil {
-				progressRect := &sdl.Rect{
-					X: (dm.window.Width - progressSurface.W) / 2,
-					Y: dm.window.Height/4 + 30,
-					W: progressSurface.W,
-					H: progressSurface.H,
-				}
-				renderer.Copy(progressTexture, nil, progressRect)
-				progressTexture.Destroy()
-			}
-			progressSurface.Free()
-		}
-	}
-
-	displayNameY := dm.progressBarY - 75
-
-	if dm.currentIndex < len(dm.downloads) {
-		font := fonts.smallFont
-		var displayText string
-		if dm.downloads[dm.currentIndex].DisplayName != "" {
-			displayText = dm.downloads[dm.currentIndex].DisplayName
-		} else {
-			displayText = filepath.Base(dm.downloads[dm.currentIndex].Location)
-		}
-
-		maxWidth := dm.window.Width * 3 / 4
-		renderMultilineText(renderer, displayText, font, maxWidth, dm.window.Width/2, displayNameY, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	}
-
-	if dm.downloadComplete && len(dm.downloads) == 1 {
-		font := fonts.smallFont
-		var displayText string
-		if dm.downloads[0].DisplayName != "" {
-			displayText = dm.downloads[0].DisplayName
-		} else {
-			displayText = filepath.Base(dm.downloads[0].Location)
-		}
-
-		maxWidth := dm.window.Width * 3 / 4
-		renderMultilineText(renderer, displayText, font, maxWidth, dm.window.Width/2, displayNameY, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	}
-
-	renderer.SetDrawColor(50, 50, 50, 255)
-	progressBarBg := sdl.Rect{
-		X: dm.progressBarX,
-		Y: dm.progressBarY,
-		W: dm.progressBarWidth,
-		H: dm.progressBarHeight,
-	}
-	renderer.FillRect(&progressBarBg)
-
-	progressWidth := int32(float64(dm.progressBarWidth) * dm.downloadProgress)
-	if progressWidth > 0 {
-		renderer.SetDrawColor(100, 150, 255, 255)
-		progressBarFill := sdl.Rect{
-			X: dm.progressBarX,
-			Y: dm.progressBarY,
-			W: progressWidth,
-			H: dm.progressBarHeight,
-		}
-		renderer.FillRect(&progressBarFill)
-	}
-
-	percentTextY := dm.progressBarY + dm.progressBarHeight + 30
-
-	percentText := fmt.Sprintf("%.1f%%", dm.downloadProgress*100)
-	if dm.totalSize > 0 {
-		downloadedMB := float64(dm.downloadedSize) / 1048576.0
-		totalMB := float64(dm.totalSize) / 1048576.0
-		percentText = fmt.Sprintf("%.1f%% (%.2f MB / %.2f MB)", dm.downloadProgress*100, downloadedMB, totalMB)
-	}
-
-	percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	// Render title
+	titleText := "Download Manager"
+	titleSurface, err := fonts.mediumFont.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if err == nil {
-		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
+		titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 		if err == nil {
-			percentRect := &sdl.Rect{
-				X: (dm.window.Width - percentSurface.W) / 2,
-				Y: percentTextY,
-				W: percentSurface.W,
-				H: percentSurface.H,
+			titleRect := &sdl.Rect{
+				X: (dm.window.Width - titleSurface.W) / 2,
+				Y: 30,
+				W: titleSurface.W,
+				H: titleSurface.H,
 			}
-			renderer.Copy(percentTexture, nil, percentRect)
-			percentTexture.Destroy()
+			renderer.Copy(titleTexture, nil, titleRect)
+			titleTexture.Destroy()
 		}
-		percentSurface.Free()
+		titleSurface.Free()
 	}
 
-	if dm.downloadError != nil {
-		errorText := fmt.Sprintf("%s", dm.downloadError.Error())
-		errorSurface, err := font.RenderUTF8Blended(errorText, sdl.Color{R: 255, G: 100, B: 100, A: 255})
+	if len(dm.activeJobs) == 0 && dm.isAllComplete {
+		// All downloads complete screen
+		completeText := "All Downloads Complete"
+		completeSurface, err := font.RenderUTF8Blended(completeText, sdl.Color{R: 100, G: 255, B: 100, A: 255})
 		if err == nil {
-			errorTexture, err := renderer.CreateTextureFromSurface(errorSurface)
+			completeTexture, err := renderer.CreateTextureFromSurface(completeSurface)
 			if err == nil {
-				errorRect := &sdl.Rect{
-					X: (dm.window.Width - errorSurface.W) / 2,
-					Y: percentTextY + 40,
-					W: errorSurface.W,
-					H: errorSurface.H,
+				completeRect := &sdl.Rect{
+					X: (dm.window.Width - completeSurface.W) / 2,
+					Y: dm.window.Height/2 - completeSurface.H/2,
+					W: completeSurface.W,
+					H: completeSurface.H,
 				}
-				renderer.Copy(errorTexture, nil, errorRect)
-				errorTexture.Destroy()
+				renderer.Copy(completeTexture, nil, completeRect)
+				completeTexture.Destroy()
 			}
-			errorSurface.Free()
+			completeSurface.Free()
 		}
-	}
-
-	var helpText string
-
-	if dm.downloadComplete {
-		helpText = "Press Any Button To Continue"
-	} else if len(dm.downloads) > 1 {
-		helpText = "B: Cancel Download | Y: Cancel All"
 	} else {
-		helpText = "B: Cancel Download"
+		// Render each active download
+		titlePadding := int32(90)
+		if titleSurface != nil {
+			titlePadding = titleSurface.H
+		}
+
+		baseY := int32(150) + titlePadding
+		spacing := dm.progressBarHeight + 100 // Increased spacing between downloads
+
+		for i, job := range dm.activeJobs {
+			y := baseY + int32(i)*spacing
+
+			// Get display name with truncation
+			var displayText string
+			if job.download.DisplayName != "" {
+				displayText = job.download.DisplayName
+			} else {
+				displayText = filepath.Base(job.download.Location)
+			}
+
+			// Truncate filename to fit on a single line
+			maxWidth := dm.window.Width * 3 / 4
+			displayText = truncateFilename(displayText, maxWidth, font)
+
+			// Render filename
+			filenameSurface, err := font.RenderUTF8Blended(displayText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err == nil {
+				filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
+				if err == nil {
+					filenameRect := &sdl.Rect{
+						X: (dm.window.Width - filenameSurface.W) / 2,
+						Y: y - 40,
+						W: filenameSurface.W,
+						H: filenameSurface.H,
+					}
+					renderer.Copy(filenameTexture, nil, filenameRect)
+					filenameTexture.Destroy()
+				}
+				filenameSurface.Free()
+			}
+
+			// Render progress bar background
+			renderer.SetDrawColor(50, 50, 50, 255)
+			progressBarBg := sdl.Rect{
+				X: dm.progressBarX,
+				Y: y,
+				W: dm.progressBarWidth,
+				H: dm.progressBarHeight,
+			}
+			renderer.FillRect(&progressBarBg)
+
+			// Render progress bar fill
+			progressWidth := int32(float64(dm.progressBarWidth) * job.progress)
+			if progressWidth > 0 {
+				renderer.SetDrawColor(100, 150, 255, 255)
+				progressBarFill := sdl.Rect{
+					X: dm.progressBarX,
+					Y: y,
+					W: progressWidth,
+					H: dm.progressBarHeight,
+				}
+				renderer.FillRect(&progressBarFill)
+			}
+
+			// Render percentage text
+			percentText := fmt.Sprintf("%.1f%%", job.progress*100)
+			if job.totalSize > 0 {
+				downloadedMB := float64(job.downloadedSize) / 1048576.0
+				totalMB := float64(job.totalSize) / 1048576.0
+				percentText = fmt.Sprintf("%.1f%% (%.2f MB / %.2f MB)", job.progress*100, downloadedMB, totalMB)
+			}
+
+			percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+			if err == nil {
+				percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
+				if err == nil {
+					percentRect := &sdl.Rect{
+						X: (dm.window.Width - percentSurface.W) / 2,
+						Y: y + dm.progressBarHeight + 10,
+						W: percentSurface.W,
+						H: percentSurface.H,
+					}
+					renderer.Copy(percentTexture, nil, percentRect)
+					percentTexture.Destroy()
+				}
+				percentSurface.Free()
+			}
+		}
+
+		// Display queue info
+		if len(dm.downloadQueue) > 0 {
+			queueText := fmt.Sprintf("Downloads in queue: %d", len(dm.downloadQueue))
+			queueSurface, err := font.RenderUTF8Blended(queueText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
+			if err == nil {
+				queueTexture, err := renderer.CreateTextureFromSurface(queueSurface)
+				if err == nil {
+					queueRect := &sdl.Rect{
+						X: (dm.window.Width - queueSurface.W) / 2,
+						Y: baseY + int32(len(dm.activeJobs))*spacing + 20,
+						W: queueSurface.W,
+						H: queueSurface.H,
+					}
+					renderer.Copy(queueTexture, nil, queueRect)
+					queueTexture.Destroy()
+				}
+				queueSurface.Free()
+			}
+		}
 	}
 
-	helpSurface, err := font.RenderUTF8Blended(helpText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
+	// Render status text
+	var statusText string
+	if dm.isAllComplete {
+		statusText = "Press Any Button To Continue"
+	} else {
+		statusText = "ESC: Cancel All Downloads"
+	}
+
+	statusSurface, err := font.RenderUTF8Blended(statusText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
 	if err == nil {
-		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
+		statusTexture, err := renderer.CreateTextureFromSurface(statusSurface)
 		if err == nil {
-			helpRect := &sdl.Rect{
-				X: (dm.window.Width - helpSurface.W) / 2,
-				Y: dm.window.Height - helpSurface.H - 20,
-				W: helpSurface.W,
-				H: helpSurface.H,
+			statusRect := &sdl.Rect{
+				X: (dm.window.Width - statusSurface.W) / 2,
+				Y: dm.window.Height - statusSurface.H - 20,
+				W: statusSurface.W,
+				H: statusSurface.H,
 			}
-			renderer.Copy(helpTexture, nil, helpRect)
-			helpTexture.Destroy()
+			renderer.Copy(statusTexture, nil, statusRect)
+			statusTexture.Destroy()
 		}
-		helpSurface.Free()
+		statusSurface.Free()
 	}
 }
 
