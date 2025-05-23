@@ -384,9 +384,25 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	}
 
 	if len(dm.activeJobs) == 0 && dm.isAllComplete {
-		// All downloads complete screen
-		completeText := "All Downloads Complete"
-		completeSurface, err := font.RenderUTF8Blended(completeText, sdl.Color{R: 100, G: 255, B: 100, A: 255})
+		var completeColor sdl.Color
+		var completeText string
+
+		var downloadText string
+		if len(dm.downloads) > 1 {
+			downloadText = "All Downloads"
+		} else {
+			downloadText = "Download"
+		}
+
+		if dm.failedDownloads != nil && len(dm.failedDownloads) > 0 {
+			completeText = fmt.Sprintf("%s Canceled!", downloadText)
+			completeColor = sdl.Color{R: 255, G: 0, B: 0, A: 255}
+		} else {
+			completeText = fmt.Sprintf("%s Completed!", downloadText)
+			completeColor = sdl.Color{R: 100, G: 255, B: 100, A: 255}
+		}
+
+		completeSurface, err := font.RenderUTF8Blended(completeText, completeColor)
 		if err == nil {
 			completeTexture, err := renderer.CreateTextureFromSurface(completeSurface)
 			if err == nil {
@@ -519,13 +535,13 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 	var footerHelpItems []FooterHelpItem
 	if dm.isAllComplete {
-		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "Continue"})
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "Close"})
 	} else {
 		helpText := "Cancel Download"
 		if len(dm.downloads) > 1 {
 			helpText = "Cancel All Downloads"
 		}
-		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "B", HelpText: helpText})
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "Y", HelpText: helpText})
 	}
 
 	renderFooter(
