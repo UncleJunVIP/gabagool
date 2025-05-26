@@ -26,6 +26,7 @@ type ListOptions struct {
 
 	Margins         padding
 	ItemSpacing     int32
+	SmallTitle      bool
 	TitleAlign      TextAlign
 	TitleSpacing    int32
 	FooterText      string
@@ -61,7 +62,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       1.0,
+		ScrollSpeed:       2.0,
 		ScrollPauseTime:   1000,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
@@ -89,6 +90,7 @@ type listSettings struct {
 	Title             string
 	TitleAlign        TextAlign
 	TitleSpacing      int32
+	SmallTitle        bool
 	MultiSelectKey    sdl.Keycode
 	MultiSelectButton Button
 	ReorderKey        sdl.Keycode
@@ -158,6 +160,7 @@ func newListController(options ListOptions) *listController {
 		Title:           options.Title,
 		TitleAlign:      options.TitleAlign,
 		TitleSpacing:    options.TitleSpacing,
+		SmallTitle:      options.SmallTitle,
 		ScrollSpeed:     options.ScrollSpeed,
 		ScrollPauseTime: options.ScrollPauseTime,
 		FooterText:      options.FooterText,
@@ -278,6 +281,17 @@ func (lc *listController) toggleMultiSelect() {
 
 		lc.Items[lc.SelectedIndex].Selected = true
 		lc.SelectedItems[lc.SelectedIndex] = true
+	} else {
+		// When entering multi-select mode, only select the currently highlighted item
+		// if it's not marked as NotMultiSelectable
+		if !lc.Items[lc.SelectedIndex].NotMultiSelectable {
+			lc.Items[lc.SelectedIndex].Selected = true
+			lc.SelectedItems[lc.SelectedIndex] = true
+		} else {
+			// Make sure item is not selected when it's NotMultiSelectable
+			lc.Items[lc.SelectedIndex].Selected = false
+			delete(lc.SelectedItems, lc.SelectedIndex)
+		}
 	}
 }
 
@@ -346,6 +360,11 @@ func (lc *listController) updateSelectionAfterMove(fromIdx, toIdx int) {
 
 func (lc *listController) toggleSelection(index int) {
 	if index < 0 || index >= len(lc.Items) {
+		return
+	}
+
+	// Skip toggling selection if the item is marked as not multi-selectable
+	if lc.Items[index].NotMultiSelectable {
 		return
 	}
 
@@ -807,7 +826,13 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 	itemStartY := startY
 
 	if settings.Title != "" {
-		itemStartY = drawTitle(renderer, fonts.extraLargeFont, settings.Title,
+		titleFont := fonts.extraLargeFont
+
+		if settings.SmallTitle {
+			titleFont = fonts.smallFont
+		}
+
+		itemStartY = drawTitle(renderer, titleFont, settings.Title,
 			settings.TitleAlign, startY, settings.Margins.Left+10) + settings.TitleSpacing
 	}
 
@@ -898,7 +923,7 @@ func getItemColors(item MenuItem, multiSelect bool) (textColor, bgColor sdl.Colo
 }
 
 func formatItemText(item MenuItem, multiSelect bool) string {
-	if !multiSelect {
+	if !multiSelect || item.NotMultiSelectable {
 		return item.Text
 	}
 

@@ -1,10 +1,11 @@
 package gabagool
 
 type MenuItem struct {
-	Text     string
-	Selected bool
-	Focused  bool
-	Metadata interface{}
+	Text               string
+	Selected           bool
+	Focused            bool
+	NotMultiSelectable bool
+	Metadata           interface{}
 }
 
 type ListReturn struct {
