@@ -8,6 +8,7 @@ type MenuItem struct {
 }
 
 type ListReturn struct {
+	Items           []MenuItem
 	SelectedIndex   int
 	SelectedItem    *MenuItem
 	SelectedIndices []int
@@ -15,7 +16,6 @@ type ListReturn struct {
 	VisiblePosition int
 	LastPressedBtn  Button
 	ActionTriggered bool
-	Cancelled       bool
 }
 
 func (r *ListReturn) populateSingleSelection(index int, items []MenuItem, visibleStartIndex int) {

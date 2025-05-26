@@ -19,7 +19,10 @@ type ListOptions struct {
 	EnableAction      bool
 	EnableMultiSelect bool
 	EnableReordering  bool
-	HelpEnabled       bool
+	EnableHelp        bool
+
+	HelpTitle string
+	HelpText  []string
 
 	Margins         padding
 	ItemSpacing     int32
@@ -51,7 +54,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		EnableAction:      false,
 		EnableMultiSelect: false,
 		EnableReordering:  false,
-		HelpEnabled:       false,
+		EnableHelp:        false,
 		Margins:           uniformPadding(20),
 		TitleAlign:        AlignLeft,
 		TitleSpacing:      DefaultTitleSpacing,
@@ -116,7 +119,7 @@ type listController struct {
 
 	EnableAction bool
 
-	HelpEnabled bool
+	EnableHelp  bool
 	helpOverlay *helpOverlay
 	ShowingHelp bool
 
@@ -172,6 +175,12 @@ func newListController(options ListOptions) *listController {
 		settings.ReorderButton = options.ReorderButton
 	}
 
+	var helpOverlay *helpOverlay
+
+	if options.EnableHelp {
+		helpOverlay = newHelpOverlay(options.HelpTitle, options.HelpText)
+	}
+
 	return &listController{
 		Items:             options.Items,
 		SelectedIndex:     selectedIndex,
@@ -186,7 +195,8 @@ func newListController(options ListOptions) *listController {
 		VisibleStartIndex: options.VisibleStartIndex,
 		MaxVisibleItems:   options.MaxVisibleItems,
 		EnableAction:      options.EnableAction,
-		HelpEnabled:       options.HelpEnabled,
+		EnableHelp:        options.EnableHelp,
+		helpOverlay:       helpOverlay,
 		OnSelect:          options.OnSelect,
 		OnReorder:         options.OnReorder,
 		itemScrollData:    make(map[int]*textScrollData),
@@ -219,7 +229,6 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 		SelectedIndex:  -1,
 		SelectedItem:   nil,
 		LastPressedBtn: 0,
-		Cancelled:      true,
 	}
 	var err error
 
@@ -249,10 +258,11 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 		sdl.Delay(8)
 	}
 
-	if err != nil || result.Cancelled {
+	if err != nil {
 		return option.None[ListReturn](), err
 	}
 
+	result.Items = listController.Items
 	return option.Some(result), nil
 }
 
@@ -380,6 +390,18 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		return
 	}
 
+	if lc.ShowingHelp {
+		lc.ShowingHelp = false
+		return
+	}
+
+	if e.Keysym.Sym != sdl.K_UP && e.Keysym.Sym != sdl.K_DOWN &&
+		e.Keysym.Sym != sdl.K_LEFT && e.Keysym.Sym != sdl.K_RIGHT &&
+		lc.ReorderMode {
+		lc.toggleReorderMode()
+		return
+	}
+
 	switch e.Keysym.Sym {
 	case sdl.K_UP:
 		lc.navigateUp()
@@ -396,21 +418,18 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		} else {
 			*running = false
 			result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
-			result.Cancelled = false
 		}
 	case sdl.K_b:
 		*running = false
 		result.SelectedIndex = -1
-		result.Cancelled = true
 	case sdl.K_x:
 		if lc.EnableAction {
 			*running = false
 			result.ActionTriggered = true
-			result.Cancelled = false
 		}
 
 	case sdl.K_h:
-		if lc.HelpEnabled {
+		if lc.EnableHelp {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 
@@ -419,7 +438,6 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
 				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
-				result.Cancelled = false
 			}
 		}
 
@@ -440,6 +458,18 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 	}
 
 	result.LastPressedBtn = Button(e.Button)
+
+	if lc.ShowingHelp {
+		lc.ShowingHelp = false
+		return
+	}
+
+	if Button(e.Button) != ButtonUp && Button(e.Button) != ButtonDown &&
+		Button(e.Button) != ButtonLeft && Button(e.Button) != ButtonRight &&
+		lc.ReorderMode {
+		lc.toggleReorderMode()
+		return
+	}
 
 	switch Button(e.Button) {
 	case ButtonUp:
@@ -482,24 +512,21 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 			} else {
 				*running = false
 				result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
-				result.Cancelled = false
 			}
 		}
 	case ButtonB:
 		if e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			result.SelectedIndex = -1
-			result.Cancelled = true
 		}
 	case ButtonX:
 		if lc.EnableAction && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			*running = false
 			result.ActionTriggered = true
-			result.Cancelled = false
 		}
 
 	case ButtonMenu:
-		if lc.HelpEnabled && e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if lc.EnableHelp && e.Type == sdl.CONTROLLERBUTTONDOWN {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 
@@ -508,7 +535,6 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
 				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
-				result.Cancelled = false
 			}
 		}
 
@@ -741,9 +767,6 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	originalAlign := lc.Settings.TitleAlign
 
 	if lc.ReorderMode {
-		lc.Settings.Title = "Reordering Mode"
-		lc.Settings.TitleAlign = AlignCenter
-
 		selectedIdx := lc.SelectedIndex - lc.VisibleStartIndex
 		if selectedIdx >= 0 && selectedIdx < len(visibleItems) {
 			visibleItems[selectedIdx].Text = "↕ " + visibleItems[selectedIdx].Text
@@ -764,6 +787,7 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	lc.Settings.TitleAlign = originalAlign
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
+		lc.helpOverlay.ShowingHelp = true
 		lc.helpOverlay.render(renderer, fonts.smallFont)
 	}
 }

@@ -33,7 +33,6 @@ func newHelpOverlay(title string, lines []string) *helpOverlay {
 	return &helpOverlay{
 		Title:           title,
 		Lines:           lines,
-		ShowingHelp:     false,
 		ScrollOffset:    0,
 		MaxScrollOffset: 0,
 		Padding:         20,
