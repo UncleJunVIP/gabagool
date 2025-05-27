@@ -790,7 +790,7 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 
 		var cursorX int32
 		if kb.CursorPosition > 0 {
-
+			// Calculate the cursor position within the text
 			cursorText := kb.TextBuffer[:kb.CursorPosition]
 			cursorSurface, err := font.RenderUTF8Blended(cursorText, textColor)
 			if err == nil {
@@ -800,30 +800,67 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 		}
 
 		padding := int32(10)
-		textRect := sdl.Rect{
-			X: kb.TextInputRect.X + padding,
-			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-textHeight)/2,
-			W: textWidth,
+		visibleWidth := kb.TextInputRect.W - (padding * 2)
+
+		// Calculate scroll offset to keep cursor visible
+		var offsetX int32 = 0
+		if cursorX > visibleWidth {
+			// Scroll right to show cursor
+			offsetX = cursorX - visibleWidth + padding
+		}
+
+		// Ensure we don't scroll too far right
+		maxOffset := textWidth - visibleWidth
+		if maxOffset < 0 {
+			maxOffset = 0
+		}
+		if offsetX > maxOffset {
+			offsetX = maxOffset
+		}
+
+		// Create source rectangle for the text texture
+		srcRect := &sdl.Rect{
+			X: offsetX,
+			Y: 0,
+			W: visibleWidth,
 			H: textHeight,
 		}
 
-		renderer.Copy(textTexture, nil, &textRect)
+		// If text is narrower than visible area, adjust source rect
+		if textWidth < visibleWidth {
+			srcRect.W = textWidth
+		}
+
+		// Create destination rectangle for the text
+		textRect := sdl.Rect{
+			X: kb.TextInputRect.X + padding,
+			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-textHeight)/2,
+			W: srcRect.W,
+			H: textHeight,
+		}
+
+		renderer.Copy(textTexture, srcRect, &textRect)
 
 		if kb.CursorVisible {
 			renderer.SetDrawColor(255, 255, 255, 255)
 			cursorRect := sdl.Rect{
-				X: textRect.X + cursorX,
+				X: kb.TextInputRect.X + padding + cursorX - offsetX,
 				Y: textRect.Y,
 				W: 2,
 				H: textHeight,
 			}
-			renderer.FillRect(&cursorRect)
+
+			// Only draw cursor if it's within the visible area
+			if cursorRect.X >= kb.TextInputRect.X+padding &&
+				cursorRect.X <= kb.TextInputRect.X+padding+visibleWidth {
+				renderer.FillRect(&cursorRect)
+			}
 		}
 
 		textTexture.Destroy()
 		textSurface.Free()
 	} else if kb.CursorVisible {
-
+		// Empty text buffer case
 		padding := int32(10)
 		placeholderHeight := int32(20)
 		cursorRect := sdl.Rect{
