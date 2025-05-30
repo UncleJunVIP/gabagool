@@ -136,6 +136,12 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		processor.imageTexture.Destroy()
 	}
 
+	if result.Error != nil {
+		// If the go routine returned an error, use this one
+		return result, result.Error
+	}
+
+	// return the SDL error if any
 	return result, err
 }
 
