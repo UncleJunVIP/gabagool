@@ -395,8 +395,13 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		}
 
 		if dm.failedDownloads != nil && len(dm.failedDownloads) > 0 {
-			completeText = fmt.Sprintf("%s Canceled!", downloadText)
-			completeColor = sdl.Color{R: 255, G: 0, B: 0, A: 255}
+			if dm.errors != nil && len(dm.errors) > 0 && dm.errors[0] != nil && dm.errors[0].Error() != "download cancelled by user" {
+				completeText = fmt.Sprintf("%s Failed!", downloadText)
+				completeColor = sdl.Color{R: 255, G: 0, B: 0, A: 255}
+			} else {
+				completeText = fmt.Sprintf("%s Canceled!", downloadText)
+				completeColor = sdl.Color{R: 255, G: 0, B: 0, A: 255}
+			}
 		} else {
 			completeText = fmt.Sprintf("%s Completed!", downloadText)
 			completeColor = sdl.Color{R: 100, G: 255, B: 100, A: 255}
