@@ -15,17 +15,20 @@ const (
 	OptionTypeStandard OptionType = iota
 	OptionTypeKeyboard
 	OptionTypeClickable
+	OptionTypeColorPicker // New option type for the color picker
 )
 
 // Option represents a single option for a menu item.
 // DisplayName is the text that will be displayed to the user.
 // Value is the value that will be returned when the option is submitted.
-// Type controls the option's behavior. There are three types:
+// Type controls the option's behavior. There are four types:
 //   - Standard: A standard option that will be displayed to the user.
 //   - Keyboard: A keyboard option that will be displayed to the user.
 //   - Clickable: A clickable option that will be displayed to the user.
+//   - ColorPicker: A hexagonal color picker for selecting colors.
 //
 // KeyboardPrompt is the text that will be displayed to the user when the option is a keyboard option.
+// For ColorPicker type, Value should be an sdl.Color.
 type Option struct {
 	DisplayName    string
 	Value          interface{}
@@ -41,6 +44,7 @@ type ItemWithOptions struct {
 	Item           MenuItem
 	Options        []Option
 	SelectedOption int
+	colorPicker    *ColorPicker // New field to store the color picker instance
 }
 
 // OptionsListReturn represents the return value of the OptionsList function.
@@ -83,7 +87,9 @@ type optionsListController struct {
 	helpOverlay *helpOverlay
 	ShowingHelp bool
 
-	itemScrollData map[int]*textScrollData
+	itemScrollData       map[int]*textScrollData
+	showingColorPicker   bool
+	activeColorPickerIdx int
 }
 
 func defaultOptionsListSettings(title string) optionsListSettings {
@@ -115,13 +121,58 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 		items[i].Item.Selected = i == selectedIndex
 	}
 
+	// Initialize color pickers for any color picker options
+	for i := range items {
+		for j, opt := range items[i].Options {
+			if opt.Type == OptionTypeColorPicker {
+				// Initialize with default color if not already set
+				if opt.Value == nil {
+					items[i].Options[j].Value = sdl.Color{R: 255, G: 255, B: 255, A: 255}
+				}
+
+				// Create the color picker
+				window := GetWindow()
+				items[i].colorPicker = NewHexColorPicker(window)
+
+				// Initialize with current color value if it's an sdl.Color
+				if color, ok := opt.Value.(sdl.Color); ok {
+					colorFound := false
+					for idx, pickerColor := range items[i].colorPicker.Colors {
+						if pickerColor.R == color.R && pickerColor.G == color.G && pickerColor.B == color.B {
+							items[i].colorPicker.SelectedIndex = idx
+							colorFound = true
+							break
+						}
+					}
+					// If color not found in the predefined list, we could add it
+					if !colorFound {
+						// Optional: Add custom color to the list or leave as is
+					}
+				}
+
+				// Set visibility to false initially
+				items[i].colorPicker.SetVisible(false)
+
+				// Set the callback for when a color is selected
+				items[i].colorPicker.SetOnColorSelected(func(color sdl.Color) {
+					items[i].Options[j].Value = color
+					items[i].Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
+				})
+
+				break // Only need one color picker per item
+			}
+		}
+	}
+
 	return &optionsListController{
-		Items:          items,
-		SelectedIndex:  selectedIndex,
-		Settings:       defaultOptionsListSettings(title),
-		StartY:         20,
-		lastInputTime:  time.Now(),
-		itemScrollData: make(map[int]*textScrollData),
+		Items:                items,
+		SelectedIndex:        selectedIndex,
+		Settings:             defaultOptionsListSettings(title),
+		StartY:               20,
+		lastInputTime:        time.Now(),
+		itemScrollData:       make(map[int]*textScrollData),
+		showingColorPicker:   false,
+		activeColorPickerIdx: -1,
 	}
 }
 
@@ -157,13 +208,36 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 				switch e.Keysym.Sym {
 				case sdl.K_b:
-					running = false
-					result.SelectedIndex = -1
-					result.Canceled = true
+					if optionsListController.showingColorPicker {
+						// If showing color picker, hide it and return to options list
+						optionsListController.hideColorPicker()
+					} else {
+						running = false
+						result.SelectedIndex = -1
+						result.Canceled = true
+					}
 
 				case sdl.K_a:
-
-					if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(optionsListController.Items) {
+					if optionsListController.showingColorPicker {
+						// If showing color picker, handle color selection
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker {
+										item.Options[j].Value = selectedColor
+										item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
+											selectedColor.R, selectedColor.G, selectedColor.B)
+										break
+									}
+								}
+								optionsListController.hideColorPicker()
+							}
+						}
+					} else if optionsListController.SelectedIndex >= 0 &&
+						optionsListController.SelectedIndex < len(optionsListController.Items) {
 						item := &optionsListController.Items[optionsListController.SelectedIndex]
 						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
 							option := item.Options[item.SelectedOption]
@@ -188,21 +262,62 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 								result.SelectedIndex = optionsListController.SelectedIndex
 								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
 								result.Canceled = false
+							} else if option.Type == OptionTypeColorPicker {
+								// Show the color picker
+								optionsListController.showColorPicker(optionsListController.SelectedIndex)
 							}
 						}
 					}
 
 				case sdl.K_RETURN:
-					running = false
-					result.SelectedIndex = optionsListController.SelectedIndex
-					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-					result.Canceled = false
+					if !optionsListController.showingColorPicker {
+						running = false
+						result.SelectedIndex = optionsListController.SelectedIndex
+						result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
+						result.Canceled = false
+					}
 
 				case sdl.K_LEFT:
-					optionsListController.cycleOptionLeft()
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+							}
+						}
+					} else {
+						optionsListController.cycleOptionLeft()
+					}
 
 				case sdl.K_RIGHT:
-					optionsListController.cycleOptionRight()
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+							}
+						}
+					} else {
+						optionsListController.cycleOptionRight()
+					}
+
+				case sdl.K_UP, sdl.K_DOWN:
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+							}
+						}
+					} else {
+						optionsListController.handleEvent(event)
+					}
 
 				default:
 					optionsListController.handleEvent(event)
@@ -215,12 +330,36 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 				switch Button(e.Button) {
 				case ButtonB:
-					result.SelectedIndex = -1
-					result.Canceled = true
-					running = false
+					if optionsListController.showingColorPicker {
+						// If showing color picker, hide it and return to options list
+						optionsListController.hideColorPicker()
+					} else {
+						result.SelectedIndex = -1
+						result.Canceled = true
+						running = false
+					}
 
 				case ButtonA:
-					if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(optionsListController.Items) {
+					if optionsListController.showingColorPicker {
+						// If showing color picker, handle color selection
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker {
+										item.Options[j].Value = selectedColor
+										item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
+											selectedColor.R, selectedColor.G, selectedColor.B)
+										break
+									}
+								}
+								optionsListController.hideColorPicker()
+							}
+						}
+					} else if optionsListController.SelectedIndex >= 0 &&
+						optionsListController.SelectedIndex < len(optionsListController.Items) {
 						item := &optionsListController.Items[optionsListController.SelectedIndex]
 						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
 							option := item.Options[item.SelectedOption]
@@ -245,21 +384,76 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 								result.SelectedIndex = optionsListController.SelectedIndex
 								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
 								result.Canceled = false
+							} else if option.Type == OptionTypeColorPicker {
+								// Show the color picker
+								optionsListController.showColorPicker(optionsListController.SelectedIndex)
 							}
 						}
 					}
 
 				case ButtonStart:
-					running = false
-					result.SelectedIndex = optionsListController.SelectedIndex
-					result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-					result.Canceled = false
+					if !optionsListController.showingColorPicker {
+						running = false
+						result.SelectedIndex = optionsListController.SelectedIndex
+						result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
+						result.Canceled = false
+					}
 
 				case ButtonLeft:
-					optionsListController.cycleOptionLeft()
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(sdl.K_LEFT)
+							}
+						}
+					} else {
+						optionsListController.cycleOptionLeft()
+					}
 
 				case ButtonRight:
-					optionsListController.cycleOptionRight()
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(sdl.K_RIGHT)
+							}
+						}
+					} else {
+						optionsListController.cycleOptionRight()
+					}
+
+				case ButtonUp:
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(sdl.K_UP)
+							}
+						}
+					} else {
+						optionsListController.handleEvent(event)
+					}
+
+				case ButtonDown:
+					if optionsListController.showingColorPicker {
+						// Let the color picker handle the event
+						if optionsListController.activeColorPickerIdx >= 0 &&
+							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+							if item.colorPicker != nil {
+								item.colorPicker.handleKeyPress(sdl.K_DOWN)
+							}
+						}
+					} else {
+						optionsListController.handleEvent(event)
+					}
 
 				default:
 					optionsListController.handleEvent(event)
@@ -271,7 +465,17 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 		renderer.SetDrawColor(0, 0, 0, 255)
 
-		optionsListController.render(renderer)
+		// If showing color picker, draw it; otherwise draw the options list
+		if optionsListController.showingColorPicker &&
+			optionsListController.activeColorPickerIdx >= 0 &&
+			optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
+			item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
+			if item.colorPicker != nil {
+				item.colorPicker.Draw(renderer)
+			}
+		} else {
+			optionsListController.render(renderer)
+		}
 
 		renderer.Present()
 
@@ -283,6 +487,32 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	}
 
 	return option.Some(result), nil
+}
+
+// showColorPicker activates the color picker for the given item index
+func (olc *optionsListController) showColorPicker(itemIndex int) {
+	if itemIndex < 0 || itemIndex >= len(olc.Items) {
+		return
+	}
+
+	item := &olc.Items[itemIndex]
+	if item.colorPicker != nil {
+		item.colorPicker.SetVisible(true)
+		olc.showingColorPicker = true
+		olc.activeColorPickerIdx = itemIndex
+	}
+}
+
+// hideColorPicker hides the active color picker
+func (olc *optionsListController) hideColorPicker() {
+	if olc.activeColorPickerIdx >= 0 && olc.activeColorPickerIdx < len(olc.Items) {
+		item := &olc.Items[olc.activeColorPickerIdx]
+		if item.colorPicker != nil {
+			item.colorPicker.SetVisible(false)
+		}
+	}
+	olc.showingColorPicker = false
+	olc.activeColorPickerIdx = -1
 }
 
 func (olc *optionsListController) cycleOptionLeft() {
@@ -690,6 +920,76 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 							W: optionSurface.W,
 							H: optionSurface.H,
 						})
+					}
+				}
+			} else // For color picker options, we need to position both the hex text and color swatch
+			// with appropriate spacing
+
+			// Calculate positions more carefully
+			if selectedOption.Type == OptionTypeColorPicker {
+				// For color picker option, display the color swatch and hex value
+				indicatorText := selectedOption.DisplayName
+				if indicatorText == "" {
+					if color, ok := selectedOption.Value.(sdl.Color); ok {
+						indicatorText = fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
+					} else {
+						indicatorText = "[Press A to select]"
+					}
+				}
+
+				optionSurface, _ := font.RenderUTF8Blended(indicatorText, textColor)
+				if optionSurface != nil {
+					defer optionSurface.Free()
+					optionTexture, _ := renderer.CreateTextureFromSurface(optionSurface)
+					if optionTexture != nil {
+						defer optionTexture.Destroy()
+
+						// Make the swatch slightly smaller than text height
+						swatchHeight := int32(float32(optionSurface.H) * 0.8) // 80% of text height
+						swatchWidth := swatchHeight                           // Keep it square
+						swatchSpacing := int32(10)                            // Space between text and swatch
+
+						// Position swatch on the right
+						swatchX := window.Width - olc.Settings.Margins.Right - swatchWidth
+
+						// Position the text to the left of the swatch
+						textX := swatchX - optionSurface.W - swatchSpacing
+
+						// Center the swatch vertically with the text
+						textCenterY := itemY + (optionSurface.H / 2)
+						swatchY := textCenterY - (swatchHeight / 2)
+
+						// Draw the text on the left
+						renderer.Copy(optionTexture, nil, &sdl.Rect{
+							X: textX,
+							Y: itemY,
+							W: optionSurface.W,
+							H: optionSurface.H,
+						})
+
+						// Draw color swatch on the right
+						if color, ok := selectedOption.Value.(sdl.Color); ok {
+							swatchRect := &sdl.Rect{
+								X: swatchX,
+								Y: swatchY, // Centered vertically
+								W: swatchWidth,
+								H: swatchHeight,
+							}
+
+							// Save current color
+							r, g, b, a, _ := renderer.GetDrawColor()
+
+							// Draw color swatch
+							renderer.SetDrawColor(color.R, color.G, color.B, color.A)
+							renderer.FillRect(swatchRect)
+
+							// Draw swatch border
+							renderer.SetDrawColor(255, 255, 255, 255)
+							renderer.DrawRect(swatchRect)
+
+							// Restore previous color
+							renderer.SetDrawColor(r, g, b, a)
+						}
 					}
 				}
 			} else {
