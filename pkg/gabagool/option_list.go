@@ -34,6 +34,7 @@ type Option struct {
 	Value          interface{}
 	Type           OptionType
 	KeyboardPrompt string
+	OnUpdate       func(newValue interface{})
 }
 
 // ItemWithOptions represents a menu item with multiple choices.
@@ -157,6 +158,10 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 				items[i].colorPicker.SetOnColorSelected(func(color sdl.Color) {
 					items[i].Options[j].Value = color
 					items[i].Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
+
+					if items[i].Options[j].OnUpdate != nil {
+						items[i].Options[j].OnUpdate(color)
+					}
 				})
 
 				break // Only need one color picker per item
@@ -230,6 +235,10 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 										item.Options[j].Value = selectedColor
 										item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
 											selectedColor.R, selectedColor.G, selectedColor.B)
+
+										if item.Options[j].OnUpdate != nil {
+											item.Options[j].OnUpdate(selectedColor)
+										}
 										break
 									}
 								}
@@ -285,6 +294,15 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
+
 							}
 						}
 					} else {
@@ -299,6 +317,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -313,6 +339,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(e.Keysym.Sym)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -407,6 +441,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(sdl.K_LEFT)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -421,6 +463,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(sdl.K_RIGHT)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -435,6 +485,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(sdl.K_UP)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -449,6 +507,14 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 							if item.colorPicker != nil {
 								item.colorPicker.handleKeyPress(sdl.K_DOWN)
+
+								selectedColor := item.colorPicker.GetSelectedColor()
+								for j := range item.Options {
+									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+										item.Options[j].OnUpdate(selectedColor)
+										break
+									}
+								}
 							}
 						}
 					} else {
@@ -533,6 +599,11 @@ func (olc *optionsListController) cycleOptionLeft() {
 	if item.SelectedOption < 0 {
 		item.SelectedOption = len(item.Options) - 1
 	}
+
+	currentOption := item.Options[item.SelectedOption]
+	if currentOption.OnUpdate != nil {
+		currentOption.OnUpdate(currentOption.Value)
+	}
 }
 
 func (olc *optionsListController) cycleOptionRight() {
@@ -552,6 +623,11 @@ func (olc *optionsListController) cycleOptionRight() {
 	item.SelectedOption++
 	if item.SelectedOption >= len(item.Options) {
 		item.SelectedOption = 0
+	}
+
+	currentOption := item.Options[item.SelectedOption]
+	if currentOption.OnUpdate != nil {
+		currentOption.OnUpdate(currentOption.Value)
 	}
 }
 
