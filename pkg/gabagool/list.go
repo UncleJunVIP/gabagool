@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"strings"
 	"time"
 
 	"github.com/patrickhuber/go-types"
@@ -42,6 +43,10 @@ type ListOptions struct {
 	ReorderKey        sdl.Keycode
 	ReorderButton     Button
 
+	// Add empty message customization
+	EmptyMessage      string
+	EmptyMessageColor sdl.Color
+
 	OnSelect  func(index int, item *MenuItem)
 	OnReorder func(from, to int)
 }
@@ -69,6 +74,8 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		MultiSelectButton: ButtonSelect,
 		ReorderKey:        sdl.K_SPACE,
 		ReorderButton:     ButtonSelect,
+		EmptyMessage:      "No items available",
+		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		OnSelect:          nil,
 		OnReorder:         nil,
 	}
@@ -100,6 +107,8 @@ type listSettings struct {
 	FooterText        string
 	FooterHelpItems   []FooterHelpItem
 	FooterTextColor   sdl.Color
+	EmptyMessage      string
+	EmptyMessageColor sdl.Color
 }
 
 type listController struct {
@@ -154,18 +163,20 @@ func newListController(options ListOptions) *listController {
 	}
 
 	settings := listSettings{
-		Margins:         options.Margins,
-		ItemSpacing:     options.ItemSpacing,
-		InputDelay:      options.InputDelay,
-		Title:           options.Title,
-		TitleAlign:      options.TitleAlign,
-		TitleSpacing:    options.TitleSpacing,
-		SmallTitle:      options.SmallTitle,
-		ScrollSpeed:     options.ScrollSpeed,
-		ScrollPauseTime: options.ScrollPauseTime,
-		FooterText:      options.FooterText,
-		FooterTextColor: options.FooterTextColor,
-		FooterHelpItems: options.FooterHelpItems,
+		Margins:           options.Margins,
+		ItemSpacing:       options.ItemSpacing,
+		InputDelay:        options.InputDelay,
+		Title:             options.Title,
+		TitleAlign:        options.TitleAlign,
+		TitleSpacing:      options.TitleSpacing,
+		SmallTitle:        options.SmallTitle,
+		ScrollSpeed:       options.ScrollSpeed,
+		ScrollPauseTime:   options.ScrollPauseTime,
+		FooterText:        options.FooterText,
+		FooterTextColor:   options.FooterTextColor,
+		FooterHelpItems:   options.FooterHelpItems,
+		EmptyMessage:      options.EmptyMessage,
+		EmptyMessageColor: options.EmptyMessageColor,
 	}
 
 	if options.EnableMultiSelect {
@@ -423,20 +434,30 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 
 	switch e.Keysym.Sym {
 	case sdl.K_UP:
-		lc.navigateUp()
+		if len(lc.Items) > 0 {
+			lc.navigateUp()
+		}
 	case sdl.K_DOWN:
-		lc.navigateDown()
+		if len(lc.Items) > 0 {
+			lc.navigateDown()
+		}
 	case sdl.K_LEFT:
-		lc.navigateLeft()
+		if len(lc.Items) > 0 {
+			lc.navigateLeft()
+		}
 	case sdl.K_RIGHT:
-		lc.navigateRight()
+		if len(lc.Items) > 0 {
+			lc.navigateRight()
+		}
 
 	case sdl.K_a:
-		if lc.MultiSelect {
-			lc.toggleSelection(lc.SelectedIndex)
-		} else {
-			*running = false
-			result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
+		if len(lc.Items) > 0 {
+			if lc.MultiSelect {
+				lc.toggleSelection(lc.SelectedIndex)
+			} else {
+				*running = false
+				result.populateSingleSelection(lc.SelectedIndex, lc.Items, lc.VisibleStartIndex)
+			}
 		}
 	case sdl.K_b:
 		*running = false
@@ -453,7 +474,7 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		}
 
 	case sdl.K_RETURN:
-		if lc.MultiSelect {
+		if lc.MultiSelect && len(lc.Items) > 0 {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
 				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
@@ -461,11 +482,11 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 		}
 
 	case lc.Settings.MultiSelectKey:
-		if lc.EnableMultiSelect {
+		if lc.EnableMultiSelect && len(lc.Items) > 0 {
 			lc.toggleMultiSelect()
 		}
 	case lc.Settings.ReorderKey:
-		if lc.EnableReorderMode {
+		if lc.EnableReorderMode && len(lc.Items) > 0 {
 			lc.toggleReorderMode()
 		}
 	}
@@ -493,39 +514,31 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 	switch Button(e.Button) {
 	case ButtonUp:
 		lc.heldDirections.up = e.Type == sdl.CONTROLLERBUTTONDOWN
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
-
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.navigateUp()
-
 			lc.lastRepeatTime = time.Now()
 		}
 	case ButtonDown:
 		lc.heldDirections.down = e.Type == sdl.CONTROLLERBUTTONDOWN
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
-
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.navigateDown()
-
 			lc.lastRepeatTime = time.Now()
 		}
 	case ButtonLeft:
 		lc.heldDirections.left = e.Type == sdl.CONTROLLERBUTTONDOWN
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
-
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.navigateLeft()
-
 			lc.lastRepeatTime = time.Now()
 		}
 	case ButtonRight:
 		lc.heldDirections.right = e.Type == sdl.CONTROLLERBUTTONDOWN
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
-
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.navigateRight()
-
 			lc.lastRepeatTime = time.Now()
 		}
 
 	case ButtonA:
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			if lc.MultiSelect {
 				lc.toggleSelection(lc.SelectedIndex)
 			} else {
@@ -550,7 +563,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 		}
 
 	case ButtonStart:
-		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if lc.MultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
 				result.populateMultiSelection(indices, lc.Items, lc.VisibleStartIndex)
@@ -558,11 +571,11 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 		}
 
 	case lc.Settings.MultiSelectButton:
-		if lc.EnableMultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if lc.EnableMultiSelect && e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.toggleMultiSelect()
 		}
 	case lc.Settings.ReorderButton:
-		if lc.EnableReorderMode && e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if lc.EnableReorderMode && e.Type == sdl.CONTROLLERBUTTONDOWN && len(lc.Items) > 0 {
 			lc.toggleReorderMode()
 		}
 	}
@@ -727,10 +740,14 @@ func (lc *listController) navigateRight() {
 }
 
 func (lc *listController) handleDirectionalRepeats() {
+	// Don't handle repeats if there are no items
+	if len(lc.Items) == 0 {
+		lc.lastRepeatTime = time.Now()
+		return
+	}
 
 	if !lc.heldDirections.up && !lc.heldDirections.down &&
 		!lc.heldDirections.left && !lc.heldDirections.right {
-
 		lc.lastRepeatTime = time.Now()
 		return
 	}
@@ -738,7 +755,6 @@ func (lc *listController) handleDirectionalRepeats() {
 	currentTime := time.Now()
 
 	if time.Since(lc.lastRepeatTime) < lc.repeatDelay {
-
 		return
 	}
 
@@ -836,6 +852,11 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 			settings.TitleAlign, startY, settings.Margins.Left+10) + settings.TitleSpacing
 	}
 
+	if len(controller.Items) == 0 {
+		drawEmptyListMessage(renderer, font, itemStartY, settings)
+		return
+	}
+
 	const pillHeight = int32(60)
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
@@ -896,6 +917,64 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 			renderStaticText(renderer, textTexture, nil, textWidth, textHeight,
 				settings.Margins.Left, itemY, textVerticalOffset)
 		}
+	}
+}
+
+func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, settings listSettings) {
+	emptyMessage := settings.EmptyMessage
+	if emptyMessage == "" {
+		emptyMessage = "No items available"
+	}
+
+	lines := strings.Split(emptyMessage, "\n")
+
+	screenWidth, _, err := renderer.GetOutputSize()
+	if err != nil {
+		screenWidth = 768
+	}
+
+	tempSurface, err := font.RenderUTF8Blended("Test", settings.EmptyMessageColor)
+	if err != nil {
+		return
+	}
+	lineHeight := tempSurface.H + 5
+	tempSurface.Free()
+
+	currentY := startY + 50
+
+	for _, line := range lines {
+		if line == "" {
+			currentY += lineHeight
+			continue
+		}
+
+		textSurface, err := font.RenderUTF8Blended(line, settings.EmptyMessageColor)
+		if err != nil {
+			currentY += lineHeight
+			continue
+		}
+
+		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+		if err != nil {
+			textSurface.Free()
+			currentY += lineHeight
+			continue
+		}
+
+		messageX := (screenWidth - textSurface.W) / 2
+
+		messageRect := sdl.Rect{
+			X: messageX,
+			Y: currentY,
+			W: textSurface.W,
+			H: textSurface.H,
+		}
+		renderer.Copy(textTexture, nil, &messageRect)
+
+		textTexture.Destroy()
+		textSurface.Free()
+
+		currentY += lineHeight
 	}
 }
 
