@@ -853,7 +853,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 	}
 
 	if len(controller.Items) == 0 {
-		drawEmptyListMessage(renderer, font, itemStartY, settings)
+		drawEmptyListMessage(renderer, fonts.mediumFont, itemStartY, settings)
 		return
 	}
 
@@ -928,9 +928,10 @@ func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, 
 
 	lines := strings.Split(emptyMessage, "\n")
 
-	screenWidth, _, err := renderer.GetOutputSize()
+	screenWidth, screenHeight, err := renderer.GetOutputSize()
 	if err != nil {
 		screenWidth = 768
+		screenHeight = 1024
 	}
 
 	tempSurface, err := font.RenderUTF8Blended("Test", settings.EmptyMessageColor)
@@ -940,7 +941,14 @@ func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, 
 	lineHeight := tempSurface.H + 5
 	tempSurface.Free()
 
-	currentY := startY + 50
+	// Calculate total height of all text lines
+	totalTextHeight := int32(len(lines)) * lineHeight
+
+	// Calculate the vertical center position
+	availableHeight := screenHeight - startY - settings.Margins.Bottom - 30
+	centerY := startY + (availableHeight-totalTextHeight)/2
+
+	currentY := centerY
 
 	for _, line := range lines {
 		if line == "" {
