@@ -499,14 +499,14 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 
 	result.LastPressedBtn = Button(e.Button)
 
-	if lc.ShowingHelp {
+	if lc.ShowingHelp && e.Type == sdl.CONTROLLERBUTTONDOWN {
 		lc.ShowingHelp = false
 		return
 	}
 
 	if Button(e.Button) != ButtonUp && Button(e.Button) != ButtonDown &&
 		Button(e.Button) != ButtonLeft && Button(e.Button) != ButtonRight &&
-		lc.ReorderMode {
+		lc.ReorderMode && e.Type == sdl.CONTROLLERBUTTONDOWN {
 		lc.toggleReorderMode()
 		return
 	}
