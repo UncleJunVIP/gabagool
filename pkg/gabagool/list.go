@@ -134,7 +134,8 @@ type listController struct {
 	helpOverlay *helpOverlay
 	ShowingHelp bool
 
-	itemScrollData map[int]*textScrollData
+	itemScrollData  map[int]*textScrollData
+	titleScrollData *textScrollData
 
 	heldDirections struct {
 		up    bool
@@ -214,6 +215,7 @@ func newListController(options ListOptions) *listController {
 		OnSelect:          options.OnSelect,
 		OnReorder:         options.OnReorder,
 		itemScrollData:    make(map[int]*textScrollData),
+		titleScrollData:   &textScrollData{},
 		lastRepeatTime:    time.Now(),
 		repeatDelay:       200 * time.Millisecond,
 		repeatInterval:    0 * time.Millisecond,
@@ -845,11 +847,12 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		titleFont := fonts.extraLargeFont
 
 		if settings.SmallTitle {
-			titleFont = fonts.smallFont
+			titleFont = fonts.largeFont
 		}
 
-		itemStartY = drawTitle(renderer, titleFont, settings.Title,
-			settings.TitleAlign, startY, settings.Margins.Left+10) + settings.TitleSpacing
+		// Use scrollable title function instead of regular drawTitle
+		itemStartY = drawScrollableTitle(renderer, titleFont, settings.Title,
+			settings.TitleAlign, startY, settings.Margins.Left+10, controller) + settings.TitleSpacing
 	}
 
 	if len(controller.Items) == 0 {
@@ -1142,34 +1145,62 @@ func drawListRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, c
 }
 
 func (lc *listController) updateScrollingAnimations() {
-	screenWidth, _, err := GetWindow().Renderer.GetOutputSize()
-	if err != nil {
-		screenWidth = 768
+	currentTime := time.Now()
+
+	// Update title scrolling
+	if lc.titleScrollData.needsScrolling {
+		lc.updateTextScrolling(lc.titleScrollData, currentTime, lc.Settings.ScrollSpeed, lc.Settings.ScrollPauseTime)
 	}
 
-	maxTextWidth := screenWidth - lc.Settings.Margins.Left - lc.Settings.Margins.Right - 30
-
-	endIdx := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
-
-	for idx := lc.VisibleStartIndex; idx < endIdx; idx++ {
-		item := lc.Items[idx]
-
-		if !item.Focused {
-			delete(lc.itemScrollData, idx)
-			continue
+	// Update item scrolling
+	for _, scrollData := range lc.itemScrollData {
+		if scrollData.needsScrolling {
+			lc.updateTextScrolling(scrollData, currentTime, lc.Settings.ScrollSpeed, lc.Settings.ScrollPauseTime)
 		}
+	}
+}
 
-		scrollData, exists := lc.itemScrollData[idx]
-		if !exists {
-			scrollData = lc.createScrollDataForItem(idx, item, maxTextWidth)
-			lc.itemScrollData[idx] = scrollData
+func (lc *listController) updateTextScrolling(scrollData *textScrollData, currentTime time.Time, scrollSpeed float32, pauseTime int) {
+	if !scrollData.needsScrolling {
+		return
+	}
+
+	// Check if we need to pause at the edges
+	if scrollData.lastDirectionChange != nil {
+		if currentTime.Sub(*scrollData.lastDirectionChange) < time.Duration(pauseTime)*time.Millisecond {
+			return
 		}
+	}
 
-		if !scrollData.needsScrolling {
-			continue
+	// Calculate scroll increment based on speed
+	scrollIncrement := int32(scrollSpeed)
+	if scrollIncrement < 1 {
+		scrollIncrement = 1
+	}
+
+	// Update scroll position
+	scrollData.scrollOffset += int32(scrollData.direction) * scrollIncrement
+
+	// Check bounds and reverse direction if needed
+	maxOffset := scrollData.textWidth - scrollData.containerWidth
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	if scrollData.scrollOffset <= 0 {
+		scrollData.scrollOffset = 0
+		if scrollData.direction < 0 {
+			scrollData.direction = 1
+			now := currentTime
+			scrollData.lastDirectionChange = &now
 		}
-
-		lc.updateScrollAnimation(scrollData)
+	} else if scrollData.scrollOffset >= maxOffset {
+		scrollData.scrollOffset = maxOffset
+		if scrollData.direction > 0 {
+			scrollData.direction = -1
+			now := currentTime
+			scrollData.lastDirectionChange = &now
+		}
 	}
 }
 
@@ -1256,44 +1287,134 @@ func (lc *listController) updateScrollAnimation(data *textScrollData) {
 	}
 }
 
-func drawTitle(renderer *sdl.Renderer, font *ttf.Font, title string, titleAlign TextAlign, startY int32, titleXMargin int32) int32 {
-	titleSurface, err := font.RenderUTF8Blended(title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if err != nil {
+func drawScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align TextAlign,
+	startY, marginLeft int32, controller *listController) int32 {
+	if title == "" {
 		return startY
 	}
-	defer titleSurface.Free()
 
-	titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
+	textSurface, err := font.RenderUTF8Blended(title, GetTheme().ListTextColor)
 	if err != nil {
-		return startY
+		return startY + 40
 	}
-	defer titleTexture.Destroy()
+	defer textSurface.Free()
+
+	textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+	if err != nil {
+		return startY + 40
+	}
+	defer textTexture.Destroy()
 
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
 		screenWidth = 768
 	}
 
-	titleX := getTitleXPosition(titleAlign, screenWidth, titleSurface.W, titleXMargin)
+	textWidth := textSurface.W
+	textHeight := textSurface.H
+
+	// Calculate available width for title (with margins)
+	availableWidth := screenWidth - (marginLeft * 2)
+
+	// Check if title needs scrolling
+	needsScrolling := textWidth > availableWidth
+
+	if needsScrolling {
+		// Initialize scroll data if needed
+		if !controller.titleScrollData.needsScrolling {
+			controller.titleScrollData.needsScrolling = true
+			controller.titleScrollData.textWidth = textWidth
+			controller.titleScrollData.containerWidth = availableWidth
+			controller.titleScrollData.scrollOffset = 0
+			controller.titleScrollData.direction = 1
+			controller.titleScrollData.lastDirectionChange = nil
+		}
+
+		// Update container width in case screen size changed
+		controller.titleScrollData.containerWidth = availableWidth
+
+		// Render scrolling title
+		var titleX int32
+		switch align {
+		case AlignLeft:
+			titleX = marginLeft
+		case AlignCenter:
+			titleX = marginLeft
+		case AlignRight:
+			titleX = marginLeft
+		default:
+			titleX = marginLeft
+		}
+
+		renderScrollingTitle(renderer, textTexture, textHeight, availableWidth, titleX,
+			startY, controller.titleScrollData.scrollOffset)
+	} else {
+		// Reset scroll data if title no longer needs scrolling
+		controller.titleScrollData.needsScrolling = false
+
+		// Render static title
+		var titleX int32
+		switch align {
+		case AlignLeft:
+			titleX = marginLeft
+		case AlignCenter:
+			titleX = (screenWidth - textWidth) / 2
+		case AlignRight:
+			titleX = screenWidth - textWidth - marginLeft
+		default:
+			titleX = marginLeft
+		}
+
+		titleRect := sdl.Rect{
+			X: titleX,
+			Y: startY,
+			W: textWidth,
+			H: textHeight,
+		}
+
+		renderer.Copy(textTexture, nil, &titleRect)
+	}
+
+	return startY + textHeight
+}
+
+func renderScrollingTitle(renderer *sdl.Renderer, texture *sdl.Texture, textHeight, maxWidth,
+	titleX, titleY, scrollOffset int32) {
+
+	// Get the full texture size
+	_, _, fullWidth, _, err := texture.Query()
+	if err != nil {
+		return
+	}
+
+	// Ensure the scrollOffset is within bounds
+	if scrollOffset < 0 {
+		scrollOffset = 0
+	}
+
+	maxOffset := fullWidth - maxWidth
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+
+	if scrollOffset > maxOffset {
+		scrollOffset = maxOffset
+	}
+
+	// Create clip and destination rectangles
+	clipRect := &sdl.Rect{
+		X: scrollOffset,
+		Y: 0,
+		W: min(maxWidth, fullWidth-scrollOffset),
+		H: textHeight,
+	}
 
 	titleRect := sdl.Rect{
 		X: titleX,
-		Y: startY,
-		W: titleSurface.W,
-		H: titleSurface.H,
+		Y: titleY,
+		W: clipRect.W,
+		H: textHeight,
 	}
-	renderer.Copy(titleTexture, nil, &titleRect)
 
-	return titleSurface.H + 20
-}
-
-func getTitleXPosition(align TextAlign, screenWidth, titleWidth, margin int32) int32 {
-	switch align {
-	case AlignCenter:
-		return (screenWidth - titleWidth) / 2
-	case AlignRight:
-		return screenWidth - titleWidth - margin
-	default:
-		return margin
-	}
+	renderer.Copy(texture, clipRect, &titleRect)
 }
