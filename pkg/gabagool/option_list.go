@@ -200,6 +200,11 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	var err error
 
 	for running {
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+
+		window.RenderBackground()
+
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch e := event.(type) {
 			case *sdl.QuitEvent:

@@ -160,27 +160,21 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 			settings.BackgroundColor.A)
 		renderer.Clear()
 
-		// Calculate the total content height
 		var contentHeight int32 = 0
 
-		// Image height if available
 		if imageTexture != nil {
-			contentHeight += imageH + 30 // Add image height plus spacing
+			contentHeight += imageH + 30
 		}
 
-		// ConfirmationMessage height (estimate based on font size)
 		messageFont := fonts.smallFont
 		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
-		// Estimate text height - actual implementation might need adjustment based on renderMultilineText
-		var messageHeight int32 = 30 // Basic estimate for single line
+		var messageHeight int32 = 30
 		if len(settings.MessageText) > 0 {
-			// This is a rough estimate - you might have better ways to calculate text height
 			lineCount := (len(settings.MessageText)*8)/int(maxWidth) + 1
-			messageHeight = int32(lineCount * 22) // Assuming ~22 pixels per line
+			messageHeight = int32(lineCount * 22)
 			contentHeight += messageHeight
 		}
 
-		// Calculate startY to center all content vertically
 		startY := (window.Height - contentHeight) / 2
 
 		if imageTexture != nil {
@@ -192,10 +186,9 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 			}
 
 			renderer.Copy(imageTexture, nil, &imageRect)
-			startY = imageRect.Y + imageRect.H + 30 // Update startY after image
+			startY = imageRect.Y + imageRect.H + 30
 		}
 
-		// Render message text
 		renderMultilineText(
 			renderer,
 			settings.MessageText,

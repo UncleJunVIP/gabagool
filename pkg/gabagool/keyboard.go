@@ -303,6 +303,8 @@ func Keyboard(initialText string) (types.Option[string], error) {
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
 
+		window.RenderBackground()
+
 		kb.render(renderer, font)
 
 		renderer.Present()

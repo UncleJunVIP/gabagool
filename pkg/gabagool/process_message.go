@@ -39,7 +39,6 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		isProcessing: true,
 	}
 
-	// Load image texture if provided
 	if options.Image != "" {
 		img.Init(img.INIT_PNG)
 		texture, err := img.LoadTexture(processor.window.Renderer, options.Image)
@@ -57,12 +56,10 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 	window := GetWindow()
 	renderer := window.Renderer
 
-	if processor.showBG {
-		window.RenderBackground()
-	} else {
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
-	}
+	renderer.SetDrawColor(0, 0, 0, 255)
+	renderer.Clear()
+
+	window.RenderBackground()
 
 	processor.render(renderer)
 	renderer.Present()
