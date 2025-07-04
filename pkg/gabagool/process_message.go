@@ -59,7 +59,9 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	window.RenderBackground()
+	if processor.showBG {
+		window.RenderBackground()
+	}
 
 	processor.render(renderer)
 	renderer.Present()
