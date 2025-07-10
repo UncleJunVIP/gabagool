@@ -222,8 +222,8 @@ func newListController(options ListOptions) *listController {
 		itemScrollData:    make(map[int]*textScrollData),
 		titleScrollData:   &textScrollData{},
 		lastRepeatTime:    time.Now(),
-		repeatDelay:       150 * time.Millisecond,
-		repeatInterval:    0 * time.Millisecond,
+		repeatDelay:       135 * time.Millisecond,
+		repeatInterval:    10 * time.Millisecond,
 	}
 }
 
@@ -976,25 +976,38 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		itemY := itemStartY + int32(i)*(pillHeight+settings.ItemSpacing)
 		globalIndex := controller.VisibleStartIndex + i
 
-		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
-		needsScrolling := hasScrollData && scrollData.needsScrolling && item.Focused
-
-		// Calculate pill width based on text width when images are enabled
+		// Calculate pill width first
 		var pillWidth int32
-		if settings.EnableImages {
-			// For image display mode, use text width + padding, but don't exceed maxPillWidth
-			pillWidth = textWidth + pillPadding
-			if pillWidth > maxPillWidth {
-				pillWidth = maxPillWidth
-			}
-		} else {
-			// For non-image display mode, use full available width
-			pillWidth = availableWidth
+		pillWidth = textWidth + pillPadding
+		if pillWidth > maxPillWidth {
+			pillWidth = maxPillWidth
 		}
 
-		// Update scroll data to use the new container width
+		// Calculate the available width for text within the pill
+		availableTextWidth := pillWidth - pillPadding
+
+		// Check if text needs scrolling based on current pill constraints
+		textNeedsScrolling := textWidth > availableTextWidth
+
+		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
+		needsScrolling := item.Focused && textNeedsScrolling
+
+		// Update or create scroll data if needed
+		if needsScrolling && (!hasScrollData || !scrollData.needsScrolling) {
+			if !hasScrollData {
+				controller.itemScrollData[globalIndex] = &textScrollData{}
+				scrollData = controller.itemScrollData[globalIndex]
+			}
+			scrollData.needsScrolling = true
+			scrollData.textWidth = textWidth
+			scrollData.containerWidth = availableTextWidth
+			scrollData.scrollOffset = 0
+			scrollData.direction = 1
+		}
+
+		// Update scroll data container width if it exists
 		if hasScrollData {
-			scrollData.containerWidth = pillWidth - pillPadding
+			scrollData.containerWidth = availableTextWidth
 		}
 
 		if item.Selected || item.Focused {
