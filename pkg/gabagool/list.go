@@ -222,7 +222,7 @@ func newListController(options ListOptions) *listController {
 		itemScrollData:    make(map[int]*textScrollData),
 		titleScrollData:   &textScrollData{},
 		lastRepeatTime:    time.Now(),
-		repeatDelay:       100 * time.Millisecond,
+		repeatDelay:       150 * time.Millisecond,
 		repeatInterval:    0 * time.Millisecond,
 	}
 }
