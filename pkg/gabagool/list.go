@@ -70,7 +70,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       3.5,
+		ScrollSpeed:       3.85,
 		ScrollPauseTime:   1000,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
@@ -222,7 +222,7 @@ func newListController(options ListOptions) *listController {
 		itemScrollData:    make(map[int]*textScrollData),
 		titleScrollData:   &textScrollData{},
 		lastRepeatTime:    time.Now(),
-		repeatDelay:       200 * time.Millisecond,
+		repeatDelay:       0 * time.Millisecond,
 		repeatInterval:    0 * time.Millisecond,
 	}
 }
@@ -923,6 +923,8 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 	}
 
 	const pillHeight = int32(60)
+	const pillPadding = int32(40) // Horizontal padding inside pill
+
 	screenWidth, _, err := renderer.GetOutputSize()
 	if err != nil {
 		screenWidth = 768
@@ -943,7 +945,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 	}
 
 	// Calculate max text width based on the pill width constraint
-	maxTextWidth := maxPillWidth - 40 // Account for horizontal padding
+	maxTextWidth := maxPillWidth - pillPadding // Account for horizontal padding
 
 	for i, item := range visibleItems {
 
@@ -977,12 +979,22 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
 		needsScrolling := hasScrollData && scrollData.needsScrolling && item.Focused
 
-		// Always use the constrained width for pills
-		pillWidth := maxPillWidth
+		// Calculate pill width based on text width when images are enabled
+		var pillWidth int32
+		if settings.EnableImages {
+			// For image display mode, use text width + padding, but don't exceed maxPillWidth
+			pillWidth = textWidth + pillPadding
+			if pillWidth > maxPillWidth {
+				pillWidth = maxPillWidth
+			}
+		} else {
+			// For non-image display mode, use full available width
+			pillWidth = availableWidth
+		}
 
 		// Update scroll data to use the new container width
 		if hasScrollData {
-			scrollData.containerWidth = maxTextWidth
+			scrollData.containerWidth = pillWidth - pillPadding
 		}
 
 		if item.Selected || item.Focused {
@@ -1011,7 +1023,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 			}
 			defer originalTextTexture.Destroy()
 
-			renderScrollingText(renderer, originalTextTexture, originalTextSurface.H, maxTextWidth, settings.Margins.Left,
+			renderScrollingText(renderer, originalTextTexture, originalTextSurface.H, pillWidth-pillPadding, settings.Margins.Left,
 				itemY, textVerticalOffset, scrollData.scrollOffset)
 		} else {
 			renderStaticText(renderer, textTexture, nil, textWidth, textHeight,
