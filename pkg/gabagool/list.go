@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"github.com/veandco/go-sdl2/img"
 	"strings"
 	"time"
 
@@ -21,6 +22,7 @@ type ListOptions struct {
 	EnableMultiSelect bool
 	EnableReordering  bool
 	EnableHelp        bool
+	EnableImages      bool
 
 	HelpTitle string
 	HelpText  []string
@@ -61,13 +63,14 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		EnableMultiSelect: false,
 		EnableReordering:  false,
 		EnableHelp:        false,
+		EnableImages:      false,
 		Margins:           uniformPadding(20),
 		TitleAlign:        AlignLeft,
 		TitleSpacing:      DefaultTitleSpacing,
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       2.0,
+		ScrollSpeed:       3.5,
 		ScrollPauseTime:   1000,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
@@ -109,6 +112,7 @@ type listSettings struct {
 	FooterTextColor   sdl.Color
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
+	EnableImages      bool
 }
 
 type listController struct {
@@ -178,6 +182,7 @@ func newListController(options ListOptions) *listController {
 		FooterHelpItems:   options.FooterHelpItems,
 		EmptyMessage:      options.EmptyMessage,
 		EmptyMessageColor: options.EmptyMessageColor,
+		EnableImages:      options.EnableImages,
 	}
 
 	if options.EnableMultiSelect {
@@ -812,6 +817,13 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 
 	drawScrollableMenu(renderer, fonts.smallFont, visibleItems, lc.StartY, lc.Settings, lc.MultiSelect, lc)
 
+	if lc.Settings.EnableImages && lc.SelectedIndex < len(lc.Items) {
+		selectedItem := lc.Items[lc.SelectedIndex]
+		if selectedItem.ImageFilename != "" {
+			lc.renderSelectedItemImage(renderer, selectedItem.ImageFilename)
+		}
+	}
+
 	renderFooter(
 		renderer,
 		fonts.smallFont,
@@ -827,6 +839,56 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 		lc.helpOverlay.ShowingHelp = true
 		lc.helpOverlay.render(renderer, fonts.smallFont)
 	}
+}
+
+func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageFilename string) {
+	texture, err := img.LoadTexture(renderer, imageFilename)
+	if err != nil {
+		// Silently fail if image cannot be loaded
+		return
+	}
+	defer texture.Destroy()
+
+	_, _, textureWidth, textureHeight, err := texture.Query()
+	if err != nil {
+		return
+	}
+
+	screenWidth, screenHeight, err := renderer.GetOutputSize()
+	if err != nil {
+		return
+	}
+
+	imageWidth := textureWidth
+	imageHeight := textureHeight
+
+	maxImageWidth := screenWidth / 3
+	maxImageHeight := screenHeight / 2
+
+	if imageWidth > maxImageWidth || imageHeight > maxImageHeight {
+		widthScale := float64(maxImageWidth) / float64(imageWidth)
+		heightScale := float64(maxImageHeight) / float64(imageHeight)
+
+		scale := widthScale
+		if heightScale < widthScale {
+			scale = heightScale
+		}
+
+		imageWidth = int32(float64(imageWidth) * scale)
+		imageHeight = int32(float64(imageHeight) * scale)
+	}
+
+	imageX := screenWidth - imageWidth - 20
+	imageY := (screenHeight - imageHeight) / 2
+
+	destRect := sdl.Rect{
+		X: imageX,
+		Y: imageY,
+		W: imageWidth,
+		H: imageHeight,
+	}
+
+	renderer.Copy(texture, nil, &destRect)
 }
 
 func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []MenuItem,
@@ -866,15 +928,35 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		screenWidth = 768
 	}
 
-	// Add more horizontal padding for text within pills (increased from 15 to 30)
-	maxTextWidth := screenWidth - settings.Margins.Left - settings.Margins.Right - 30
+	// Calculate available width for text, always considering image display if enabled
+	availableWidth := screenWidth - settings.Margins.Left - settings.Margins.Right
+	if settings.EnableImages {
+		imageReservedWidth := screenWidth / 7
+		availableWidth -= imageReservedWidth
+	}
+
+	// Set maximum pill width based on whether image display is enabled
+	maxPillWidth := availableWidth
+	if settings.EnableImages {
+		// When image display is enabled, limit pill width to be shorter
+		maxPillWidth = availableWidth * 3 / 4 // Use 3/4 of available width for shorter pills
+	}
+
+	// Calculate max text width based on the pill width constraint
+	maxTextWidth := maxPillWidth - 40 // Account for horizontal padding
 
 	for i, item := range visibleItems {
 
 		textColor, bgColor := getItemColors(item, multiSelect)
 		itemText := formatItemText(item, multiSelect)
 
-		textSurface, err := font.RenderUTF8Blended(itemText, textColor)
+		// For unfocused items, truncate the text to fit within the pill width
+		displayText := itemText
+		if !item.Focused {
+			displayText = truncateTextToWidth(font, itemText, maxTextWidth)
+		}
+
+		textSurface, err := font.RenderUTF8Blended(displayText, textColor)
 		if err != nil {
 			continue
 		}
@@ -895,10 +977,12 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		scrollData, hasScrollData := controller.itemScrollData[globalIndex]
 		needsScrolling := hasScrollData && scrollData.needsScrolling && item.Focused
 
-		// Increase horizontal padding within the pill (from 30 to 40)
-		pillWidth := textWidth + 40
-		if needsScrolling {
-			pillWidth = maxTextWidth + 40
+		// Always use the constrained width for pills
+		pillWidth := maxPillWidth
+
+		// Update scroll data to use the new container width
+		if hasScrollData {
+			scrollData.containerWidth = maxTextWidth
 		}
 
 		if item.Selected || item.Focused {
@@ -914,13 +998,69 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 		textVerticalOffset := (pillHeight-textHeight)/2 + 1
 
 		if needsScrolling {
-			renderScrollingText(renderer, textTexture, textHeight, maxTextWidth, settings.Margins.Left,
+			// Use original itemText for scrolling, not truncated version
+			originalTextSurface, err := font.RenderUTF8Blended(itemText, textColor)
+			if err != nil {
+				continue
+			}
+			defer originalTextSurface.Free()
+
+			originalTextTexture, err := renderer.CreateTextureFromSurface(originalTextSurface)
+			if err != nil {
+				continue
+			}
+			defer originalTextTexture.Destroy()
+
+			renderScrollingText(renderer, originalTextTexture, originalTextSurface.H, maxTextWidth, settings.Margins.Left,
 				itemY, textVerticalOffset, scrollData.scrollOffset)
 		} else {
 			renderStaticText(renderer, textTexture, nil, textWidth, textHeight,
 				settings.Margins.Left, itemY, textVerticalOffset)
 		}
 	}
+}
+
+func truncateTextToWidth(font *ttf.Font, text string, maxWidth int32) string {
+	if text == "" {
+		return text
+	}
+
+	surface, err := font.RenderUTF8Blended(text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if err != nil {
+		return text
+	}
+	defer surface.Free()
+
+	if surface.W <= maxWidth {
+		return text
+	}
+
+	ellipsis := "..."
+	runes := []rune(text)
+	left, right := 0, len(runes)
+
+	for left < right {
+		mid := (left + right + 1) / 2
+		testText := string(runes[:mid]) + ellipsis
+
+		testSurface, err := font.RenderUTF8Blended(testText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		if err != nil {
+			right = mid - 1
+			continue
+		}
+		defer testSurface.Free()
+
+		if testSurface.W <= maxWidth {
+			left = mid
+		} else {
+			right = mid - 1
+		}
+	}
+
+	if left > 0 {
+		return string(runes[:left]) + ellipsis
+	}
+	return ellipsis
 }
 
 func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, settings listSettings) {
@@ -947,7 +1087,6 @@ func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, 
 	// Calculate total height of all text lines
 	totalTextHeight := int32(len(lines)) * lineHeight
 
-	// Calculate the vertical center position
 	availableHeight := screenHeight - startY - settings.Margins.Bottom - 30
 	centerY := startY + (availableHeight-totalTextHeight)/2
 
@@ -1026,7 +1165,6 @@ func formatItemText(item MenuItem, multiSelect bool) string {
 func renderScrollingText(renderer *sdl.Renderer, texture *sdl.Texture, textHeight, maxWidth, marginLeft,
 	itemY, vertOffset, scrollOffset int32) {
 
-	// get the full texture size
 	_, _, fullWidth, _, err := texture.Query()
 	if err != nil {
 		return
@@ -1147,16 +1285,42 @@ func drawListRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, c
 func (lc *listController) updateScrollingAnimations() {
 	currentTime := time.Now()
 
-	// Update title scrolling
 	if lc.titleScrollData.needsScrolling {
 		lc.updateTextScrolling(lc.titleScrollData, currentTime, lc.Settings.ScrollSpeed, lc.Settings.ScrollPauseTime)
 	}
 
-	// Update item scrolling
-	for _, scrollData := range lc.itemScrollData {
-		if scrollData.needsScrolling {
-			lc.updateTextScrolling(scrollData, currentTime, lc.Settings.ScrollSpeed, lc.Settings.ScrollPauseTime)
+	screenWidth, _, err := GetWindow().Renderer.GetOutputSize()
+	if err != nil {
+		screenWidth = 768
+	}
+
+	maxTextWidth := screenWidth - lc.Settings.Margins.Left - lc.Settings.Margins.Right - 30
+
+	if lc.Settings.EnableImages {
+		maxTextWidth = maxTextWidth - 200
+	}
+
+	endIdx := min(lc.VisibleStartIndex+lc.MaxVisibleItems, len(lc.Items))
+
+	for idx := lc.VisibleStartIndex; idx < endIdx; idx++ {
+		item := lc.Items[idx]
+
+		if !item.Focused {
+			delete(lc.itemScrollData, idx)
+			continue
 		}
+
+		scrollData, exists := lc.itemScrollData[idx]
+		if !exists {
+			scrollData = lc.createScrollDataForItem(idx, item, maxTextWidth)
+			lc.itemScrollData[idx] = scrollData
+		}
+
+		if !scrollData.needsScrolling {
+			continue
+		}
+
+		lc.updateScrollAnimation(scrollData)
 	}
 }
 
