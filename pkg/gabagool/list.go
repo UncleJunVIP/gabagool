@@ -70,7 +70,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       3.0,
+		ScrollSpeed:       4.0,
 		ScrollPauseTime:   1250,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
