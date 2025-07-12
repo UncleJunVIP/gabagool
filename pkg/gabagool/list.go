@@ -70,8 +70,8 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		FooterText:        "",
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		FooterHelpItems:   []FooterHelpItem{},
-		ScrollSpeed:       3.85,
-		ScrollPauseTime:   1000,
+		ScrollSpeed:       3.0,
+		ScrollPauseTime:   1250,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
 		MultiSelectButton: ButtonSelect,
@@ -222,8 +222,8 @@ func newListController(options ListOptions) *listController {
 		itemScrollData:    make(map[int]*textScrollData),
 		titleScrollData:   &textScrollData{},
 		lastRepeatTime:    time.Now(),
-		repeatDelay:       135 * time.Millisecond,
-		repeatInterval:    10 * time.Millisecond,
+		repeatDelay:       150 * time.Millisecond,
+		repeatInterval:    20 * time.Millisecond,
 	}
 }
 
@@ -243,6 +243,8 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 
 	if options.SelectedIndex > 0 {
 		listController.scrollTo(options.SelectedIndex)
+	} else if options.SelectedIndex == 0 && options.VisibleStartIndex > 0 {
+		options.VisibleStartIndex = 0
 	}
 
 	running := true
