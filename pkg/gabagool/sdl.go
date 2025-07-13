@@ -33,6 +33,10 @@ func Init(title string, showBackground bool) {
 	}
 
 	window = initWindow(title, showBackground)
+
+	if !IsDev {
+		window.initPowerButtonHandling()
+	}
 }
 
 func SDLCleanup() {

@@ -5,6 +5,7 @@ import (
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"os"
+	"sync"
 )
 
 type Window struct {
@@ -17,6 +18,7 @@ type Window struct {
 	SmallFontSize     int
 	Background        *sdl.Texture
 	DisplayBackground bool
+	PowerButtonWG     sync.WaitGroup
 }
 
 func initWindow(title string, displayBackground bool) *Window {
@@ -67,6 +69,11 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	return win
 }
 
+func (window *Window) initPowerButtonHandling() {
+	window.PowerButtonWG.Add(1)
+	go powerButtonHandler(&window.PowerButtonWG)
+}
+
 func (window *Window) loadBackground() {
 	img.Init(img.INIT_PNG)
 
@@ -84,7 +91,9 @@ func (window *Window) loadBackground() {
 	}
 }
 
-func (window Window) closeWindow() {
+func (window *Window) closeWindow() {
+	window.PowerButtonWG.Done()
+
 	if window.Background != nil {
 		window.Background.Destroy()
 	}
