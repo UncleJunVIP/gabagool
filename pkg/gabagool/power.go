@@ -14,7 +14,7 @@ const (
 	shortPressMax   = 2 * time.Second
 	coolDownTime    = 1 * time.Second
 	suspendScript   = "/mnt/SDCARD/.system/tg5040/bin/suspend"
-	shutdownCommand = "poweroff -f"
+	shutdownCommand = "/sbin/poweroff"
 )
 
 // Adapted from https://github.com/ben16w/minui-power-control
