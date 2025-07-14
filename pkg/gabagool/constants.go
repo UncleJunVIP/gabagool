@@ -8,6 +8,8 @@ import (
 type Button uint8
 
 const (
+	ButtonUnassigned Button = 0
+
 	ButtonUp    Button = 11
 	ButtonDown  Button = 12
 	ButtonLeft  Button = 13

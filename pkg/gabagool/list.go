@@ -24,6 +24,8 @@ type ListOptions struct {
 	EnableHelp        bool
 	EnableImages      bool
 
+	StartInMultiSelectMode bool
+
 	HelpTitle string
 	HelpText  []string
 
@@ -161,7 +163,6 @@ func newListController(options ListOptions) *listController {
 	}
 
 	for i := range options.Items {
-		options.Items[i].Selected = i == selectedIndex
 		if options.Items[i].Selected {
 			selectedItems[i] = true
 		}
@@ -205,7 +206,7 @@ func newListController(options ListOptions) *listController {
 		Items:             options.Items,
 		SelectedIndex:     selectedIndex,
 		SelectedItems:     selectedItems,
-		MultiSelect:       false,
+		MultiSelect:       options.StartInMultiSelectMode,
 		EnableMultiSelect: options.EnableMultiSelect,
 		ReorderMode:       false,
 		EnableReorderMode: options.EnableReordering,
