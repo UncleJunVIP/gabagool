@@ -862,24 +862,21 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 		return
 	}
 
-	imageWidth := textureWidth
-	imageHeight := textureHeight
-
 	maxImageWidth := screenWidth / 3
 	maxImageHeight := screenHeight / 2
 
-	if imageWidth > maxImageWidth || imageHeight > maxImageHeight {
-		widthScale := float64(maxImageWidth) / float64(imageWidth)
-		heightScale := float64(maxImageHeight) / float64(imageHeight)
+	// Always scale to use the maximum size available
+	widthScale := float64(maxImageWidth) / float64(textureWidth)
+	heightScale := float64(maxImageHeight) / float64(textureHeight)
 
-		scale := widthScale
-		if heightScale < widthScale {
-			scale = heightScale
-		}
-
-		imageWidth = int32(float64(imageWidth) * scale)
-		imageHeight = int32(float64(imageHeight) * scale)
+	// Use the smaller scale to maintain aspect ratio while fitting within bounds
+	scale := widthScale
+	if heightScale < widthScale {
+		scale = heightScale
 	}
+
+	imageWidth := int32(float64(textureWidth) * scale)
+	imageHeight := int32(float64(textureHeight) * scale)
 
 	imageX := screenWidth - imageWidth - 20
 	imageY := (screenHeight - imageHeight) / 2
