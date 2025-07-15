@@ -85,17 +85,18 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 				imageW = image.W
 				imageH = image.H
 
-				if imageW > settings.MaxImageWidth {
-					ratio := float32(settings.MaxImageWidth) / float32(imageW)
-					imageW = settings.MaxImageWidth
-					imageH = int32(float32(imageH) * ratio)
+				// Always scale to use the maximum size available
+				widthScale := float32(settings.MaxImageWidth) / float32(imageW)
+				heightScale := float32(settings.MaxImageHeight) / float32(imageH)
+
+				// Use the smaller scale to maintain aspect ratio while fitting within bounds
+				scale := widthScale
+				if heightScale < widthScale {
+					scale = heightScale
 				}
 
-				if imageH > settings.MaxImageHeight {
-					ratio := float32(settings.MaxImageHeight) / float32(imageH)
-					imageH = settings.MaxImageHeight
-					imageW = int32(float32(imageW) * ratio)
-				}
+				imageW = int32(float32(imageW) * scale)
+				imageH = int32(float32(imageH) * scale)
 			}
 		}
 	}
