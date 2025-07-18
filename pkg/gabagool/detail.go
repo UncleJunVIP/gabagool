@@ -45,6 +45,7 @@ type DetailScreenOptions struct {
 	MaxImageWidth       int32
 	ShowScrollbar       bool
 	ShowThemeBackground bool
+	EnableAction      	bool
 }
 
 func DefaultInfoScreenOptions() DetailScreenOptions {
@@ -56,6 +57,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		ConfirmButton:    ButtonA,
 		ShowScrollbar:    true,
+		EnableAction:     false,
 	}
 }
 
@@ -97,9 +99,10 @@ func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, 
 }
 
 type DetailScreenReturn struct {
-	LastPressedKey sdl.Keycode
-	LastPressedBtn uint8
-	Cancelled      bool
+	LastPressedKey 	sdl.Keycode
+	LastPressedBtn 	uint8
+	Cancelled      	bool
+	ActionTriggered	bool
 }
 
 func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (types.Option[DetailScreenReturn], error) {
@@ -367,6 +370,11 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					case sdl.K_a, sdl.K_RETURN:
 						result.Cancelled = false
 						running = false
+					case sdl.K_x:
+						if options.EnableAction {
+							running = false
+							result.ActionTriggered = true
+						}
 					}
 				} else if e.Type == sdl.KEYUP {
 					switch e.Keysym.Sym {
@@ -418,6 +426,11 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					case options.ConfirmButton:
 						result.Cancelled = false
 						running = false
+					case ButtonX:
+						if options.EnableAction && e.Type == sdl.CONTROLLERBUTTONDOWN {
+							running = false
+							result.ActionTriggered = true
+						}
 					}
 				} else if e.Type == sdl.CONTROLLERBUTTONUP {
 					switch Button(e.Button) {
