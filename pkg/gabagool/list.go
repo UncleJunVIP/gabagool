@@ -678,6 +678,12 @@ func (lc *listController) navigateLeft() {
 
 	lc.lastInputTime = time.Now()
 
+	// In reorder mode, move the item up by a page amount
+	if lc.ReorderMode {
+		lc.moveItemByPages(-1)
+		return
+	}
+
 	visibleItems := lc.VisibleStartIndex + lc.MaxVisibleItems
 	if visibleItems > len(lc.Items) {
 		visibleItems = len(lc.Items)
@@ -687,9 +693,7 @@ func (lc *listController) navigateLeft() {
 		lc.SelectedIndex = 0
 		lc.VisibleStartIndex = 0
 	} else {
-
 		skipAmount := lc.MaxVisibleItems
-
 		newIndex := lc.VisibleStartIndex - skipAmount
 
 		if newIndex < 0 {
@@ -697,7 +701,6 @@ func (lc *listController) navigateLeft() {
 		}
 
 		lc.SelectedIndex = newIndex
-
 		lc.VisibleStartIndex = newIndex
 	}
 
@@ -716,12 +719,16 @@ func (lc *listController) navigateRight() {
 
 	lc.lastInputTime = time.Now()
 
+	// In reorder mode, move the item down by a page amount
+	if lc.ReorderMode {
+		lc.moveItemByPages(1)
+		return
+	}
+
 	if len(lc.Items) <= lc.MaxVisibleItems {
 		lc.SelectedIndex = len(lc.Items) - 1
 	} else {
-
 		skipAmount := lc.MaxVisibleItems
-
 		newIndex := lc.VisibleStartIndex + skipAmount
 
 		maxStartIndex := len(lc.Items) - lc.MaxVisibleItems
@@ -730,13 +737,10 @@ func (lc *listController) navigateRight() {
 		}
 
 		if newIndex >= len(lc.Items) || newIndex > maxStartIndex {
-
 			lc.SelectedIndex = len(lc.Items) - 1
 			lc.VisibleStartIndex = maxStartIndex
 		} else {
-
 			lc.SelectedIndex = newIndex
-
 			lc.VisibleStartIndex = newIndex
 		}
 	}
@@ -747,6 +751,58 @@ func (lc *listController) navigateRight() {
 		}
 		lc.SelectedItems = map[int]bool{lc.SelectedIndex: true}
 	}
+}
+
+func (lc *listController) moveItemByPages(direction int) bool {
+	if !lc.ReorderMode {
+		return false
+	}
+
+	currentIndex := lc.SelectedIndex
+	pageSize := lc.MaxVisibleItems
+
+	var targetIndex int
+	if direction < 0 {
+		// Moving up (left key)
+		targetIndex = currentIndex - pageSize
+		if targetIndex < 0 {
+			targetIndex = 0
+		}
+	} else {
+		// Moving down (right key)
+		targetIndex = currentIndex + pageSize
+		if targetIndex >= len(lc.Items) {
+			targetIndex = len(lc.Items) - 1
+		}
+	}
+
+	// If target is the same as current, no movement needed
+	if targetIndex == currentIndex {
+		return false
+	}
+
+	// Move the item step by step to the target position
+	for currentIndex != targetIndex {
+		var moved bool
+		if targetIndex < currentIndex {
+			moved = lc.moveItemUp()
+			if moved {
+				currentIndex--
+			}
+		} else {
+			moved = lc.moveItemDown()
+			if moved {
+				currentIndex++
+			}
+		}
+
+		// Safety check to prevent infinite loops
+		if !moved {
+			break
+		}
+	}
+
+	return true
 }
 
 func (lc *listController) handleDirectionalRepeats() {
