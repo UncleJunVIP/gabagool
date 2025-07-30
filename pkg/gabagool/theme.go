@@ -56,16 +56,6 @@ type NextVal struct {
 var currentTheme Theme
 
 func initTheme() {
-	currentTheme = Theme{
-		MainColor:             hexToColor(0xFFFFFF),
-		PrimaryAccentColor:    hexToColor(0x9B2257),
-		SecondaryAccentColor:  hexToColor(0x1E2329),
-		HintInfoColor:         hexToColor(0xFFFFFF),
-		ListTextColor:         hexToColor(0xFFFFFF),
-		ListTextSelectedColor: hexToColor(0x000000),
-		BGColor:               hexToColor(0x000000),
-	}
-
 	var nextval *NextVal
 	var err error
 
@@ -73,11 +63,22 @@ func initTheme() {
 		staticNextVal := os.Getenv(EnvSettingsFile)
 		nextval, err = loadStaticNextVal(staticNextVal)
 	} else {
-		nextval = loadNextVal()
+		nextval, err = loadNextVal()
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading nextval: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error loading theme... will use default.: %v\n", err)
+
+		currentTheme = Theme{
+			MainColor:             hexToColor(0xFFFFFF),
+			PrimaryAccentColor:    hexToColor(0x9B2257),
+			SecondaryAccentColor:  hexToColor(0x1E2329),
+			HintInfoColor:         hexToColor(0xFFFFFF),
+			ListTextColor:         hexToColor(0xFFFFFF),
+			ListTextSelectedColor: hexToColor(0x000000),
+			BGColor:               hexToColor(0x000000),
+		}
+
 		return
 	}
 
@@ -123,14 +124,14 @@ func GetSDLColorValues(color sdl.Color) (uint8, uint8, uint8, uint8) {
 	return color.R, color.G, color.B, color.A
 }
 
-func loadNextVal() *NextVal {
+func loadNextVal() (*NextVal, error) {
 	execPath := "/mnt/SDCARD/.system/tg5040/bin/nextval.elf"
 
 	cmd := exec.Command(execPath)
 	output, err := cmd.Output()
 	if err != nil {
 		fmt.Printf("Error executing command: %v\n", err)
-		return nil
+		return nil, err
 	}
 
 	jsonStr := strings.TrimSpace(string(output))
@@ -139,10 +140,10 @@ func loadNextVal() *NextVal {
 	err = json.Unmarshal([]byte(jsonStr), &nextval)
 	if err != nil {
 		fmt.Printf("Error parsing JSON: %v\n", err)
-		return nil
+		return nil, err
 	}
 
-	return &nextval
+	return &nextval, nil
 }
 
 func loadStaticNextVal(filePath string) (*NextVal, error) {

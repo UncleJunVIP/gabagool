@@ -6,6 +6,8 @@ import (
 	"os"
 )
 
+const fallbackFont = "/Users/btk/Library/Fonts/Rounded MPlus 1c Bold.ttf"
+
 var fonts fontsManager
 
 type fontsManager struct {
@@ -24,18 +26,18 @@ type fontsManager struct {
 }
 
 func initFonts(scale int) {
-	xlFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeXLarge*scale)
-	largeFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
-	mediumFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
-	smallFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)
-	tinyFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
-	microFont := loadFont(currentTheme.FontPath, "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
+	xlFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeXLarge*scale)
+	largeFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeLarge*scale)
+	mediumFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeMedium*scale)
+	smallFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeSmall*scale)
+	tinyFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeTiny*scale)
+	microFont := loadFont(currentTheme.FontPath, fallbackFont, FontSizeMicro*scale)
 
-	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeLarge*scale)
-	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMedium*scale)
-	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeSmall*scale)
-	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeTiny*scale)
-	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", "resources/fonts/Rounded_Mplus_1c_Bold.ttf", FontSizeMicro*scale)
+	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", fallbackFont, FontSizeLarge*scale)
+	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", fallbackFont, FontSizeMedium*scale)
+	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", fallbackFont, FontSizeSmall*scale)
+	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", fallbackFont, FontSizeTiny*scale)
+	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", fallbackFont, FontSizeMicro*scale)
 
 	fonts = fontsManager{
 		extraLargeFont: xlFont,
