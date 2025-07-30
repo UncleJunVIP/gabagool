@@ -45,7 +45,7 @@ type DetailScreenOptions struct {
 	MaxImageWidth       int32
 	ShowScrollbar       bool
 	ShowThemeBackground bool
-	EnableAction      	bool
+	EnableAction        bool
 }
 
 func DefaultInfoScreenOptions() DetailScreenOptions {
@@ -99,10 +99,10 @@ func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, 
 }
 
 type DetailScreenReturn struct {
-	LastPressedKey 	sdl.Keycode
-	LastPressedBtn 	uint8
-	Cancelled      	bool
-	ActionTriggered	bool
+	LastPressedKey  sdl.Keycode
+	LastPressedBtn  uint8
+	Cancelled       bool
+	ActionTriggered bool
 }
 
 func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (types.Option[DetailScreenReturn], error) {
@@ -373,6 +373,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					case sdl.K_x:
 						if options.EnableAction {
 							running = false
+							result.Cancelled = false
 							result.ActionTriggered = true
 						}
 					}
@@ -429,6 +430,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					case ButtonX:
 						if options.EnableAction && e.Type == sdl.CONTROLLERBUTTONDOWN {
 							running = false
+							result.Cancelled = false
 							result.ActionTriggered = true
 						}
 					}
