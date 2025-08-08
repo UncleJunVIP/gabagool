@@ -102,6 +102,7 @@ func initTheme() {
 
 		ListTextSelectedColor: hexToColor(0x000000),
 		BGColor:               hexToColor(0xFFFFFF),
+		FontPath:              "System/fonts/Cannoli.ttf",
 	}
 }
 
