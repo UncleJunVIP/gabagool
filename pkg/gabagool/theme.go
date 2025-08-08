@@ -55,7 +55,7 @@ type NextVal struct {
 
 var currentTheme Theme
 
-func initTheme() {
+func initNextUITheme() {
 	var nextval *NextVal
 	var err error
 
@@ -90,6 +90,19 @@ func initTheme() {
 	currentTheme.HintInfoColor = parseHexColor(nextval.Color6)
 	currentTheme.BGColor = parseHexColor(nextval.BGColor)
 	currentTheme.FontPath = nextval.FontPath
+}
+
+func initTheme() {
+	currentTheme = Theme{
+		MainColor:            hexToColor(0xFFFFFF),
+		PrimaryAccentColor:   hexToColor(0x008080),
+		SecondaryAccentColor: hexToColor(0x000000),
+		HintInfoColor:        hexToColor(0x000000),
+		ListTextColor:        hexToColor(0xFFFFFF),
+
+		ListTextSelectedColor: hexToColor(0x000000),
+		BGColor:               hexToColor(0xFFFFFF),
+	}
 }
 
 func parseHexColor(hexStr string) sdl.Color {
