@@ -25,6 +25,7 @@ type ListOptions struct {
 	EnableImages      bool
 
 	StartInMultiSelectMode bool
+	DisableBackButton      bool
 
 	HelpTitle string
 	HelpText  []string
@@ -47,7 +48,6 @@ type ListOptions struct {
 	ReorderKey        sdl.Keycode
 	ReorderButton     Button
 
-	// Add empty message customization
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
 
@@ -66,6 +66,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		EnableReordering:  false,
 		EnableHelp:        false,
 		EnableImages:      false,
+		DisableBackButton: false,
 		Margins:           uniformPadding(20),
 		TitleAlign:        AlignLeft,
 		TitleSpacing:      DefaultTitleSpacing,
@@ -115,6 +116,7 @@ type listSettings struct {
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
 	EnableImages      bool
+	DisableBackButton bool
 }
 
 type listController struct {
@@ -184,6 +186,7 @@ func newListController(options ListOptions) *listController {
 		EmptyMessage:      options.EmptyMessage,
 		EmptyMessageColor: options.EmptyMessageColor,
 		EnableImages:      options.EnableImages,
+		DisableBackButton: options.DisableBackButton,
 	}
 
 	if options.EnableMultiSelect {
@@ -470,8 +473,10 @@ func (lc *listController) handleKeyboardInput(e *sdl.KeyboardEvent, running *boo
 			}
 		}
 	case sdl.K_b:
-		*running = false
-		result.SelectedIndex = -1
+		if !lc.Settings.DisableBackButton { // Check if back button is disabled
+			*running = false
+			result.SelectedIndex = -1
+		}
 	case sdl.K_x:
 		if lc.EnableAction {
 			*running = false
@@ -557,7 +562,7 @@ func (lc *listController) handleControllerInput(e *sdl.ControllerButtonEvent, ru
 			}
 		}
 	case ButtonB:
-		if e.Type == sdl.CONTROLLERBUTTONDOWN {
+		if e.Type == sdl.CONTROLLERBUTTONDOWN && !lc.Settings.DisableBackButton { // Check if back button is disabled
 			*running = false
 			result.SelectedIndex = -1
 		}

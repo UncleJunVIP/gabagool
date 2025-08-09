@@ -43,7 +43,6 @@ func renderFooter(
 		renderer.FillRect(footerBackgroundRect)
 	}
 
-	// Rest of the function remains the same
 	innerPillMargin := int32(6)
 	var leftItems []FooterHelpItem
 	var rightItems []FooterHelpItem
