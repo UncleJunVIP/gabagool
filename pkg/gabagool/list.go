@@ -276,6 +276,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 
 		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.Clear()
+		renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
 		window.RenderBackground()
 		listController.render(renderer)
@@ -1010,7 +1011,7 @@ func drawScrollableMenu(renderer *sdl.Renderer, font *ttf.Font, visibleItems []M
 
 	for i, item := range visibleItems {
 
-		textColor, bgColor := getItemColors(item, multiSelect)
+		textColor, bgColor := getItemColors(item)
 		itemText := formatItemText(item, multiSelect)
 
 		// For unfocused items, truncate the text to fit within the pill width
@@ -1214,26 +1215,14 @@ func drawEmptyListMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32, 
 	}
 }
 
-func getItemColors(item MenuItem, multiSelect bool) (textColor, bgColor sdl.Color) {
-	if multiSelect {
-		if item.Focused && item.Selected {
-			return GetTheme().ListTextSelectedColor, GetTheme().MainColor
-		} else if item.Focused {
-			return GetTheme().ListTextSelectedColor, GetTheme().MainColor
-		} else if item.Selected {
-			return GetTheme().HintInfoColor, GetTheme().PrimaryAccentColor
-		}
-		return GetTheme().ListTextColor, sdl.Color{}
-	}
-
+func getItemColors(item MenuItem) (textColor, bgColor sdl.Color) {
 	if item.Focused && item.Selected {
 		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 	} else if item.Focused {
 		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
 	} else if item.Selected {
-		return GetTheme().ListTextSelectedColor, GetTheme().PrimaryAccentColor
+		return GetTheme().ListTextColor, sdl.Color{R: 255, G: 0, B: 0, A: 0}
 	}
-
 	return GetTheme().ListTextColor, sdl.Color{}
 }
 
