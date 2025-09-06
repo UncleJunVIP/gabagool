@@ -5,6 +5,9 @@ type GabagoolOptions struct {
 	WindowTitle    string
 	ShowBackground bool
 	IsCannoli      bool
+	IsOverlay      bool
+	AlwaysOnTop    bool
+	Transparent    bool
 }
 
 // InitSDL initializes SDL and the UI
