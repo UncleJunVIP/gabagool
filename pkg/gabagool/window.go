@@ -2,10 +2,11 @@ package gabagool
 
 import (
 	"fmt"
-	"github.com/veandco/go-sdl2/img"
-	"github.com/veandco/go-sdl2/sdl"
 	"os"
 	"sync"
+
+	"github.com/veandco/go-sdl2/img"
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 type Window struct {

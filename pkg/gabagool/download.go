@@ -2,12 +2,13 @@ package gabagool
 
 import (
 	"fmt"
-	"github.com/veandco/go-sdl2/ttf"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/veandco/go-sdl2/ttf"
 
 	"github.com/veandco/go-sdl2/sdl"
 )

@@ -1,8 +1,9 @@
 package gabagool
 
 import (
-	"github.com/veandco/go-sdl2/sdl"
 	"math"
+
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 // ColorPicker represents a color picker UI element (now grid-based)

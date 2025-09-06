@@ -2,8 +2,9 @@ package gabagool
 
 import (
 	"fmt"
-	"github.com/veandco/go-sdl2/ttf"
 	"os"
+
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 var fonts fontsManager

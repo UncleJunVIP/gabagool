@@ -1,11 +1,12 @@
 package gabagool
 
 import (
-	"github.com/holoplot/go-evdev"
 	"log"
 	"os/exec"
 	"sync"
 	"time"
+
+	"github.com/holoplot/go-evdev"
 )
 
 const (

@@ -1,11 +1,12 @@
 package gabagool
 
 import (
+	"time"
+
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
-	"time"
 )
 
 type key struct {

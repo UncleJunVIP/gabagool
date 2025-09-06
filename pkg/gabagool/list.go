@@ -1,9 +1,10 @@
 package gabagool
 
 import (
-	"github.com/veandco/go-sdl2/img"
 	"strings"
 	"time"
+
+	"github.com/veandco/go-sdl2/img"
 
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"

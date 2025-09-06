@@ -1,9 +1,10 @@
 package gabagool
 
 import (
+	"time"
+
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
-	"time"
 )
 
 type ProcessMessageOptions struct {
