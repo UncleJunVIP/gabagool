@@ -5,9 +5,6 @@ type GabagoolOptions struct {
 	WindowTitle    string
 	ShowBackground bool
 	IsCannoli      bool
-	IsOverlay      bool
-	AlwaysOnTop    bool
-	Transparent    bool
 }
 
 // InitSDL initializes SDL and the UI
@@ -27,4 +24,12 @@ func InitSDL(options GabagoolOptions) {
 func CloseSDL() {
 	closeFonts()
 	SDLCleanup()
+}
+
+func HideWindow() {
+	window.Window.Hide()
+}
+
+func ShowWindow() {
+	window.Window.Show()
 }
