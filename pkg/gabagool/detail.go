@@ -585,7 +585,6 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 				}
 
 			case SectionTypeInfo:
-
 				metadata := section.Metadata
 
 				if len(metadata) > 0 {
@@ -612,32 +611,28 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 						valueText := item.Value
 						if valueText != "" {
-							cacheKey := "value_" + valueText + "_" + section.Title
-							valueTexture := textureCache.get(cacheKey)
+							valueX := margins.Left + labelWidth + 10
+							maxValueWidth := contentWidth - labelWidth - 10
 
-							if valueTexture == nil {
-								valueTexture = renderText(renderer, valueText, fonts.smallFont, options.MetadataColor)
-								if valueTexture != nil {
-									textureCache.set(cacheKey, valueTexture)
-								}
+							valueHeight := calculateMultilineTextHeight(valueText, fonts.smallFont, maxValueWidth)
+
+							if valueHeight > 0 && isRectVisible(sdl.Rect{X: valueX, Y: currentY, W: maxValueWidth, H: valueHeight}, safeAreaHeight) {
+								renderMultilineTextOptimized(
+									renderer,
+									valueText,
+									fonts.smallFont,
+									maxValueWidth,
+									valueX,
+									currentY,
+									options.MetadataColor,
+									AlignLeft,
+									textureCache)
 							}
 
-							if valueTexture != nil {
-								_, _, valueWidth, valueHeight, _ := valueTexture.Query()
-								valueRect := &sdl.Rect{
-									X: margins.Left + labelWidth + 10,
-									Y: currentY,
-									W: valueWidth,
-									H: valueHeight,
-								}
-
-								if isRectVisible(*valueRect, safeAreaHeight) {
-									renderer.Copy(valueTexture, nil, valueRect)
-								}
-							}
+							currentY += max(labelHeight, valueHeight) + 10
+						} else {
+							currentY += labelHeight + 10
 						}
-
-						currentY += labelHeight + 10
 					}
 
 					currentY += 5

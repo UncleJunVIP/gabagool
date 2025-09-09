@@ -82,7 +82,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 	}
 }
 
-func DownloadManager(downloads []Download, headers map[string]string) (DownloadReturn, error) {
+func DownloadManager(downloads []Download, headers map[string]string, autoContinue bool) (DownloadReturn, error) {
 	downloadManager := newDownloadManager(downloads, headers)
 
 	result := DownloadReturn{
@@ -176,6 +176,11 @@ func DownloadManager(downloads []Download, headers map[string]string) (DownloadR
 		// Check if all downloads are complete
 		if len(downloadManager.activeJobs) == 0 && len(downloadManager.downloadQueue) == 0 && !downloadManager.isAllComplete {
 			downloadManager.isAllComplete = true
+
+			if autoContinue && len(downloadManager.failedDownloads) == 0 {
+				running = false
+				continue
+			}
 		}
 
 		downloadManager.render(renderer)
