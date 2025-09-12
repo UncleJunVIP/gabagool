@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -67,7 +68,7 @@ func initNextUITheme() {
 	}
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading theme... will use default.: %v\n", err)
+		slog.Error("Error loading theme... will use default.", "error", err)
 
 		currentTheme = Theme{
 			MainColor:             hexToColor(0xFFFFFF),
@@ -144,7 +145,7 @@ func loadNextVal() (*NextVal, error) {
 	cmd := exec.Command(execPath)
 	output, err := cmd.Output()
 	if err != nil {
-		fmt.Printf("Error executing command: %v\n", err)
+		slog.Error("Error executing command!", "error", err)
 		return nil, err
 	}
 
@@ -153,7 +154,7 @@ func loadNextVal() (*NextVal, error) {
 	var nextval NextVal
 	err = json.Unmarshal([]byte(jsonStr), &nextval)
 	if err != nil {
-		fmt.Printf("Error parsing JSON: %v\n", err)
+		slog.Error("Error parsing JSON", "error", err)
 		return nil, err
 	}
 

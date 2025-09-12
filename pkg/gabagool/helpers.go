@@ -10,7 +10,6 @@ import (
 
 const (
 	TextAlignLeft TextAlign = iota
-
 	TextAlignCenter
 )
 

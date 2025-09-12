@@ -1,7 +1,7 @@
 package gabagool
 
 import (
-	"fmt"
+	"log/slog"
 	"os"
 	"sync"
 
@@ -27,7 +27,7 @@ func initWindow(title string, displayBackground bool) *Window {
 	displayMode, err := sdl.GetCurrentDisplayMode(displayIndex)
 
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to get display mode: %s\n", err)
+		slog.Error("Failed to get display mode!", "error", err)
 	}
 
 	return initWindowWithSize(title, displayMode.W, displayMode.H, displayBackground)
@@ -50,7 +50,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 
 	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE|sdl.RENDERER_PRESENTVSYNC)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create renderer: %s\n", err)
+		slog.Error("Failed to create renderer!", "error", err)
 		os.Exit(1)
 	}
 

@@ -312,10 +312,10 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		}
 
 		if heldDirections.up {
-			targetScrollY = max(0, targetScrollY-scrollSpeed)
+			targetScrollY = max32(0, targetScrollY-scrollSpeed)
 			lastRepeatTime = now
 		} else if heldDirections.down {
-			targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+			targetScrollY = min32(maxScrollY, targetScrollY+scrollSpeed)
 			lastRepeatTime = now
 		}
 	}
@@ -343,11 +343,11 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					switch e.Keysym.Sym {
 					case sdl.K_UP:
 						heldDirections.up = true
-						targetScrollY = max(0, targetScrollY-scrollSpeed)
+						targetScrollY = max32(0, targetScrollY-scrollSpeed)
 						lastRepeatTime = currentTime
 					case sdl.K_DOWN:
 						heldDirections.down = true
-						targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+						targetScrollY = min32(maxScrollY, targetScrollY+scrollSpeed)
 						lastRepeatTime = currentTime
 					case sdl.K_LEFT:
 						if activeSlideshow >= 0 {
@@ -400,11 +400,11 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 					switch Button(e.Button) {
 					case ButtonUp:
 						heldDirections.up = true
-						targetScrollY = max(0, targetScrollY-scrollSpeed)
+						targetScrollY = max32(0, targetScrollY-scrollSpeed)
 						lastRepeatTime = currentTime
 					case ButtonDown:
 						heldDirections.down = true
-						targetScrollY = min(maxScrollY, targetScrollY+scrollSpeed)
+						targetScrollY = min32(maxScrollY, targetScrollY+scrollSpeed)
 						lastRepeatTime = currentTime
 					case ButtonLeft:
 						if activeSlideshow >= 0 {
@@ -629,7 +629,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 									textureCache)
 							}
 
-							currentY += max(labelHeight, valueHeight) + 10
+							currentY += max32(labelHeight, valueHeight) + 10
 						} else {
 							currentY += labelHeight + 10
 						}
@@ -666,7 +666,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		totalContentHeight = currentY + scrollY + margins.Bottom
 
 		if firstRender || slideshowIndexChanged {
-			maxScrollY = max(0, totalContentHeight-safeAreaHeight+margins.Bottom)
+			maxScrollY = max32(0, totalContentHeight-safeAreaHeight+margins.Bottom)
 			if slideshowIndexChanged {
 				slideshowIndexChanged = false
 			}
@@ -677,7 +677,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 		if options.ShowScrollbar && maxScrollY > 0 {
 			scrollbarHeight := int32(float64(safeAreaHeight) * float64(safeAreaHeight) / float64(maxScrollY+safeAreaHeight))
-			scrollbarHeight = max(scrollbarHeight, 30)
+			scrollbarHeight = max32(scrollbarHeight, 30)
 
 			scrollbarY := int32(float64(scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(maxScrollY))
 
@@ -711,7 +711,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 
 		renderer.Present()
 
-		if abs(scrollY-targetScrollY) > 3 {
+		if abs32(scrollY-targetScrollY) > 3 {
 			sdl.Delay(8)
 		} else {
 			sdl.Delay(16)
@@ -884,13 +884,6 @@ func renderMultilineTextOptimized(
 			remainingText = strings.TrimLeft(remainingText, " ")
 		}
 	}
-}
-
-func abs(x int32) int32 {
-	if x < 0 {
-		return -x
-	}
-	return x
 }
 
 func isRectVisible(rect sdl.Rect, viewportHeight int32) bool {
