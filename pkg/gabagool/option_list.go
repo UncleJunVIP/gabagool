@@ -99,7 +99,7 @@ func defaultOptionsListSettings(title string) optionsListSettings {
 		ItemSpacing:     60,
 		InputDelay:      DefaultInputDelay,
 		Title:           title,
-		TitleAlign:      AlignLeft,
+		TitleAlign:      TextAlignLeft,
 		TitleSpacing:    DefaultTitleSpacing,
 		ScrollSpeed:     150.0,
 		ScrollPauseTime: 25,
@@ -899,11 +899,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 				var titleX int32
 				switch olc.Settings.TitleAlign {
-				case AlignLeft:
+				case TextAlignLeft:
 					titleX = olc.Settings.Margins.Left
-				case AlignCenter:
+				case TextAlignCenter:
 					titleX = (window.Width - titleSurface.W) / 2
-				case AlignRight:
+				case TextAlignRight:
 					titleX = window.Width - olc.Settings.Margins.Right - titleSurface.W
 				}
 
@@ -936,14 +936,13 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
 
 		if item.Item.Selected {
-			renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
 			selectionRect := &sdl.Rect{
 				X: olc.Settings.Margins.Left - 10,
 				Y: itemY - 5,
 				W: window.Width - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
 				H: olc.Settings.ItemSpacing,
 			}
-			drawRoundedRect(renderer, selectionRect, 20)
+			drawRoundedRect(renderer, selectionRect, 20, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
 		}
 
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)

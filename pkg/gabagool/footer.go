@@ -119,6 +119,8 @@ func calculateInnerPillWidth(buttonSurface *sdl.Surface, innerPillHeight int32) 
 	}
 }
 
+// ... existing code ...
+
 func renderGroupAsContinuousPill(
 	renderer *sdl.Renderer,
 	font *ttf.Font,
@@ -138,8 +140,7 @@ func renderGroupAsContinuousPill(
 		H: outerPillHeight,
 	}
 
-	renderer.SetDrawColor(GetSDLColorValues(GetTheme().PrimaryAccentColor))
-	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2)
+	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2, GetTheme().PrimaryAccentColor)
 
 	currentX := startX + 10
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
@@ -156,12 +157,10 @@ func renderGroupAsContinuousPill(
 		}
 
 		innerPillWidth := calculateInnerPillWidth(buttonSurface, innerPillHeight)
-		isCircle := (innerPillWidth == innerPillHeight)
-
-		renderer.SetDrawColor(GetSDLColorValues(GetTheme().MainColor))
+		isCircle := innerPillWidth == innerPillHeight
 
 		if isCircle {
-			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2)
+			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2, GetTheme().MainColor)
 		} else {
 			innerPillRect := &sdl.Rect{
 				X: currentX,
@@ -169,7 +168,7 @@ func renderGroupAsContinuousPill(
 				W: innerPillWidth,
 				H: innerPillHeight,
 			}
-			drawRoundedRect(renderer, innerPillRect, innerPillHeight/2)
+			drawRoundedRect(renderer, innerPillRect, innerPillHeight/2, GetTheme().MainColor)
 		}
 
 		buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
@@ -204,10 +203,7 @@ func renderGroupAsContinuousPill(
 	}
 }
 
-func drawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32) {
-	r, g, b, a, _ := renderer.GetDrawColor()
-	color := sdl.Color{R: r, G: g, B: b, A: a}
-
+func drawCircleShape(renderer *sdl.Renderer, centerX, centerY, radius int32, color sdl.Color) {
 	gfx.FilledCircleColor(
 		renderer,
 		centerX,

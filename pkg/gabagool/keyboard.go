@@ -37,15 +37,13 @@ type virtualKeyboard struct {
 	KeyboardRect     sdl.Rect
 	SelectedKeyIndex int
 	SelectedSpecial  int
-
-	CursorPosition  int
-	CursorVisible   bool
-	LastCursorBlink time.Time
-	CursorBlinkRate time.Duration
-
-	helpOverlay  *helpOverlay
-	ShowingHelp  bool
-	EnterPressed bool
+	CursorPosition   int
+	CursorVisible    bool
+	LastCursorBlink  time.Time
+	CursorBlinkRate  time.Duration
+	helpOverlay      *helpOverlay
+	ShowingHelp      bool
+	EnterPressed     bool
 }
 
 var defaultKeyboardHelpLines = []string{
@@ -59,9 +57,31 @@ var defaultKeyboardHelpLines = []string{
 	"• Start: Enter (confirm input)",
 }
 
+// Simplified key layout - represents the logical grid structure
+type keyLayout struct {
+	rows [][]interface{}
+}
+
+func createKeyLayout() *keyLayout {
+	return &keyLayout{
+		rows: [][]interface{}{
+			// Row 1: numbers + backspace
+			{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "backspace"},
+			// Row 2: qwerty row
+			{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
+			// Row 3: asdf row
+			{20, 21, 22, 23, 24, 25, 26, 27, 28},
+			// Row 4: shift + zxcv row + enter
+			{"shift", 29, 30, 31, 32, 33, 34, 35, "enter"},
+			// Row 5: space
+			{"space"},
+		},
+	}
+}
+
 func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 	kb := &virtualKeyboard{
-		Keys:             make([]key, 0),
+		Keys:             createKeys(windowWidth, windowHeight),
 		TextBuffer:       "",
 		CurrentState:     lowerCase,
 		SelectedKeyIndex: 0,
@@ -74,453 +94,439 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 	}
 
 	kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
+	setupKeyboardRects(kb, windowWidth, windowHeight)
 
+	return kb
+}
+
+func createKeys(windowWidth, windowHeight int32) []key {
+	keys := make([]key, 36) // Total number of regular keys
+
+	// Numbers row
+	numbers := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
+	symbols := []string{"!", "@", "#", "$", "%", "^", "&", "*", "(", ")"}
+
+	for i, num := range numbers {
+		keys[i] = key{
+			LowerValue:  num,
+			UpperValue:  num,
+			SymbolValue: symbols[i],
+		}
+	}
+
+	// QWERTY row
+	qwerty := "qwertyuiop"
+	for i, char := range qwerty {
+		keys[10+i] = key{
+			LowerValue: string(char),
+			UpperValue: string(char - 32),
+		}
+	}
+
+	// ASDF row
+	asdf := "asdfghjkl"
+	for i, char := range asdf {
+		keys[20+i] = key{
+			LowerValue: string(char),
+			UpperValue: string(char - 32),
+		}
+	}
+
+	// ZXCV row
+	zxcv := "zxcvbnm"
+	for i, char := range zxcv {
+		keys[29+i] = key{
+			LowerValue: string(char),
+			UpperValue: string(char - 32),
+		}
+	}
+
+	return keys
+}
+
+func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 	keyboardWidth := (windowWidth * 85) / 100
 	keyboardHeight := (windowHeight * 85) / 100
-
 	textInputHeight := windowHeight / 10
-
 	keyboardHeight = keyboardHeight - textInputHeight - 20
-
 	startX := (windowWidth - keyboardWidth) / 2
-
 	textInputY := (windowHeight - keyboardHeight - textInputHeight - 20) / 2
 	keyboardStartY := textInputY + textInputHeight + 20
 
-	kb.KeyboardRect = sdl.Rect{
-		X: startX,
-		Y: keyboardStartY,
-		W: keyboardWidth,
-		H: keyboardHeight,
-	}
+	kb.KeyboardRect = sdl.Rect{X: startX, Y: keyboardStartY, W: keyboardWidth, H: keyboardHeight}
+	kb.TextInputRect = sdl.Rect{X: startX, Y: textInputY, W: keyboardWidth, H: textInputHeight}
 
 	keyWidth := keyboardWidth / 12
 	keyHeight := keyboardHeight / 6
 	keySpacing := int32(6)
 
-	kb.TextInputRect = sdl.Rect{
-		X: startX,
-		Y: textInputY,
-		W: keyboardWidth,
-		H: textInputHeight,
-	}
-
-	rowKeys := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
-	rowSymbols := []string{"!", "@", "#", "$", "%", "^", "&", "*", "(", ")"}
-
-	rowWidth := (keyWidth * int32(len(rowKeys))) + (keySpacing * int32(len(rowKeys)-1))
-	rowStartX := startX + (keyboardWidth-rowWidth-(keyWidth*2)-keySpacing)/2
-
-	x := rowStartX
+	// Position all keys
 	y := keyboardStartY + keySpacing
 
-	for i, keyVal := range rowKeys {
-		kb.Keys = append(kb.Keys, key{
-			Rect:        sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight},
-			LowerValue:  keyVal,
-			UpperValue:  keyVal,
-			SymbolValue: rowSymbols[i],
-			IsPressed:   false,
-		})
+	// Row 1: Numbers
+	x := startX + keySpacing
+	for i := 0; i < 10; i++ {
+		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
+	kb.BackspaceRect = sdl.Rect{X: x, Y: y, W: keyWidth * 2, H: keyHeight}
 
-	kb.BackspaceRect = sdl.Rect{
-		X: x,
-		Y: y,
-		W: keyWidth * 2,
-		H: keyHeight,
-	}
-
-	rowKeys = []string{"q", "w", "e", "r", "t", "y", "u", "i", "o", "p"}
-
-	rowWidth = (keyWidth * int32(len(rowKeys))) + (keySpacing * int32(len(rowKeys)-1))
-	rowStartX = startX + (keyboardWidth-rowWidth)/2
-
-	x = rowStartX
+	// Row 2: QWERTY
 	y += keyHeight + keySpacing
-
-	for _, keyVal := range rowKeys {
-		kb.Keys = append(kb.Keys, key{
-			Rect:       sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight},
-			LowerValue: keyVal,
-			UpperValue: string([]rune(keyVal)[0] - 32),
-			IsPressed:  false,
-		})
+	x = startX + (keyboardWidth-(keyWidth*10+keySpacing*9))/2
+	for i := 10; i < 20; i++ {
+		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
 
-	rowKeys = []string{"a", "s", "d", "f", "g", "h", "j", "k", "l"}
-
-	rowWidth = (keyWidth * int32(len(rowKeys))) + (keySpacing * int32(len(rowKeys)-1))
-	rowStartX = startX + (keyboardWidth-rowWidth)/2
-
-	x = rowStartX
+	// Row 3: ASDF
 	y += keyHeight + keySpacing
-
-	for _, keyVal := range rowKeys {
-		kb.Keys = append(kb.Keys, key{
-			Rect:       sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight},
-			LowerValue: keyVal,
-			UpperValue: string([]rune(keyVal)[0] - 32),
-			IsPressed:  false,
-		})
+	x = startX + (keyboardWidth-(keyWidth*9+keySpacing*8))/2
+	for i := 20; i < 29; i++ {
+		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
 
-	rowKeys = []string{"z", "x", "c", "v", "b", "n", "m"}
+	// Row 4: Shift + ZXCV + Enter
+	y += keyHeight + keySpacing
+	shiftWidth := keyWidth * 2
+	enterWidth := keyWidth + keyWidth/2
+	regularKeysWidth := keyWidth*7 + keySpacing*6
+	totalWidth := shiftWidth + regularKeysWidth + enterWidth + keySpacing*2
+	x = startX + (keyboardWidth-totalWidth)/2
 
-	shiftKeyWidth := keyWidth * 2
+	kb.ShiftRect = sdl.Rect{X: x, Y: y, W: shiftWidth, H: keyHeight}
+	x += shiftWidth + keySpacing
 
-	regularKeysWidth := (keyWidth * int32(len(rowKeys))) + (keySpacing * int32(len(rowKeys)-1))
-
-	enterKeyWidth := keyWidth + keyWidth/2
-
-	totalFourthRowWidth := shiftKeyWidth + regularKeysWidth + enterKeyWidth + keySpacing*2
-
-	fourthRowStartX := startX + (keyboardWidth-totalFourthRowWidth)/2
-
-	kb.ShiftRect = sdl.Rect{
-		X: fourthRowStartX,
-		Y: y + keyHeight + keySpacing,
-		W: shiftKeyWidth,
-		H: keyHeight,
-	}
-
-	x = kb.ShiftRect.X + kb.ShiftRect.W + keySpacing
-
-	for _, keyVal := range rowKeys {
-		kb.Keys = append(kb.Keys, key{
-			Rect:       sdl.Rect{X: x, Y: y + keyHeight + keySpacing, W: keyWidth, H: keyHeight},
-			LowerValue: keyVal,
-			UpperValue: string([]rune(keyVal)[0] - 32),
-			IsPressed:  false,
-		})
+	for i := 29; i < 36; i++ {
+		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
+	kb.EnterRect = sdl.Rect{X: x, Y: y, W: enterWidth, H: keyHeight}
 
-	kb.EnterRect = sdl.Rect{
-		X: x,
-		Y: y + keyHeight + keySpacing,
-		W: enterKeyWidth,
-		H: keyHeight,
-	}
-
-	spaceBarWidth := keyWidth * 6
-	spaceBarX := startX + (keyboardWidth-spaceBarWidth)/2
-
+	// Row 5: Space
+	y += keyHeight + keySpacing
+	spaceWidth := keyWidth * 6
 	kb.SpaceRect = sdl.Rect{
-		X: spaceBarX,
-		Y: y + keyHeight*2 + keySpacing*2,
-		W: spaceBarWidth,
+		X: startX + (keyboardWidth-spaceWidth)/2,
+		Y: y,
+		W: spaceWidth,
 		H: keyHeight,
 	}
-
-	return kb
 }
 
-// Keyboard creates a virtual keyboard that can be used to enter text.
-// The keyboard is centered on screen and features both on-screen controls and button shortcuts.
-// This returns an Option[string] that can be used to get the text entered by the user.
-// If the user hits enter, the Option[string] will contain the text entered by the user.
-// If the user exits, the Option[string] will be empty.
 func Keyboard(initialText string) (types.Option[string], error) {
 	window := GetWindow()
 	renderer := window.Renderer
 	font := fonts.mediumFont
 
 	kb := createKeyboard(window.Width, window.Height)
-
 	if initialText != "" {
 		kb.TextBuffer = initialText
 		kb.CursorPosition = len(initialText)
 	}
 
-	running := true
-	var result string
-	var exitType int
-	var err error
-
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
-			case *sdl.QuitEvent:
-				running = false
-				err = sdl.GetError()
-
-			case *sdl.KeyboardEvent:
-				if e.Type == sdl.KEYDOWN {
-					kb.handleKeyDown(e.Keysym.Sym)
-
-					if kb.EnterPressed {
-						running = false
-						result = kb.TextBuffer
-						exitType = 0
-						break
-					}
-
-					if e.Keysym.Sym == sdl.K_RETURN && !kb.ShowingHelp {
-						running = false
-						result = kb.TextBuffer
-						exitType = 0
-						break
-					} else if e.Keysym.Sym == sdl.K_ESCAPE && !kb.ShowingHelp {
-						running = false
-						result = initialText
-						exitType = 1
-						break
-					}
-				}
-
-			case *sdl.ControllerButtonEvent:
-				if e.Type == sdl.CONTROLLERBUTTONDOWN {
-					kb.handleButtonPress(e.Button)
-
-					if kb.EnterPressed {
-						running = false
-						result = kb.TextBuffer
-						exitType = 0
-						break
-					}
-
-					if Button(e.Button) == ButtonStart && !kb.ShowingHelp {
-						running = false
-						result = kb.TextBuffer
-						exitType = 0
-						break
-					} else if Button(e.Button) == ButtonY && !kb.ShowingHelp {
-						running = false
-						result = ""
-						exitType = 1
-						break
-					}
-				}
-
-			}
+	for {
+		if kb.handleEvents() {
+			break
 		}
 
 		kb.updateCursorBlink()
-
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
-
-		window.RenderBackground()
-
 		kb.render(renderer, font)
-
-		renderer.Present()
-
 		sdl.Delay(16)
 	}
 
-	if err != nil || exitType == 1 {
-		return option.None[string](), err
+	if kb.EnterPressed {
+		return option.Some(kb.TextBuffer), nil
 	}
-
-	return option.Some[string](result), nil
+	return option.None[string](), nil
 }
 
-func (kb *virtualKeyboard) toggleHelp() {
-	if kb.helpOverlay == nil {
-		kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
-	}
+func (kb *virtualKeyboard) handleEvents() bool {
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch e := event.(type) {
+		case *sdl.QuitEvent:
+			return true
 
-	kb.helpOverlay.toggle()
-	kb.ShowingHelp = kb.helpOverlay.ShowingHelp
-}
+		case *sdl.KeyboardEvent:
+			if e.Type == sdl.KEYDOWN {
+				if kb.handleKeyInput(e.Keysym.Sym) {
+					return true
+				}
+			}
 
-func (kb *virtualKeyboard) scrollHelpOverlay(direction int) {
-	if kb.helpOverlay != nil {
-		kb.helpOverlay.scroll(direction)
-	}
-}
-
-func (kb *virtualKeyboard) processNavigation(direction int) {
-	kb.resetPressedKeys()
-
-	var keyGrid [][]interface{}
-
-	row1 := make([]interface{}, 0)
-
-	numKeys := make([]key, 0)
-	for i := range kb.Keys {
-
-		if i < 10 {
-			numKeys = append(numKeys, kb.Keys[i])
+		case *sdl.ControllerButtonEvent:
+			if e.Type == sdl.CONTROLLERBUTTONDOWN {
+				if kb.handleButtonInput(Button(e.Button)) {
+					return true
+				}
+			}
 		}
 	}
+	return false
+}
 
-	for i := range numKeys {
-		row1 = append(row1, i)
+func (kb *virtualKeyboard) handleKeyInput(key sdl.Keycode) bool {
+	if key == sdl.K_h {
+		kb.toggleHelp()
+		return false
 	}
 
-	row1 = append(row1, "backspace")
-	keyGrid = append(keyGrid, row1)
-
-	row2 := make([]interface{}, 0)
-	for i := 10; i < 20 && i < len(kb.Keys); i++ {
-		row2 = append(row2, i)
+	if kb.ShowingHelp {
+		return kb.handleHelpInput(key)
 	}
-	keyGrid = append(keyGrid, row2)
 
-	row3 := make([]interface{}, 0)
-	for i := 20; i < 29 && i < len(kb.Keys); i++ {
-		row3 = append(row3, i)
+	switch key {
+	case sdl.K_UP, sdl.K_DOWN, sdl.K_LEFT, sdl.K_RIGHT:
+		kb.navigate(key)
+	case sdl.K_a:
+		kb.processSelection()
+	case sdl.K_b:
+		kb.backspace()
+	case sdl.K_LSHIFT, sdl.K_RSHIFT:
+		kb.toggleShift()
+	case sdl.K_RETURN:
+		kb.EnterPressed = true
+		return true
+	case sdl.K_ESCAPE:
+		return true
 	}
-	keyGrid = append(keyGrid, row3)
+	return false
+}
 
-	row4 := make([]interface{}, 0)
-	row4 = append(row4, "shift")
-	for i := 29; i < 36 && i < len(kb.Keys); i++ {
-		row4 = append(row4, i)
+func (kb *virtualKeyboard) handleButtonInput(button Button) bool {
+	if button == ButtonMenu {
+		kb.toggleHelp()
+		return false
 	}
-	row4 = append(row4, "enter")
-	keyGrid = append(keyGrid, row4)
 
-	row5 := make([]interface{}, 0)
-	row5 = append(row5, "space")
-	keyGrid = append(keyGrid, row5)
+	if kb.ShowingHelp {
+		return kb.handleHelpButton(button)
+	}
 
-	currentRow := -1
-	currentCol := -1
+	switch button {
+	case ButtonUp, ButtonDown, ButtonLeft, ButtonRight:
+		kb.navigateWithButton(button)
+	case ButtonA:
+		kb.processSelection()
+	case ButtonB:
+		kb.backspace()
+	case ButtonX:
+		kb.insertSpace()
+	case ButtonSelect:
+		kb.toggleShift()
+	case ButtonL1:
+		kb.moveCursor(-1)
+	case ButtonR1:
+		kb.moveCursor(1)
+	case ButtonStart:
+		kb.EnterPressed = true
+		return true
+	case ButtonY:
+		return true
+	}
+	return false
+}
+
+func (kb *virtualKeyboard) handleHelpInput(key sdl.Keycode) bool {
+	switch key {
+	case sdl.K_UP:
+		kb.scrollHelpOverlay(-1)
+	case sdl.K_DOWN:
+		kb.scrollHelpOverlay(1)
+	default:
+		kb.ShowingHelp = false
+	}
+	return false
+}
+
+func (kb *virtualKeyboard) handleHelpButton(button Button) bool {
+	switch button {
+	case ButtonUp:
+		kb.scrollHelpOverlay(-1)
+	case ButtonDown:
+		kb.scrollHelpOverlay(1)
+	default:
+		kb.ShowingHelp = false
+	}
+	return false
+}
+
+func (kb *virtualKeyboard) navigate(key sdl.Keycode) {
+	layout := createKeyLayout()
+	currentRow, currentCol := kb.findCurrentPosition(layout)
+
+	var newRow, newCol int
+	switch key {
+	case sdl.K_UP:
+		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
+	case sdl.K_DOWN:
+		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
+	case sdl.K_LEFT:
+		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
+	case sdl.K_RIGHT:
+		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
+	}
+
+	kb.setSelection(layout, newRow, newCol)
+}
+
+func (kb *virtualKeyboard) navigateWithButton(button Button) {
+	layout := createKeyLayout()
+	currentRow, currentCol := kb.findCurrentPosition(layout)
+
+	var newRow, newCol int
+	switch button {
+	case ButtonUp:
+		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
+	case ButtonDown:
+		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
+	case ButtonLeft:
+		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
+	case ButtonRight:
+		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
+	}
+
+	kb.setSelection(layout, newRow, newCol)
+}
+
+func (kb *virtualKeyboard) findCurrentPosition(layout *keyLayout) (int, int) {
+	specialKeys := map[int]string{1: "backspace", 2: "enter", 3: "space", 4: "shift"}
 
 	if kb.SelectedSpecial > 0 {
-		var specialKeyName string
-		switch kb.SelectedSpecial {
-		case 1:
-			specialKeyName = "backspace"
-		case 2:
-			specialKeyName = "enter"
-		case 3:
-			specialKeyName = "space"
-		case 4:
-			specialKeyName = "shift"
-		}
-
-		for r, row := range keyGrid {
+		targetKey := specialKeys[kb.SelectedSpecial]
+		for r, row := range layout.rows {
 			for c, key := range row {
-				if str, ok := key.(string); ok && str == specialKeyName {
-					currentRow = r
-					currentCol = c
-					break
+				if str, ok := key.(string); ok && str == targetKey {
+					return r, c
 				}
 			}
-			if currentRow >= 0 {
-				break
-			}
 		}
-	} else if kb.SelectedKeyIndex >= 0 {
-		for r, row := range keyGrid {
-			for c, key := range row {
-				if idx, ok := key.(int); ok && idx == kb.SelectedKeyIndex {
-					currentRow = r
-					currentCol = c
-					break
-				}
-			}
-			if currentRow >= 0 {
-				break
+	}
+
+	for r, row := range layout.rows {
+		for c, key := range row {
+			if idx, ok := key.(int); ok && idx == kb.SelectedKeyIndex {
+				return r, c
 			}
 		}
 	}
 
-	if currentRow < 0 || currentCol < 0 {
-		if len(keyGrid) > 0 && len(keyGrid[0]) > 0 {
-			currentRow = 0
-			currentCol = 0
-		} else {
+	return 0, 0 // Default position
+}
 
-			kb.SelectedKeyIndex = 0
-			kb.SelectedSpecial = 0
-			kb.Keys[kb.SelectedKeyIndex].IsPressed = true
-			return
-		}
+func (kb *virtualKeyboard) moveUp(layout *keyLayout, row, col int) (int, int) {
+	newRow := row - 1
+	if newRow < 0 {
+		newRow = len(layout.rows) - 1
+	}
+	if col >= len(layout.rows[newRow]) {
+		col = len(layout.rows[newRow]) - 1
+	}
+	return newRow, col
+}
+
+func (kb *virtualKeyboard) moveDown(layout *keyLayout, row, col int) (int, int) {
+	newRow := row + 1
+	if newRow >= len(layout.rows) {
+		newRow = 0
+	}
+	if col >= len(layout.rows[newRow]) {
+		col = len(layout.rows[newRow]) - 1
+	}
+	return newRow, col
+}
+
+func (kb *virtualKeyboard) moveLeft(layout *keyLayout, row, col int) (int, int) {
+	newCol := col - 1
+	if newCol < 0 {
+		newCol = len(layout.rows[row]) - 1
+	}
+	return row, newCol
+}
+
+func (kb *virtualKeyboard) moveRight(layout *keyLayout, row, col int) (int, int) {
+	newCol := col + 1
+	if newCol >= len(layout.rows[row]) {
+		newCol = 0
+	}
+	return row, newCol
+}
+
+func (kb *virtualKeyboard) setSelection(layout *keyLayout, row, col int) {
+	kb.resetPressedKeys()
+
+	selectedKey := layout.rows[row][col]
+	if idx, ok := selectedKey.(int); ok {
+		kb.SelectedKeyIndex = idx
+		kb.SelectedSpecial = 0
+		kb.Keys[kb.SelectedKeyIndex].IsPressed = true
+	} else if str, ok := selectedKey.(string); ok {
+		kb.SelectedKeyIndex = -1
+		specialMap := map[string]int{"backspace": 1, "enter": 2, "space": 3, "shift": 4}
+		kb.SelectedSpecial = specialMap[str]
+	}
+}
+
+func (kb *virtualKeyboard) processSelection() {
+	if kb.SelectedKeyIndex >= 0 && kb.SelectedKeyIndex < len(kb.Keys) {
+		keyValue := kb.getKeyValue(kb.SelectedKeyIndex)
+		kb.insertText(keyValue)
+	} else {
+		kb.handleSpecialKey()
 	}
 
-	newRow := currentRow
-	newCol := currentCol
+	kb.CursorVisible = true
+	kb.LastCursorBlink = time.Now()
+}
 
-	switch direction {
-	case 1:
-		newCol++
-
-		if newCol >= len(keyGrid[currentRow]) {
-			newCol = 0
-		}
-
-	case 2:
-		newCol--
-
-		if newCol < 0 {
-			newCol = len(keyGrid[currentRow]) - 1
-		}
-
-	case 3:
-		newRow--
-
-		if newRow < 0 {
-			newRow = len(keyGrid) - 1
-		}
-
-		if newCol >= len(keyGrid[newRow]) {
-
-			newCol = len(keyGrid[newRow]) - 1
-		}
-
-	case 4:
-		newRow++
-
-		if newRow >= len(keyGrid) {
-			newRow = 0
-		}
-
-		if newCol >= len(keyGrid[newRow]) {
-
-			newCol = len(keyGrid[newRow]) - 1
-		}
+func (kb *virtualKeyboard) getKeyValue(index int) string {
+	key := kb.Keys[index]
+	if index < 10 && kb.ShiftPressed {
+		return key.SymbolValue
+	} else if kb.CurrentState == upperCase {
+		return key.UpperValue
 	}
+	return key.LowerValue
+}
 
-	if newRow >= 0 && newRow < len(keyGrid) && newCol >= 0 && newCol < len(keyGrid[newRow]) {
-		selectedKey := keyGrid[newRow][newCol]
+func (kb *virtualKeyboard) insertText(text string) {
+	if kb.CursorPosition == len(kb.TextBuffer) {
+		kb.TextBuffer += text
+	} else {
+		textRunes := []rune(kb.TextBuffer)
+		before := string(textRunes[:kb.CursorPosition])
+		after := string(textRunes[kb.CursorPosition:])
+		kb.TextBuffer = before + text + after
+	}
+	kb.CursorPosition += len([]rune(text))
+}
 
-		if idx, ok := selectedKey.(int); ok {
-			kb.SelectedKeyIndex = idx
-			kb.SelectedSpecial = 0
-			kb.Keys[kb.SelectedKeyIndex].IsPressed = true
-		} else if str, ok := selectedKey.(string); ok {
-			kb.SelectedKeyIndex = -1
-			switch str {
-			case "backspace":
-				kb.SelectedSpecial = 1
-			case "enter":
-				kb.SelectedSpecial = 2
-			case "space":
-				kb.SelectedSpecial = 3
-			case "shift":
-				kb.SelectedSpecial = 4
-			}
-		}
+func (kb *virtualKeyboard) handleSpecialKey() {
+	switch kb.SelectedSpecial {
+	case 1: // backspace
+		kb.backspace()
+	case 2: // enter
+		kb.EnterPressed = true
+	case 3: // space
+		kb.insertSpace()
+	case 4: // shift
+		kb.toggleShift()
 	}
 }
 
 func (kb *virtualKeyboard) backspace() {
 	if kb.CursorPosition > 0 {
-		if kb.CursorPosition < len(kb.TextBuffer) {
-			kb.TextBuffer = kb.TextBuffer[:kb.CursorPosition-1] + kb.TextBuffer[kb.CursorPosition:]
-		} else {
-			kb.TextBuffer = kb.TextBuffer[:len(kb.TextBuffer)-1]
-		}
+		textRunes := []rune(kb.TextBuffer)
+		before := string(textRunes[:kb.CursorPosition-1])
+		after := string(textRunes[kb.CursorPosition:])
+		kb.TextBuffer = before + after
 		kb.CursorPosition--
 	}
 }
 
 func (kb *virtualKeyboard) insertSpace() {
-	if kb.CursorPosition < len(kb.TextBuffer) {
-		kb.TextBuffer = kb.TextBuffer[:kb.CursorPosition] + " " + kb.TextBuffer[kb.CursorPosition:]
-	} else {
-		kb.TextBuffer += " "
-	}
-	kb.CursorPosition++
+	kb.insertText(" ")
 }
 
 func (kb *virtualKeyboard) toggleShift() {
@@ -533,14 +539,10 @@ func (kb *virtualKeyboard) toggleShift() {
 }
 
 func (kb *virtualKeyboard) moveCursor(direction int) {
-	if direction > 0 {
-		if kb.CursorPosition < len(kb.TextBuffer) {
-			kb.CursorPosition++
-		}
-	} else {
-		if kb.CursorPosition > 0 {
-			kb.CursorPosition--
-		}
+	if direction > 0 && kb.CursorPosition < len(kb.TextBuffer) {
+		kb.CursorPosition++
+	} else if direction < 0 && kb.CursorPosition > 0 {
+		kb.CursorPosition--
 	}
 
 	kb.CursorVisible = true
@@ -560,440 +562,249 @@ func (kb *virtualKeyboard) resetPressedKeys() {
 	}
 }
 
-func (kb *virtualKeyboard) handleKeyDown(key sdl.Keycode) bool {
-
-	if key == sdl.K_h {
-		kb.toggleHelp()
-		return true
+func (kb *virtualKeyboard) toggleHelp() {
+	if kb.helpOverlay == nil {
+		kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
 	}
-
-	if kb.ShowingHelp {
-		if key == sdl.K_UP {
-			kb.scrollHelpOverlay(-1)
-			return true
-		}
-		if key == sdl.K_DOWN {
-			kb.scrollHelpOverlay(1)
-			return true
-		}
-
-		if key != sdl.K_UP && key != sdl.K_DOWN {
-			kb.ShowingHelp = false
-			return true
-		}
-		return true
-	}
-
-	switch key {
-	case sdl.K_UP, sdl.K_DOWN, sdl.K_LEFT, sdl.K_RIGHT:
-		direction := 0
-		switch key {
-		case sdl.K_UP:
-			direction = 3
-		case sdl.K_DOWN:
-			direction = 4
-		case sdl.K_LEFT:
-			direction = 2
-		case sdl.K_RIGHT:
-			direction = 1
-		}
-		kb.processNavigation(direction)
-		return true
-
-	case sdl.K_a:
-		kb.processSelection()
-		return true
-
-	case sdl.K_b:
-		kb.backspace()
-		return true
-
-	case sdl.K_LSHIFT, sdl.K_RSHIFT:
-		kb.toggleShift()
-		return true
-
-	default:
-		return false
-	}
+	kb.helpOverlay.toggle()
+	kb.ShowingHelp = kb.helpOverlay.ShowingHelp
 }
 
-func (kb *virtualKeyboard) handleButtonPress(rawButton uint8) bool {
-	button := Button(rawButton)
-
-	if button == ButtonMenu {
-		kb.toggleHelp()
-		return true
+func (kb *virtualKeyboard) scrollHelpOverlay(direction int) {
+	if kb.helpOverlay != nil {
+		kb.helpOverlay.scroll(direction)
 	}
-
-	if kb.ShowingHelp {
-		if button == ButtonUp {
-			kb.scrollHelpOverlay(-1)
-			return true
-		}
-		if button == ButtonDown {
-			kb.scrollHelpOverlay(1)
-			return true
-		}
-
-		kb.ShowingHelp = false
-		return true
-	}
-
-	switch button {
-	case ButtonUp, ButtonDown, ButtonLeft, ButtonRight:
-		direction := 0
-		switch button {
-		case ButtonUp:
-			direction = 3
-		case ButtonDown:
-			direction = 4
-		case ButtonLeft:
-			direction = 2
-		case ButtonRight:
-			direction = 1
-		}
-		kb.processNavigation(direction)
-		return true
-
-	case ButtonA:
-		kb.processSelection()
-		return true
-
-	case ButtonB:
-		kb.backspace()
-		return true
-
-	case ButtonX:
-		kb.insertSpace()
-		return true
-
-	case ButtonSelect:
-		kb.toggleShift()
-		return true
-
-	case ButtonL1:
-		kb.moveCursor(-1)
-		return true
-
-	case ButtonR1:
-		kb.moveCursor(1)
-		return true
-
-	default:
-		return false
-	}
-}
-
-func (kb *virtualKeyboard) processSelection() {
-	totalKeys := len(kb.Keys)
-
-	if kb.SelectedKeyIndex >= 0 && kb.SelectedKeyIndex < totalKeys {
-
-		var keyValue string
-
-		if kb.SelectedKeyIndex < 10 && kb.ShiftPressed {
-			keyValue = kb.Keys[kb.SelectedKeyIndex].SymbolValue
-		} else if kb.CurrentState == upperCase {
-			keyValue = kb.Keys[kb.SelectedKeyIndex].UpperValue
-		} else {
-			keyValue = kb.Keys[kb.SelectedKeyIndex].LowerValue
-		}
-
-		if kb.CursorPosition == len(kb.TextBuffer) {
-			kb.TextBuffer += keyValue
-		} else {
-
-			textRunes := []rune(kb.TextBuffer)
-			before := string(textRunes[:kb.CursorPosition])
-			after := string(textRunes[kb.CursorPosition:])
-			kb.TextBuffer = before + keyValue + after
-		}
-		kb.CursorPosition += len([]rune(keyValue))
-	} else {
-
-		switch kb.SelectedSpecial {
-		case 1:
-			if len(kb.TextBuffer) > 0 && kb.CursorPosition > 0 {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition-1])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + after
-				kb.CursorPosition--
-			}
-		case 2:
-			kb.EnterPressed = true
-		case 3:
-			if kb.CursorPosition == len(kb.TextBuffer) {
-				kb.TextBuffer += " "
-			} else {
-				textRunes := []rune(kb.TextBuffer)
-				before := string(textRunes[:kb.CursorPosition])
-				after := string(textRunes[kb.CursorPosition:])
-				kb.TextBuffer = before + " " + after
-			}
-			kb.CursorPosition++
-		case 4:
-			kb.ShiftPressed = !kb.ShiftPressed
-			if kb.ShiftPressed {
-				kb.CurrentState = upperCase
-			} else {
-				kb.CurrentState = lowerCase
-			}
-		}
-	}
-
-	kb.CursorVisible = true
-	kb.LastCursorBlink = time.Now()
 }
 
 func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
+	renderer.SetDrawColor(0, 0, 0, 255)
+	renderer.Clear()
+
+	window := GetWindow()
+	window.RenderBackground()
 
 	if !kb.ShowingHelp {
-		kb.renderKeyboard(renderer, font)
+		kb.renderTextInput(renderer, font)
+		kb.renderKeys(renderer, font)
+		kb.renderSpecialKeys(renderer)
+		kb.renderFooter(renderer)
 	}
 
 	if kb.ShowingHelp && kb.helpOverlay != nil {
 		kb.helpOverlay.render(renderer, fonts.smallFont)
-	} else {
-
-		renderFooter(
-			renderer,
-			fonts.smallFont,
-			[]FooterHelpItem{
-				{ButtonName: "Menu", HelpText: "Help"},
-			},
-			20,
-			true,
-		)
 	}
+
+	renderer.Present()
 }
 
-func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font) {
-
+func (kb *virtualKeyboard) renderTextInput(renderer *sdl.Renderer, font *ttf.Font) {
+	// Background
 	renderer.SetDrawColor(50, 50, 50, 255)
 	renderer.FillRect(&kb.TextInputRect)
-
 	renderer.SetDrawColor(200, 200, 200, 255)
 	renderer.DrawRect(&kb.TextInputRect)
 
+	padding := int32(10)
 	if kb.TextBuffer != "" {
-		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-		textSurface, err := font.RenderUTF8Blended(kb.TextBuffer, textColor)
-		if err != nil {
-			return
-		}
-
-		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
-		if err != nil {
-			textSurface.Free()
-			return
-		}
-
-		var textWidth, textHeight = textSurface.W, textSurface.H
-
-		var cursorX int32
-		if kb.CursorPosition > 0 {
-			// Calculate the cursor position within the text
-			cursorText := kb.TextBuffer[:kb.CursorPosition]
-			cursorSurface, err := font.RenderUTF8Blended(cursorText, textColor)
-			if err == nil {
-				cursorX = cursorSurface.W
-				cursorSurface.Free()
-			}
-		}
-
-		padding := int32(10)
-		visibleWidth := kb.TextInputRect.W - (padding * 2)
-
-		// Calculate scroll offset to keep cursor visible
-		var offsetX int32 = 0
-		if cursorX > visibleWidth {
-			// Scroll right to show cursor
-			offsetX = cursorX - visibleWidth + padding
-		}
-
-		// Ensure we don't scroll too far right
-		maxOffset := textWidth - visibleWidth
-		if maxOffset < 0 {
-			maxOffset = 0
-		}
-		if offsetX > maxOffset {
-			offsetX = maxOffset
-		}
-
-		// Create source rectangle for the text texture
-		srcRect := &sdl.Rect{
-			X: offsetX,
-			Y: 0,
-			W: visibleWidth,
-			H: textHeight,
-		}
-
-		// If text is narrower than visible area, adjust source rect
-		if textWidth < visibleWidth {
-			srcRect.W = textWidth
-		}
-
-		// Create destination rectangle for the text
-		textRect := sdl.Rect{
-			X: kb.TextInputRect.X + padding,
-			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-textHeight)/2,
-			W: srcRect.W,
-			H: textHeight,
-		}
-
-		renderer.Copy(textTexture, srcRect, &textRect)
-
-		if kb.CursorVisible {
-			renderer.SetDrawColor(255, 255, 255, 255)
-			cursorRect := sdl.Rect{
-				X: kb.TextInputRect.X + padding + cursorX - offsetX,
-				Y: textRect.Y,
-				W: 2,
-				H: textHeight,
-			}
-
-			// Only draw cursor if it's within the visible area
-			if cursorRect.X >= kb.TextInputRect.X+padding &&
-				cursorRect.X <= kb.TextInputRect.X+padding+visibleWidth {
-				renderer.FillRect(&cursorRect)
-			}
-		}
-
-		textTexture.Destroy()
-		textSurface.Free()
+		kb.renderTextWithCursor(renderer, font, padding)
 	} else if kb.CursorVisible {
-		// Empty text buffer case
-		padding := int32(10)
-		placeholderHeight := int32(20)
-		cursorRect := sdl.Rect{
-			X: kb.TextInputRect.X + padding,
-			Y: kb.TextInputRect.Y + (kb.TextInputRect.H-placeholderHeight)/2,
-			W: 2,
-			H: placeholderHeight,
-		}
-		renderer.SetDrawColor(255, 255, 255, 255)
-		renderer.FillRect(&cursorRect)
+		kb.renderEmptyCursor(renderer, padding)
+	}
+}
+
+func (kb *virtualKeyboard) renderTextWithCursor(renderer *sdl.Renderer, font *ttf.Font, padding int32) {
+	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	textSurface, err := font.RenderUTF8Blended(kb.TextBuffer, textColor)
+	if err != nil {
+		return
+	}
+	defer textSurface.Free()
+
+	textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+	if err != nil {
+		return
+	}
+	defer textTexture.Destroy()
+
+	// Calculate cursor position and scrolling
+	cursorX := kb.calculateCursorX(font)
+	visibleWidth := kb.TextInputRect.W - (padding * 2)
+	offsetX := kb.calculateScrollOffset(cursorX, visibleWidth, textSurface.W, padding)
+
+	// Render text
+	srcRect := &sdl.Rect{X: offsetX, Y: 0, W: visibleWidth, H: textSurface.H}
+	if textSurface.W < visibleWidth {
+		srcRect.W = textSurface.W
 	}
 
-	for i, key := range kb.Keys {
-		bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
-		textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	textRect := sdl.Rect{
+		X: kb.TextInputRect.X + padding,
+		Y: kb.TextInputRect.Y + (kb.TextInputRect.H-textSurface.H)/2,
+		W: srcRect.W,
+		H: textSurface.H,
+	}
+	renderer.Copy(textTexture, srcRect, &textRect)
 
-		if i == kb.SelectedKeyIndex {
-			bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
-			textColor = sdl.Color{R: 255, G: 255, B: 255, A: 255}
-		} else if key.IsPressed {
-			bgColor = sdl.Color{R: 80, G: 80, B: 120, A: 255}
-		}
-
-		renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
-		renderer.FillRect(&key.Rect)
-
-		renderer.SetDrawColor(70, 70, 80, 255)
-		renderer.DrawRect(&key.Rect)
-
-		keyVal := key.LowerValue
-		if kb.CurrentState == upperCase {
-			if i < 10 && kb.ShiftPressed {
-				keyVal = key.SymbolValue
-			} else {
-				keyVal = key.UpperValue
-			}
-		}
-
-		textSurface, err := font.RenderUTF8Blended(keyVal, textColor)
-		if err != nil {
-			continue
-		}
-
-		textTexture, err := renderer.CreateTextureFromSurface(textSurface)
-		if err != nil {
-			textSurface.Free()
-			continue
-		}
-
-		textRect := sdl.Rect{
-			X: key.Rect.X + (key.Rect.W-textSurface.W)/2,
-			Y: key.Rect.Y + (key.Rect.H-textSurface.H)/2,
-			W: textSurface.W,
+	// Render cursor
+	if kb.CursorVisible {
+		cursorRect := sdl.Rect{
+			X: kb.TextInputRect.X + padding + cursorX - offsetX,
+			Y: textRect.Y,
+			W: 2,
 			H: textSurface.H,
 		}
+		if cursorRect.X >= kb.TextInputRect.X+padding && cursorRect.X <= kb.TextInputRect.X+padding+visibleWidth {
+			renderer.SetDrawColor(255, 255, 255, 255)
+			renderer.FillRect(&cursorRect)
+		}
+	}
+}
 
-		renderer.Copy(textTexture, nil, &textRect)
-
-		textTexture.Destroy()
-		textSurface.Free()
+func (kb *virtualKeyboard) calculateCursorX(font *ttf.Font) int32 {
+	if kb.CursorPosition == 0 {
+		return 0
 	}
 
-	backspaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
-	if kb.SelectedSpecial == 1 {
-		backspaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
-	}
-
-	renderer.SetDrawColor(backspaceBgColor.R, backspaceBgColor.G, backspaceBgColor.B, backspaceBgColor.A)
-	renderer.FillRect(&kb.BackspaceRect)
-
-	renderer.SetDrawColor(70, 70, 80, 255)
-	renderer.DrawRect(&kb.BackspaceRect)
-
-	backspaceText := "←"
+	cursorText := kb.TextBuffer[:kb.CursorPosition]
 	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-	backspaceSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(backspaceText, textColor)
-	if err == nil {
-		backspaceTexture, err := renderer.CreateTextureFromSurface(backspaceSurface)
-		if err == nil {
-			backspaceRect := sdl.Rect{
-				X: kb.BackspaceRect.X + (kb.BackspaceRect.W-backspaceSurface.W)/2,
-				Y: kb.BackspaceRect.Y + (kb.BackspaceRect.H-backspaceSurface.H)/2,
-				W: backspaceSurface.W,
-				H: backspaceSurface.H,
-			}
-			renderer.Copy(backspaceTexture, nil, &backspaceRect)
-			backspaceTexture.Destroy()
-		}
-		backspaceSurface.Free()
+	cursorSurface, err := font.RenderUTF8Blended(cursorText, textColor)
+	if err != nil {
+		return 0
+	}
+	defer cursorSurface.Free()
+
+	return cursorSurface.W
+}
+
+func (kb *virtualKeyboard) calculateScrollOffset(cursorX, visibleWidth, textWidth, padding int32) int32 {
+	offsetX := int32(0)
+	if cursorX > visibleWidth {
+		offsetX = cursorX - visibleWidth + padding
 	}
 
-	enterBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
-	if kb.SelectedSpecial == 2 {
-		enterBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
+	maxOffset := textWidth - visibleWidth
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if offsetX > maxOffset {
+		offsetX = maxOffset
 	}
 
-	renderer.SetDrawColor(enterBgColor.R, enterBgColor.G, enterBgColor.B, enterBgColor.A)
-	renderer.FillRect(&kb.EnterRect)
+	return offsetX
+}
 
+func (kb *virtualKeyboard) renderEmptyCursor(renderer *sdl.Renderer, padding int32) {
+	placeholderHeight := int32(20)
+	cursorRect := sdl.Rect{
+		X: kb.TextInputRect.X + padding,
+		Y: kb.TextInputRect.Y + (kb.TextInputRect.H-placeholderHeight)/2,
+		W: 2,
+		H: placeholderHeight,
+	}
+	renderer.SetDrawColor(255, 255, 255, 255)
+	renderer.FillRect(&cursorRect)
+}
+
+func (kb *virtualKeyboard) renderKeys(renderer *sdl.Renderer, font *ttf.Font) {
+	for i, key := range kb.Keys {
+		kb.renderSingleKey(renderer, font, i, key)
+	}
+}
+
+func (kb *virtualKeyboard) renderSingleKey(renderer *sdl.Renderer, font *ttf.Font, index int, key key) {
+	// Background
+	bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
+	if index == kb.SelectedKeyIndex {
+		bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
+	} else if key.IsPressed {
+		bgColor = sdl.Color{R: 80, G: 80, B: 120, A: 255}
+	}
+
+	renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
+	renderer.FillRect(&key.Rect)
 	renderer.SetDrawColor(70, 70, 80, 255)
-	renderer.DrawRect(&kb.EnterRect)
+	renderer.DrawRect(&key.Rect)
 
-	enterText := "↵"
-	enterSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(enterText, textColor)
-	if err == nil {
-		enterTexture, err := renderer.CreateTextureFromSurface(enterSurface)
-		if err == nil {
-			enterRect := sdl.Rect{
-				X: kb.EnterRect.X + (kb.EnterRect.W-enterSurface.W)/2,
-				Y: kb.EnterRect.Y + (kb.EnterRect.H-enterSurface.H)/2,
-				W: enterSurface.W,
-				H: enterSurface.H,
-			}
-			renderer.Copy(enterTexture, nil, &enterRect)
-			enterTexture.Destroy()
-		}
-		enterSurface.Free()
+	// Text
+	keyValue := kb.getKeyValue(index)
+	kb.renderKeyText(renderer, font, keyValue, key.Rect)
+}
+
+func (kb *virtualKeyboard) renderKeyText(renderer *sdl.Renderer, font *ttf.Font, text string, rect sdl.Rect) {
+	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	textSurface, err := font.RenderUTF8Blended(text, textColor)
+	if err != nil {
+		return
+	}
+	defer textSurface.Free()
+
+	textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+	if err != nil {
+		return
+	}
+	defer textTexture.Destroy()
+
+	textRect := sdl.Rect{
+		X: rect.X + (rect.W-textSurface.W)/2,
+		Y: rect.Y + (rect.H-textSurface.H)/2,
+		W: textSurface.W,
+		H: textSurface.H,
+	}
+	renderer.Copy(textTexture, nil, &textRect)
+}
+
+func (kb *virtualKeyboard) renderSpecialKeys(renderer *sdl.Renderer) {
+	kb.renderSpecialKey(renderer, kb.BackspaceRect, "←", kb.SelectedSpecial == 1)
+	kb.renderSpecialKey(renderer, kb.EnterRect, "↵", kb.SelectedSpecial == 2)
+	kb.renderSpecialKey(renderer, kb.ShiftRect, "⇧", kb.SelectedSpecial == 4 || kb.CurrentState == upperCase)
+	kb.renderSpaceKey(renderer)
+}
+
+func (kb *virtualKeyboard) renderSpecialKey(renderer *sdl.Renderer, rect sdl.Rect, symbol string, isSelected bool) {
+	bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
+	if isSelected {
+		bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
 	}
 
-	spaceBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
+	renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
+	renderer.FillRect(&rect)
+	renderer.SetDrawColor(70, 70, 80, 255)
+	renderer.DrawRect(&rect)
+
+	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
+	textSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(symbol, textColor)
+	if err != nil {
+		return
+	}
+	defer textSurface.Free()
+
+	textTexture, err := renderer.CreateTextureFromSurface(textSurface)
+	if err != nil {
+		return
+	}
+	defer textTexture.Destroy()
+
+	textRect := sdl.Rect{
+		X: rect.X + (rect.W-textSurface.W)/2,
+		Y: rect.Y + (rect.H-textSurface.H)/2,
+		W: textSurface.W,
+		H: textSurface.H,
+	}
+	renderer.Copy(textTexture, nil, &textRect)
+}
+
+func (kb *virtualKeyboard) renderSpaceKey(renderer *sdl.Renderer) {
+	bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if kb.SelectedSpecial == 3 {
-		spaceBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
+		bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
 	}
 
-	renderer.SetDrawColor(spaceBgColor.R, spaceBgColor.G, spaceBgColor.B, spaceBgColor.A)
+	renderer.SetDrawColor(bgColor.R, bgColor.G, bgColor.B, bgColor.A)
 	renderer.FillRect(&kb.SpaceRect)
-
 	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
+	// Draw space bar indicator
 	lineWidth := kb.SpaceRect.W / 3
 	lineHeight := int32(4)
 	lineRect := sdl.Rect{
@@ -1004,32 +815,16 @@ func (kb *virtualKeyboard) renderKeyboard(renderer *sdl.Renderer, font *ttf.Font
 	}
 	renderer.SetDrawColor(255, 255, 255, 255)
 	renderer.FillRect(&lineRect)
+}
 
-	shiftBgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
-	if kb.SelectedSpecial == 4 || kb.CurrentState == upperCase {
-		shiftBgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
-	}
-
-	renderer.SetDrawColor(shiftBgColor.R, shiftBgColor.G, shiftBgColor.B, shiftBgColor.A)
-	renderer.FillRect(&kb.ShiftRect)
-
-	renderer.SetDrawColor(70, 70, 80, 255)
-	renderer.DrawRect(&kb.ShiftRect)
-
-	shiftText := "⇧"
-	shiftSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(shiftText, textColor)
-	if err == nil {
-		shiftTexture, err := renderer.CreateTextureFromSurface(shiftSurface)
-		if err == nil {
-			shiftRect := sdl.Rect{
-				X: kb.ShiftRect.X + (kb.ShiftRect.W-shiftSurface.W)/2,
-				Y: kb.ShiftRect.Y + (kb.ShiftRect.H-shiftSurface.H)/2,
-				W: shiftSurface.W,
-				H: shiftSurface.H,
-			}
-			renderer.Copy(shiftTexture, nil, &shiftRect)
-			shiftTexture.Destroy()
-		}
-		shiftSurface.Free()
-	}
+func (kb *virtualKeyboard) renderFooter(renderer *sdl.Renderer) {
+	renderFooter(
+		renderer,
+		fonts.smallFont,
+		[]FooterHelpItem{
+			{ButtonName: "Menu", HelpText: "Help"},
+		},
+		20,
+		true,
+	)
 }

@@ -38,7 +38,7 @@ func defaultMessageSettings(message string) messageSettings {
 	return messageSettings{
 		Margins:          uniformPadding(20),
 		MessageText:      message,
-		MessageAlign:     AlignCenter,
+		MessageAlign:     TextAlignCenter,
 		ButtonSpacing:    20,
 		ConfirmButton:    ButtonA,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
@@ -66,158 +66,159 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		settings.ConfirmButton = options.ConfirmButton
 	}
 
-	running := true
-	result := MessageReturn{
-		Cancelled: true,
-	}
-
-	var imageTexture *sdl.Texture
-	var imageRect sdl.Rect
-	var imageW, imageH int32
-
-	if settings.ImagePath != "" {
-		image, err := img.Load(settings.ImagePath)
-		if err == nil {
-			defer image.Free()
-
-			imageTexture, err = renderer.CreateTextureFromSurface(image)
-			if err == nil {
-				imageW = image.W
-				imageH = image.H
-
-				// Always scale to use the maximum size available
-				widthScale := float32(settings.MaxImageWidth) / float32(imageW)
-				heightScale := float32(settings.MaxImageHeight) / float32(imageH)
-
-				// Use the smaller scale to maintain aspect ratio while fitting within bounds
-				scale := widthScale
-				if heightScale < widthScale {
-					scale = heightScale
-				}
-
-				imageW = int32(float32(imageW) * scale)
-				imageH = int32(float32(imageH) * scale)
-			}
-		}
-	}
-
+	result := MessageReturn{Cancelled: true}
 	lastInputTime := time.Now()
 
-	for running {
-		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
-			case *sdl.QuitEvent:
-				running = false
-				result.Cancelled = true
-
-			case *sdl.KeyboardEvent:
-				if e.Type != sdl.KEYDOWN {
-					continue
-				}
-
-				currentTime := time.Now()
-				if currentTime.Sub(lastInputTime) < settings.InputDelay {
-					continue
-				}
-				lastInputTime = currentTime
-
-				switch e.Keysym.Sym {
-				case sdl.K_a, sdl.K_RETURN:
-					result.Cancelled = false
-					running = false
-
-				case sdl.K_b, sdl.K_ESCAPE:
-					result.Cancelled = true
-					running = false
-				}
-
-			case *sdl.ControllerButtonEvent:
-				if e.Type != sdl.CONTROLLERBUTTONDOWN {
-					continue
-				}
-
-				currentTime := time.Now()
-				if currentTime.Sub(lastInputTime) < settings.InputDelay {
-					continue
-				}
-				lastInputTime = currentTime
-
-				switch Button(e.Button) {
-				case settings.ConfirmButton:
-					result.Cancelled = false
-					running = false
-
-				case ButtonB:
-					result.Cancelled = true
-					running = false
-				}
-			}
-		}
-
-		renderer.SetDrawColor(
-			settings.BackgroundColor.R,
-			settings.BackgroundColor.G,
-			settings.BackgroundColor.B,
-			settings.BackgroundColor.A)
-		renderer.Clear()
-
-		var contentHeight int32 = 0
-
+	imageTexture, imageRect := loadAndPrepareImage(renderer, settings)
+	defer func() {
 		if imageTexture != nil {
-			contentHeight += imageH + 30
+			imageTexture.Destroy()
+		}
+	}()
+
+	for {
+		if !handleEvents(&result, &lastInputTime, settings) {
+			break
 		}
 
-		messageFont := fonts.smallFont
-		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
-		var messageHeight int32 = 30
-		if len(settings.MessageText) > 0 {
-			lineCount := (len(settings.MessageText)*8)/int(maxWidth) + 1
-			messageHeight = int32(lineCount * 22)
-			contentHeight += messageHeight
-		}
-
-		startY := (window.Height - contentHeight) / 2
-
-		if imageTexture != nil {
-			imageRect = sdl.Rect{
-				X: (window.Width - imageW) / 2,
-				Y: startY,
-				W: imageW,
-				H: imageH,
-			}
-
-			renderer.Copy(imageTexture, nil, &imageRect)
-			startY = imageRect.Y + imageRect.H + 30
-		}
-
-		renderMultilineText(
-			renderer,
-			settings.MessageText,
-			messageFont,
-			maxWidth,
-			window.Width/2,
-			startY,
-			settings.MessageTextColor)
-
-		renderFooter(
-			renderer,
-			fonts.smallFont,
-			settings.FooterHelpItems,
-			settings.Margins.Bottom,
-			false,
-		)
-
-		renderer.Present()
+		renderFrame(renderer, window, settings, imageTexture, imageRect)
 		sdl.Delay(16)
-	}
-
-	if imageTexture != nil {
-		imageTexture.Destroy()
 	}
 
 	if result.Cancelled {
 		return option.None[MessageReturn](), nil
 	}
-
 	return option.Some(result), nil
+}
+
+func loadAndPrepareImage(renderer *sdl.Renderer, settings messageSettings) (*sdl.Texture, sdl.Rect) {
+	if settings.ImagePath == "" {
+		return nil, sdl.Rect{}
+	}
+
+	image, err := img.Load(settings.ImagePath)
+	if err != nil {
+		return nil, sdl.Rect{}
+	}
+	defer image.Free()
+
+	imageTexture, err := renderer.CreateTextureFromSurface(image)
+	if err != nil {
+		return nil, sdl.Rect{}
+	}
+
+	widthScale := float32(settings.MaxImageWidth) / float32(image.W)
+	heightScale := float32(settings.MaxImageHeight) / float32(image.H)
+	scale := widthScale
+	if heightScale < widthScale {
+		scale = heightScale
+	}
+
+	imageW := int32(float32(image.W) * scale)
+	imageH := int32(float32(image.H) * scale)
+
+	return imageTexture, sdl.Rect{
+		W: imageW,
+		H: imageH,
+	}
+}
+
+func handleEvents(result *MessageReturn, lastInputTime *time.Time, settings messageSettings) bool {
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch e := event.(type) {
+		case *sdl.QuitEvent:
+			result.Cancelled = true
+			return false
+
+		case *sdl.KeyboardEvent:
+			if e.Type != sdl.KEYDOWN || !isInputAllowed(*lastInputTime, settings.InputDelay) {
+				continue
+			}
+			*lastInputTime = time.Now()
+
+			switch e.Keysym.Sym {
+			case sdl.K_a, sdl.K_RETURN:
+				result.Cancelled = false
+				return false
+			case sdl.K_b, sdl.K_ESCAPE:
+				result.Cancelled = true
+				return false
+			}
+
+		case *sdl.ControllerButtonEvent:
+			if e.Type != sdl.CONTROLLERBUTTONDOWN || !isInputAllowed(*lastInputTime, settings.InputDelay) {
+				continue
+			}
+			*lastInputTime = time.Now()
+
+			switch Button(e.Button) {
+			case settings.ConfirmButton:
+				result.Cancelled = false
+				return false
+			case ButtonB:
+				result.Cancelled = true
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func isInputAllowed(lastInputTime time.Time, inputDelay time.Duration) bool {
+	return time.Since(lastInputTime) >= inputDelay
+}
+
+func renderFrame(renderer *sdl.Renderer, window *Window, settings messageSettings, imageTexture *sdl.Texture, imageRect sdl.Rect) {
+	renderer.SetDrawColor(
+		settings.BackgroundColor.R,
+		settings.BackgroundColor.G,
+		settings.BackgroundColor.B,
+		settings.BackgroundColor.A)
+	renderer.Clear()
+
+	contentHeight := calculateContentHeight(settings, imageRect)
+	startY := (window.Height - contentHeight) / 2
+
+	if imageTexture != nil {
+		imageRect.X = (window.Width - imageRect.W) / 2
+		imageRect.Y = startY
+		renderer.Copy(imageTexture, nil, &imageRect)
+		startY = imageRect.Y + imageRect.H + 30
+	}
+
+	if len(settings.MessageText) > 0 {
+		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
+		renderMultilineText(
+			renderer,
+			settings.MessageText,
+			fonts.smallFont,
+			maxWidth,
+			window.Width/2,
+			startY,
+			settings.MessageTextColor)
+	}
+
+	renderFooter(
+		renderer,
+		fonts.smallFont,
+		settings.FooterHelpItems,
+		settings.Margins.Bottom,
+		false,
+	)
+
+	renderer.Present()
+}
+
+func calculateContentHeight(settings messageSettings, imageRect sdl.Rect) int32 {
+	var contentHeight int32
+
+	if imageRect.W > 0 {
+		contentHeight += imageRect.H + 30
+	}
+
+	if len(settings.MessageText) > 0 {
+		contentHeight += 30
+	}
+
+	return contentHeight
 }

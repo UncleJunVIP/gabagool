@@ -5,6 +5,18 @@ import (
 	"time"
 )
 
+const Development = "DEV"
+
+var IsDev = os.Getenv("ENVIRONMENT") == Development
+
+type TextAlign int
+
+const (
+	TextAlignLeft TextAlign = iota
+	TextAlignCenter
+	TextAlignRight
+)
+
 type Button uint8
 
 const (
@@ -31,35 +43,12 @@ const (
 	ButtonR1 Button = 10
 )
 
-const NextUIBackgroundPath = "/mnt/SDCARD/bg.png"
-
 const EnvSettingsFile = "SETTINGS_FILE"
 const EnvBackgroundPath = "BACKGROUND_PATH"
-
-var IsDev = os.Getenv("ENVIRONMENT") == Development
-
-const Development = "DEV"
 
 const (
 	DefaultWindowWidth  = int32(1024)
 	DefaultWindowHeight = int32(768)
-)
-
-const (
-	FontSizeXLarge = 22
-	FontSizeLarge  = 18
-	FontSizeMedium = 16
-	FontSizeSmall  = 12
-	FontSizeTiny   = 8
-	FontSizeMicro  = 6
-)
-
-type TextAlign int
-
-const (
-	AlignLeft TextAlign = iota
-	AlignCenter
-	AlignRight
 )
 
 const (

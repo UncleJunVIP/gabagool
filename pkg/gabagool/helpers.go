@@ -8,11 +8,6 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-const (
-	TextAlignLeft TextAlign = iota
-	TextAlignCenter
-)
-
 func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...TextAlign) {
 
 	textAlign := TextAlignCenter
@@ -111,14 +106,11 @@ func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 	}
 }
 
-func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
+func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
 	if radius <= 0 {
 		renderer.FillRect(rect)
 		return
 	}
-
-	r, g, b, a, _ := renderer.GetDrawColor()
-	color := sdl.Color{R: r, G: g, B: b, A: a}
 
 	gfx.BoxColor(
 		renderer,
@@ -174,32 +166,4 @@ func drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32) {
 		radius,
 		color,
 	)
-}
-
-type textureCache struct {
-	textures map[string]*sdl.Texture
-}
-
-func newTextureCache() *textureCache {
-	return &textureCache{
-		textures: make(map[string]*sdl.Texture),
-	}
-}
-
-func (c *textureCache) get(key string) *sdl.Texture {
-	if texture, exists := c.textures[key]; exists {
-		return texture
-	}
-	return nil
-}
-
-func (c *textureCache) set(key string, texture *sdl.Texture) {
-	c.textures[key] = texture
-}
-
-func (c *textureCache) destroy() {
-	for _, texture := range c.textures {
-		texture.Destroy()
-	}
-	c.textures = make(map[string]*sdl.Texture)
 }

@@ -9,24 +9,17 @@ import (
 	"github.com/holoplot/go-evdev"
 )
 
-const (
-	powerButtonCode = 116
-	devicePath      = "/dev/input/event1"
-	shortPressMax   = 2 * time.Second
-	coolDownTime    = 1 * time.Second
-	suspendScript   = "/mnt/SDCARD/.system/tg5040/bin/suspend"
-	shutdownCommand = "/sbin/poweroff"
-)
-
 // Adapted from https://github.com/ben16w/minui-power-control
 func powerButtonHandler(wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	dev, err := evdev.Open(devicePath)
+	config := GetConfig()
+
+	dev, err := evdev.Open(config.PowerButton.DevicePath)
 	if err != nil {
 		log.Fatalf("Failed to open input device: %v", err)
 	}
-	log.Printf("Listening on device: %s\n", devicePath)
+	log.Printf("Listening on device: %s\n", config.PowerButton.DevicePath)
 
 	var pressTime time.Time
 	var cooldownUntil time.Time
@@ -42,24 +35,24 @@ func powerButtonHandler(wg *sync.WaitGroup) {
 			continue
 		}
 
-		if event.Type == evdev.EV_KEY && event.Code == powerButtonCode {
+		if event.Type == evdev.EV_KEY && event.Code == evdev.EvCode(config.PowerButton.ButtonCode) {
 			if event.Value == 0 && !pressTime.IsZero() {
 				duration := time.Since(pressTime)
 				pressTime = time.Time{}
 
-				if duration < shortPressMax {
+				if duration < config.PowerButton.ShortPressMax {
 					log.Println("Short press detected, suspending...")
-					runScript(suspendScript)
-					cooldownUntil = time.Now().Add(coolDownTime)
+					runScript(config.PowerButton.SuspendScript)
+					cooldownUntil = time.Now().Add(config.PowerButton.CoolDownTime)
 				}
 			} else if event.Value == 1 {
 				pressTime = time.Now()
 			} else if event.Value == 2 {
 				duration := time.Since(pressTime)
-				if duration >= shortPressMax {
+				if duration >= config.PowerButton.ShortPressMax {
 					log.Println("Button held down for 2 seconds, shutting down...")
-					runScript(shutdownCommand)
-					cooldownUntil = time.Now().Add(coolDownTime)
+					runScript(config.PowerButton.ShutdownCommand)
+					cooldownUntil = time.Now().Add(config.PowerButton.CoolDownTime)
 				}
 			}
 		}

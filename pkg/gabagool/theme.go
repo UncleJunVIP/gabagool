@@ -94,16 +94,17 @@ func initNextUITheme() {
 }
 
 func initTheme() {
-	currentTheme = Theme{
-		MainColor:            hexToColor(0xFFFFFF),
-		PrimaryAccentColor:   hexToColor(0x008080),
-		SecondaryAccentColor: hexToColor(0x000000),
-		HintInfoColor:        hexToColor(0x000000),
-		ListTextColor:        hexToColor(0xFFFFFF),
+	config := GetConfig()
 
+	currentTheme = Theme{
+		MainColor:             hexToColor(0xFFFFFF),
+		PrimaryAccentColor:    hexToColor(0x008080),
+		SecondaryAccentColor:  hexToColor(0x000000),
+		HintInfoColor:         hexToColor(0x000000),
+		ListTextColor:         hexToColor(0xFFFFFF),
 		ListTextSelectedColor: hexToColor(0x000000),
 		BGColor:               hexToColor(0xFFFFFF),
-		FontPath:              "/mnt/SDCARD/System/fonts/Cannoli.ttf",
+		FontPath:              config.Theme.DefaultFontPath,
 	}
 }
 
@@ -133,10 +134,6 @@ func hexToColor(hex uint32) sdl.Color {
 
 func GetTheme() Theme {
 	return currentTheme
-}
-
-func GetSDLColorValues(color sdl.Color) (uint8, uint8, uint8, uint8) {
-	return color.R, color.G, color.B, color.A
 }
 
 func loadNextVal() (*NextVal, error) {

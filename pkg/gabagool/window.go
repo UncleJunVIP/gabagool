@@ -36,11 +36,13 @@ func initWindow(title string, displayBackground bool) *Window {
 func initWindowWithSize(title string, width, height int32, displayBackground bool) *Window {
 	x, y := int32(0), int32(0)
 
+	config := GetConfig()
+
 	if IsDev {
-		x = width/2 - DefaultWindowWidth/2
-		y = height/2 - DefaultWindowHeight/2
-		width = DefaultWindowWidth
-		height = DefaultWindowHeight
+		x = width/2 - config.UI.Window.Width/2
+		y = height/2 - config.UI.Window.Height/2
+		width = config.UI.Window.Width
+		height = config.UI.Window.Height
 	}
 
 	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_BORDERLESS)
@@ -54,7 +56,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		os.Exit(1)
 	}
 
-	initFonts(getFontScale(width, height))
+	initFonts(config)
 
 	win := &Window{
 		Window:            window,
@@ -78,10 +80,11 @@ func (window *Window) initPowerButtonHandling() {
 func (window *Window) loadBackground() {
 	img.Init(img.INIT_PNG)
 
-	bgPath := NextUIBackgroundPath
+	config := GetConfig()
+	bgPath := config.Environment.NextUIBackgroundPath
 
 	if IsDev {
-		bgPath = os.Getenv(EnvBackgroundPath)
+		bgPath = os.Getenv(config.Environment.BackgroundPathEnvVar)
 	}
 
 	bgTexture, err := img.LoadTexture(window.Renderer, bgPath)

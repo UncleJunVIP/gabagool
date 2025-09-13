@@ -62,7 +62,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		SelectedIndex:     0,
 		MaxVisibleItems:   9,
 		Margins:           uniformPadding(20),
-		TitleAlign:        AlignLeft,
+		TitleAlign:        TextAlignLeft,
 		TitleSpacing:      DefaultTitleSpacing,
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		ScrollSpeed:       4.0,
@@ -77,15 +77,6 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 	}
 }
 
-type scrollData struct {
-	needsScrolling      bool
-	scrollOffset        int32
-	textWidth           int32
-	containerWidth      int32
-	direction           int
-	lastDirectionChange *time.Time
-}
-
 type listController struct {
 	Options       ListOptions
 	SelectedItems map[int]bool
@@ -96,8 +87,8 @@ type listController struct {
 	lastInputTime time.Time
 
 	helpOverlay     *helpOverlay
-	itemScrollData  map[int]*scrollData
-	titleScrollData *scrollData
+	itemScrollData  map[int]*textScrollData
+	titleScrollData *textScrollData
 
 	heldDirections struct {
 		up, down, left, right bool
@@ -131,8 +122,8 @@ func newListController(options ListOptions) *listController {
 		StartY:          20,
 		lastInputTime:   time.Now(),
 		helpOverlay:     helpOverlay,
-		itemScrollData:  make(map[int]*scrollData),
-		titleScrollData: &scrollData{},
+		itemScrollData:  make(map[int]*textScrollData),
+		titleScrollData: &textScrollData{},
 		lastRepeatTime:  time.Now(),
 		repeatDelay:     150 * time.Millisecond,
 		repeatInterval:  20 * time.Millisecond,
@@ -683,7 +674,7 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 				W: pillWidth,
 				H: pillHeight,
 			}
-			lc.drawRoundedRect(renderer, &pillRect, 30, bgColor)
+			drawRoundedRect(renderer, &pillRect, 30, bgColor)
 		}
 
 		// Render text (scrolling or static)
@@ -692,7 +683,7 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 }
 
 func (lc *listController) renderItemText(renderer *sdl.Renderer, font *ttf.Font, text string, focused bool, globalIndex int, itemY, pillHeight, maxWidth int32) {
-	textColor := lc.getTextColor(focused, lc.Options.Items[globalIndex].Selected)
+	textColor := lc.getTextColor(focused)
 
 	if focused && lc.shouldScroll(font, text, maxWidth) {
 		lc.renderScrollingText(renderer, font, text, textColor, globalIndex, itemY, pillHeight, maxWidth)
@@ -842,9 +833,9 @@ func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *tt
 	} else {
 		var titleX int32
 		switch align {
-		case AlignCenter:
+		case TextAlignCenter:
 			titleX = (screenWidth - surface.W) / 2
-		case AlignRight:
+		case TextAlignRight:
 			titleX = screenWidth - surface.W - marginLeft
 		default:
 			titleX = marginLeft
@@ -892,7 +883,7 @@ func (lc *listController) updateScrolling() {
 	}
 }
 
-func (lc *listController) updateScrollData(data *scrollData, currentTime time.Time) {
+func (lc *listController) updateScrollData(data *textScrollData, currentTime time.Time) {
 	if data.lastDirectionChange != nil && currentTime.Sub(*data.lastDirectionChange) < time.Duration(lc.Options.ScrollPauseTime)*time.Millisecond {
 		return
 	}
@@ -918,16 +909,16 @@ func (lc *listController) updateScrollData(data *scrollData, currentTime time.Ti
 	}
 }
 
-func (lc *listController) getOrCreateScrollData(index int, text string, font *ttf.Font, maxWidth int32) *scrollData {
+func (lc *listController) getOrCreateScrollData(index int, text string, font *ttf.Font, maxWidth int32) *textScrollData {
 	data, exists := lc.itemScrollData[index]
 	if !exists {
 		surface, _ := font.RenderUTF8Blended(text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if surface == nil {
-			return &scrollData{}
+			return &textScrollData{}
 		}
 		defer surface.Free()
 
-		data = &scrollData{
+		data = &textScrollData{
 			needsScrolling: surface.W > maxWidth,
 			textWidth:      surface.W,
 			containerWidth: maxWidth,
@@ -994,35 +985,9 @@ func (lc *listController) getItemColors(item MenuItem) (textColor, bgColor sdl.C
 	return GetTheme().ListTextColor, sdl.Color{}
 }
 
-func (lc *listController) getTextColor(focused, selected bool) sdl.Color {
+func (lc *listController) getTextColor(focused bool) sdl.Color {
 	if focused {
 		return GetTheme().ListTextSelectedColor
 	}
 	return GetTheme().ListTextColor
-}
-
-func (lc *listController) drawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color sdl.Color) {
-	renderer.SetDrawColor(color.R, color.G, color.B, color.A)
-
-	if radius <= 0 || radius*2 > rect.W || radius*2 > rect.H {
-		renderer.FillRect(rect)
-		return
-	}
-
-	// Main rectangles
-	renderer.FillRect(&sdl.Rect{X: rect.X + radius, Y: rect.Y, W: rect.W - 2*radius, H: rect.H})
-	renderer.FillRect(&sdl.Rect{X: rect.X, Y: rect.Y + radius, W: radius, H: rect.H - 2*radius})
-	renderer.FillRect(&sdl.Rect{X: rect.X + rect.W - radius, Y: rect.Y + radius, W: radius, H: rect.H - 2*radius})
-
-	// Rounded corners
-	for y := int32(0); y <= radius; y++ {
-		for x := int32(0); x <= radius; x++ {
-			if x*x+y*y <= radius*radius {
-				renderer.DrawPoint(rect.X+radius-x, rect.Y+radius-y)
-				renderer.DrawPoint(rect.X+rect.W-radius+x-1, rect.Y+radius-y)
-				renderer.DrawPoint(rect.X+radius-x, rect.Y+rect.H-radius+y-1)
-				renderer.DrawPoint(rect.X+rect.W-radius+x-1, rect.Y+rect.H-radius+y-1)
-			}
-		}
-	}
 }
