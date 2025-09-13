@@ -175,11 +175,6 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 }
 
 func (lc *listController) handleInput(event interface{}, running *bool, result *ListReturn) {
-	if lc.ShowingHelp {
-		lc.ShowingHelp = false
-		return
-	}
-
 	var keyPressed sdl.Keycode
 	var buttonPressed Button
 	var isKeyboard bool
@@ -208,6 +203,12 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 		}
 	}
 
+	// Handle help screen input separately
+	if lc.ShowingHelp {
+		lc.handleHelpInput(keyPressed, buttonPressed, isKeyboard)
+		return
+	}
+
 	// Exit reorder mode on non-directional input
 	if lc.ReorderMode && !lc.isDirectionalInput(keyPressed, buttonPressed, isKeyboard) {
 		lc.ReorderMode = false
@@ -221,6 +222,40 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 
 	// Handle action buttons
 	lc.handleActionButtons(keyPressed, buttonPressed, isKeyboard, running, result)
+}
+
+func (lc *listController) handleHelpInput(key sdl.Keycode, button Button, isKeyboard bool) {
+	if isKeyboard {
+		switch key {
+		case sdl.K_UP:
+			if lc.helpOverlay != nil {
+				lc.helpOverlay.scroll(-1)
+			}
+		case sdl.K_DOWN:
+			if lc.helpOverlay != nil {
+				lc.helpOverlay.scroll(1)
+			}
+		case sdl.K_h:
+			lc.ShowingHelp = false
+		default:
+			lc.ShowingHelp = false
+		}
+	} else {
+		switch button {
+		case ButtonUp:
+			if lc.helpOverlay != nil {
+				lc.helpOverlay.scroll(-1)
+			}
+		case ButtonDown:
+			if lc.helpOverlay != nil {
+				lc.helpOverlay.scroll(1)
+			}
+		case ButtonMenu:
+			lc.ShowingHelp = false
+		default:
+			lc.ShowingHelp = false
+		}
+	}
 }
 
 func (lc *listController) isDirectionalInput(key sdl.Keycode, button Button, isKeyboard bool) bool {
@@ -868,7 +903,6 @@ func (lc *listController) renderScrollingTitle(renderer *sdl.Renderer, texture *
 	renderer.Copy(texture, clipRect, &destRect)
 }
 
-// Helper functions
 func (lc *listController) updateScrolling() {
 	currentTime := time.Now()
 

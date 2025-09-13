@@ -1,14 +1,5 @@
 package gabagool
 
-func getFontScale(width, height int32) int {
-
-	if width == DefaultWindowWidth && height == DefaultWindowHeight {
-		return 3
-	}
-
-	return 2
-}
-
 func abs(x int) int {
 	if x < 0 {
 		return -x

@@ -13,7 +13,7 @@ type ProcessMessageOptions struct {
 	ImageHeight         int32
 	ShowThemeBackground bool
 }
-type ProcessReturn struct {
+type ProcessMessageReturn struct {
 	Success bool
 	Result  interface{}
 	Error   error
@@ -30,7 +30,7 @@ type processMessage struct {
 	imageHeight  int32
 }
 
-func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessReturn, error) {
+func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessMessageReturn, error) {
 	processor := &processMessage{
 		window:       GetWindow(),
 		showBG:       options.ShowThemeBackground,
@@ -48,7 +48,7 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		}
 	}
 
-	result := ProcessReturn{
+	result := ProcessMessageReturn{
 		Success: false,
 		Result:  nil,
 		Error:   nil,

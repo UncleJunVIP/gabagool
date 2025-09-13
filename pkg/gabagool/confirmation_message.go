@@ -9,7 +9,7 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type messageSettings struct {
+type confirmationMessageSettings struct {
 	Margins          padding
 	MessageText      string
 	MessageAlign     TextAlign
@@ -30,12 +30,12 @@ type MessageOptions struct {
 	ImagePath     string
 	ConfirmButton Button
 }
-type MessageReturn struct {
+type ConfirmationMessageReturn struct {
 	Cancelled bool
 }
 
-func defaultMessageSettings(message string) messageSettings {
-	return messageSettings{
+func defaultMessageSettings(message string) confirmationMessageSettings {
+	return confirmationMessageSettings{
 		Margins:          uniformPadding(20),
 		MessageText:      message,
 		MessageAlign:     TextAlignCenter,
@@ -49,7 +49,7 @@ func defaultMessageSettings(message string) messageSettings {
 	}
 }
 
-func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[MessageReturn], error) {
+func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[ConfirmationMessageReturn], error) {
 	window := GetWindow()
 	renderer := window.Renderer
 
@@ -66,7 +66,7 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		settings.ConfirmButton = options.ConfirmButton
 	}
 
-	result := MessageReturn{Cancelled: true}
+	result := ConfirmationMessageReturn{Cancelled: true}
 	lastInputTime := time.Now()
 
 	imageTexture, imageRect := loadAndPrepareImage(renderer, settings)
@@ -86,12 +86,12 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 	}
 
 	if result.Cancelled {
-		return option.None[MessageReturn](), nil
+		return option.None[ConfirmationMessageReturn](), nil
 	}
 	return option.Some(result), nil
 }
 
-func loadAndPrepareImage(renderer *sdl.Renderer, settings messageSettings) (*sdl.Texture, sdl.Rect) {
+func loadAndPrepareImage(renderer *sdl.Renderer, settings confirmationMessageSettings) (*sdl.Texture, sdl.Rect) {
 	if settings.ImagePath == "" {
 		return nil, sdl.Rect{}
 	}
@@ -123,7 +123,7 @@ func loadAndPrepareImage(renderer *sdl.Renderer, settings messageSettings) (*sdl
 	}
 }
 
-func handleEvents(result *MessageReturn, lastInputTime *time.Time, settings messageSettings) bool {
+func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, settings confirmationMessageSettings) bool {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch e := event.(type) {
 		case *sdl.QuitEvent:
@@ -168,7 +168,7 @@ func isInputAllowed(lastInputTime time.Time, inputDelay time.Duration) bool {
 	return time.Since(lastInputTime) >= inputDelay
 }
 
-func renderFrame(renderer *sdl.Renderer, window *Window, settings messageSettings, imageTexture *sdl.Texture, imageRect sdl.Rect) {
+func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMessageSettings, imageTexture *sdl.Texture, imageRect sdl.Rect) {
 	renderer.SetDrawColor(
 		settings.BackgroundColor.R,
 		settings.BackgroundColor.G,
@@ -209,7 +209,7 @@ func renderFrame(renderer *sdl.Renderer, window *Window, settings messageSetting
 	renderer.Present()
 }
 
-func calculateContentHeight(settings messageSettings, imageRect sdl.Rect) int32 {
+func calculateContentHeight(settings confirmationMessageSettings, imageRect sdl.Rect) int32 {
 	var contentHeight int32
 
 	if imageRect.W > 0 {

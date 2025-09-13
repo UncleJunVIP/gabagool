@@ -44,7 +44,6 @@ const (
 )
 
 const EnvSettingsFile = "SETTINGS_FILE"
-const EnvBackgroundPath = "BACKGROUND_PATH"
 
 const (
 	DefaultWindowWidth  = int32(1024)

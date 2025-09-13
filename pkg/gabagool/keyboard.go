@@ -57,7 +57,6 @@ var defaultKeyboardHelpLines = []string{
 	"• Start: Enter (confirm input)",
 }
 
-// Simplified key layout - represents the logical grid structure
 type keyLayout struct {
 	rows [][]interface{}
 }
@@ -81,7 +80,7 @@ func createKeyLayout() *keyLayout {
 
 func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 	kb := &virtualKeyboard{
-		Keys:             createKeys(windowWidth, windowHeight),
+		Keys:             createKeys(),
 		TextBuffer:       "",
 		CurrentState:     lowerCase,
 		SelectedKeyIndex: 0,
@@ -99,7 +98,7 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 	return kb
 }
 
-func createKeys(windowWidth, windowHeight int32) []key {
+func createKeys() []key {
 	keys := make([]key, 36) // Total number of regular keys
 
 	// Numbers row

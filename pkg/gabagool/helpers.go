@@ -2,11 +2,21 @@ package gabagool
 
 import (
 	"strings"
+	"time"
 
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
+
+type textScrollData struct {
+	needsScrolling      bool
+	scrollOffset        int32
+	textWidth           int32
+	containerWidth      int32
+	direction           int
+	lastDirectionChange *time.Time
+}
 
 func renderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...TextAlign) {
 
