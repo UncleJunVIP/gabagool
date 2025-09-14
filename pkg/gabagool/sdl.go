@@ -1,7 +1,9 @@
 package gabagool
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -53,10 +55,18 @@ func detectAndOpenAllGameControllers() {
 			if controller != nil {
 				name := controller.Name()
 
+				// Try to get GUID for mapping (this might not work with current SDL version)
+				// If GUID methods aren't available, we'll use controller name for basic mapping
+				guid := fmt.Sprintf("controller_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
+
 				GetLoggerInstance().Info("Opened game controller",
 					"index", i,
 					"name", name,
+					"guid", guid,
 				)
+
+				// Initialize dynamic button mapping for this controller
+				InitializeControllerMapping(name, guid)
 
 				gameControllers = append(gameControllers, controller)
 			} else {
@@ -80,6 +90,13 @@ func detectAndOpenAllGameControllers() {
 		"gameControllers", len(gameControllers),
 		"totalJoysticks", numJoysticks,
 	)
+
+	// Apply the best available controller mapping to global constants
+	ApplyBestControllerMapping()
+
+	// Log the final button mapping that's being used
+	currentMapping := GetCurrentButtonMapping()
+	GetLoggerInstance().Info("Final button mapping applied", "mapping", currentMapping)
 }
 
 func GetConnectedControllers() []map[string]interface{} {
