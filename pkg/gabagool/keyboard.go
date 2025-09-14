@@ -52,11 +52,10 @@ type virtualKeyboard struct {
 var defaultKeyboardHelpLines = []string{
 	"• D-Pad: Navigate between keys",
 	"• A: Type the selected key",
-	"• B: backspace",
+	"• B: Backspace",
 	"• X: Space",
 	"• L1 / R1: Move cursor within text",
-	"• Select: toggle Shift (uppercase/symbols)",
-	"• L2: toggle Symbols mode",
+	"• Select: Toggle Shift (uppercase/symbols)",
 	"• Y: Exit keyboard without saving",
 	"• Start: Enter (confirm input)",
 }
@@ -352,7 +351,7 @@ func (kb *virtualKeyboard) handleButtonInput(button Button) bool {
 		kb.insertSpace()
 	case ButtonSelect:
 		kb.toggleShift()
-	case ButtonL2:
+	case ButtonF1:
 		kb.toggleSymbols()
 	case ButtonL1:
 		kb.moveCursor(-1)
