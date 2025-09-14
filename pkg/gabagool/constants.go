@@ -41,6 +41,8 @@ const (
 
 	ButtonL1 Button = 9
 	ButtonR1 Button = 10
+	ButtonL2        = 15
+	ButtonR2        = 16
 )
 
 const EnvSettingsFile = "SETTINGS_FILE"

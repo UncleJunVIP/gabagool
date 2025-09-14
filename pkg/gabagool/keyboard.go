@@ -22,6 +22,7 @@ type keyboardState int
 const (
 	lowerCase keyboardState = iota
 	upperCase
+	symbolsMode
 )
 
 type virtualKeyboard struct {
@@ -29,10 +30,12 @@ type virtualKeyboard struct {
 	TextBuffer       string
 	CurrentState     keyboardState
 	ShiftPressed     bool
+	SymbolPressed    bool
 	BackspaceRect    sdl.Rect
 	EnterRect        sdl.Rect
 	SpaceRect        sdl.Rect
 	ShiftRect        sdl.Rect
+	SymbolRect       sdl.Rect
 	TextInputRect    sdl.Rect
 	KeyboardRect     sdl.Rect
 	SelectedKeyIndex int
@@ -53,6 +56,7 @@ var defaultKeyboardHelpLines = []string{
 	"• X: Space",
 	"• L1 / R1: Move cursor within text",
 	"• Select: toggle Shift (uppercase/symbols)",
+	"• L2: toggle Symbols mode",
 	"• Y: Exit keyboard without saving",
 	"• Start: Enter (confirm input)",
 }
@@ -68,11 +72,11 @@ func createKeyLayout() *keyLayout {
 			{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, "backspace"},
 			// Row 2: qwerty row
 			{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
-			// Row 3: asdf row
-			{20, 21, 22, 23, 24, 25, 26, 27, 28},
-			// Row 4: shift + zxcv row + enter
-			{"shift", 29, 30, 31, 32, 33, 34, 35, "enter"},
-			// Row 5: space
+			// Row 3: asdf row + enter
+			{20, 21, 22, 23, 24, 25, 26, 27, 28, "enter"},
+			// Row 4: shift + zxcv row + symbol
+			{"shift", 29, 30, 31, 32, 33, 34, 35, "symbol"},
+			// Row 5: space only
 			{"space"},
 		},
 	}
@@ -103,40 +107,46 @@ func createKeys() []key {
 
 	// Numbers row
 	numbers := []string{"1", "2", "3", "4", "5", "6", "7", "8", "9", "0"}
-	symbols := []string{"!", "@", "#", "$", "%", "^", "&", "*", "(", ")"}
+	numberSymbols := []string{"!", "@", "#", "$", "%", "^", "&", "*", "(", ")"}
 
 	for i, num := range numbers {
 		keys[i] = key{
 			LowerValue:  num,
 			UpperValue:  num,
-			SymbolValue: symbols[i],
+			SymbolValue: numberSymbols[i],
 		}
 	}
 
 	// QWERTY row
 	qwerty := "qwertyuiop"
+	qwertySymbols := []string{"`", "~", "[", "]", "\\", "|", "{", "}", ";", ":"}
 	for i, char := range qwerty {
 		keys[10+i] = key{
-			LowerValue: string(char),
-			UpperValue: string(char - 32),
+			LowerValue:  string(char),
+			UpperValue:  string(char - 32),
+			SymbolValue: qwertySymbols[i],
 		}
 	}
 
 	// ASDF row
 	asdf := "asdfghjkl"
+	asdfSymbols := []string{"'", "\"", "<", ">", "?", "/", "+", "=", "_"}
 	for i, char := range asdf {
 		keys[20+i] = key{
-			LowerValue: string(char),
-			UpperValue: string(char - 32),
+			LowerValue:  string(char),
+			UpperValue:  string(char - 32),
+			SymbolValue: asdfSymbols[i],
 		}
 	}
 
-	// ZXCV row
+	// ZXCV row - avoiding symbols already used
 	zxcv := "zxcvbnm"
+	zxcvSymbols := []string{",", ".", "-", "€", "£", "¥", "¢"}
 	for i, char := range zxcv {
 		keys[29+i] = key{
-			LowerValue: string(char),
-			UpperValue: string(char - 32),
+			LowerValue:  string(char),
+			UpperValue:  string(char - 32),
+			SymbolValue: zxcvSymbols[i],
 		}
 	}
 
@@ -157,42 +167,72 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 
 	keyWidth := keyboardWidth / 12
 	keyHeight := keyboardHeight / 6
-	keySpacing := int32(6)
+	keySpacing := int32(3)
 
-	// Position all keys
+	// Define consistent key widths for special keys
+	backspaceWidth := keyWidth * 2
+	shiftWidth := keyWidth * 2
+	symbolWidth := keyWidth * 2
+	enterWidth := keyWidth + keyWidth/2
+	spaceWidth := keyWidth * 8
+
+	// Calculate the maximum row width to determine consistent left margin
+	// Row 1: 10 regular keys + backspace
+	row1Width := keyWidth*10 + keySpacing*9 + backspaceWidth + keySpacing
+	// Row 2: 10 regular keys
+	row2Width := keyWidth*10 + keySpacing*9
+	// Row 3: 9 regular keys + enter
+	row3Width := keyWidth*9 + keySpacing*8 + enterWidth + keySpacing
+	// Row 4: shift + 7 regular keys + symbol
+	row4Width := shiftWidth + keySpacing + keyWidth*7 + keySpacing*6 + symbolWidth + keySpacing
+	// Row 5: space
+	row5Width := spaceWidth
+
+	// Find the maximum width to align all rows consistently
+	maxRowWidth := row1Width
+	if row2Width > maxRowWidth {
+		maxRowWidth = row2Width
+	}
+	if row3Width > maxRowWidth {
+		maxRowWidth = row3Width
+	}
+	if row4Width > maxRowWidth {
+		maxRowWidth = row4Width
+	}
+
+	// Calculate consistent left margin for all rows
+	leftMargin := startX + (keyboardWidth-maxRowWidth)/2
+
 	y := keyboardStartY + keySpacing
 
-	// Row 1: Numbers
-	x := startX + keySpacing
+	// Row 1: Numbers + Backspace
+	x := leftMargin
 	for i := 0; i < 10; i++ {
 		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
-	kb.BackspaceRect = sdl.Rect{X: x, Y: y, W: keyWidth * 2, H: keyHeight}
+	kb.BackspaceRect = sdl.Rect{X: x, Y: y, W: backspaceWidth, H: keyHeight}
 
 	// Row 2: QWERTY
 	y += keyHeight + keySpacing
-	x = startX + (keyboardWidth-(keyWidth*10+keySpacing*9))/2
+	x = leftMargin + (maxRowWidth-row2Width)/2 // Center this row within max width
 	for i := 10; i < 20; i++ {
 		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
 
-	// Row 3: ASDF
+	// Row 3: ASDF + Enter
 	y += keyHeight + keySpacing
-	x = startX + (keyboardWidth-(keyWidth*9+keySpacing*8))/2
+	x = leftMargin + (maxRowWidth-row3Width)/2 // Center this row within max width
 	for i := 20; i < 29; i++ {
 		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
+	kb.EnterRect = sdl.Rect{X: x, Y: y, W: enterWidth, H: keyHeight}
 
-	// Row 4: Shift + ZXCV + Enter
+	// Row 4: Shift + ZXCV + Symbol
 	y += keyHeight + keySpacing
-	shiftWidth := keyWidth * 2
-	enterWidth := keyWidth + keyWidth/2
-	regularKeysWidth := keyWidth*7 + keySpacing*6
-	totalWidth := shiftWidth + regularKeysWidth + enterWidth + keySpacing*2
-	x = startX + (keyboardWidth-totalWidth)/2
+	x = leftMargin + (maxRowWidth-row4Width)/2 // Center this row within max width
 
 	kb.ShiftRect = sdl.Rect{X: x, Y: y, W: shiftWidth, H: keyHeight}
 	x += shiftWidth + keySpacing
@@ -201,17 +241,13 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 		kb.Keys[i].Rect = sdl.Rect{X: x, Y: y, W: keyWidth, H: keyHeight}
 		x += keyWidth + keySpacing
 	}
-	kb.EnterRect = sdl.Rect{X: x, Y: y, W: enterWidth, H: keyHeight}
+
+	kb.SymbolRect = sdl.Rect{X: x, Y: y, W: symbolWidth, H: keyHeight}
 
 	// Row 5: Space
 	y += keyHeight + keySpacing
-	spaceWidth := keyWidth * 6
-	kb.SpaceRect = sdl.Rect{
-		X: startX + (keyboardWidth-spaceWidth)/2,
-		Y: y,
-		W: spaceWidth,
-		H: keyHeight,
-	}
+	x = leftMargin + (maxRowWidth-row5Width)/2 // Center space bar within max width
+	kb.SpaceRect = sdl.Rect{X: x, Y: y, W: spaceWidth, H: keyHeight}
 }
 
 func Keyboard(initialText string) (types.Option[string], error) {
@@ -284,6 +320,8 @@ func (kb *virtualKeyboard) handleKeyInput(key sdl.Keycode) bool {
 		kb.backspace()
 	case sdl.K_LSHIFT, sdl.K_RSHIFT:
 		kb.toggleShift()
+	case sdl.K_q: // Using Q key as symbol toggle for keyboard input
+		kb.toggleSymbols()
 	case sdl.K_RETURN:
 		kb.EnterPressed = true
 		return true
@@ -314,6 +352,8 @@ func (kb *virtualKeyboard) handleButtonInput(button Button) bool {
 		kb.insertSpace()
 	case ButtonSelect:
 		kb.toggleShift()
+	case ButtonL2:
+		kb.toggleSymbols()
 	case ButtonL1:
 		kb.moveCursor(-1)
 	case ButtonR1:
@@ -390,7 +430,7 @@ func (kb *virtualKeyboard) navigateWithButton(button Button) {
 }
 
 func (kb *virtualKeyboard) findCurrentPosition(layout *keyLayout) (int, int) {
-	specialKeys := map[int]string{1: "backspace", 2: "enter", 3: "space", 4: "shift"}
+	specialKeys := map[int]string{1: "backspace", 2: "enter", 3: "space", 4: "shift", 5: "symbol"}
 
 	if kb.SelectedSpecial > 0 {
 		targetKey := specialKeys[kb.SelectedSpecial]
@@ -462,7 +502,7 @@ func (kb *virtualKeyboard) setSelection(layout *keyLayout, row, col int) {
 		kb.Keys[kb.SelectedKeyIndex].IsPressed = true
 	} else if str, ok := selectedKey.(string); ok {
 		kb.SelectedKeyIndex = -1
-		specialMap := map[string]int{"backspace": 1, "enter": 2, "space": 3, "shift": 4}
+		specialMap := map[string]int{"backspace": 1, "enter": 2, "space": 3, "shift": 4, "symbol": 5}
 		kb.SelectedSpecial = specialMap[str]
 	}
 }
@@ -481,7 +521,9 @@ func (kb *virtualKeyboard) processSelection() {
 
 func (kb *virtualKeyboard) getKeyValue(index int) string {
 	key := kb.Keys[index]
-	if index < 10 && kb.ShiftPressed {
+	if kb.CurrentState == symbolsMode {
+		return key.SymbolValue
+	} else if index < 10 && kb.ShiftPressed {
 		return key.SymbolValue
 	} else if kb.CurrentState == upperCase {
 		return key.UpperValue
@@ -511,6 +553,8 @@ func (kb *virtualKeyboard) handleSpecialKey() {
 		kb.insertSpace()
 	case 4: // shift
 		kb.toggleShift()
+	case 5: // symbol
+		kb.toggleSymbols()
 	}
 }
 
@@ -529,11 +573,30 @@ func (kb *virtualKeyboard) insertSpace() {
 }
 
 func (kb *virtualKeyboard) toggleShift() {
-	kb.ShiftPressed = !kb.ShiftPressed
-	if kb.ShiftPressed {
-		kb.CurrentState = upperCase
+	if kb.CurrentState == symbolsMode {
+		// If in symbols mode, shift just toggles the shift flag
+		kb.ShiftPressed = !kb.ShiftPressed
 	} else {
-		kb.CurrentState = lowerCase
+		// Normal shift behavior for upper/lower case
+		kb.ShiftPressed = !kb.ShiftPressed
+		if kb.ShiftPressed {
+			kb.CurrentState = upperCase
+		} else {
+			kb.CurrentState = lowerCase
+		}
+	}
+}
+
+func (kb *virtualKeyboard) toggleSymbols() {
+	kb.SymbolPressed = !kb.SymbolPressed
+	if kb.SymbolPressed {
+		kb.CurrentState = symbolsMode
+	} else {
+		if kb.ShiftPressed {
+			kb.CurrentState = upperCase
+		} else {
+			kb.CurrentState = lowerCase
+		}
 	}
 }
 
@@ -607,7 +670,7 @@ func (kb *virtualKeyboard) renderTextInput(renderer *sdl.Renderer, font *ttf.Fon
 	if kb.TextBuffer != "" {
 		kb.renderTextWithCursor(renderer, font, padding)
 	} else if kb.CursorVisible {
-		kb.renderEmptyCursor(renderer, padding)
+		kb.renderEmptyCursor(renderer, font, padding)
 	}
 }
 
@@ -659,6 +722,20 @@ func (kb *virtualKeyboard) renderTextWithCursor(renderer *sdl.Renderer, font *tt
 	}
 }
 
+func (kb *virtualKeyboard) renderEmptyCursor(renderer *sdl.Renderer, font *ttf.Font, padding int32) {
+	// Get font height for consistent cursor size
+	fontHeight := font.Height()
+
+	cursorRect := sdl.Rect{
+		X: kb.TextInputRect.X + padding,
+		Y: kb.TextInputRect.Y + (kb.TextInputRect.H - int32(fontHeight)),
+		W: 2,
+		H: int32(fontHeight),
+	}
+	renderer.SetDrawColor(255, 255, 255, 255)
+	renderer.FillRect(&cursorRect)
+}
+
 func (kb *virtualKeyboard) calculateCursorX(font *ttf.Font) int32 {
 	if kb.CursorPosition == 0 {
 		return 0
@@ -690,18 +767,6 @@ func (kb *virtualKeyboard) calculateScrollOffset(cursorX, visibleWidth, textWidt
 	}
 
 	return offsetX
-}
-
-func (kb *virtualKeyboard) renderEmptyCursor(renderer *sdl.Renderer, padding int32) {
-	placeholderHeight := int32(20)
-	cursorRect := sdl.Rect{
-		X: kb.TextInputRect.X + padding,
-		Y: kb.TextInputRect.Y + (kb.TextInputRect.H-placeholderHeight)/2,
-		W: 2,
-		H: placeholderHeight,
-	}
-	renderer.SetDrawColor(255, 255, 255, 255)
-	renderer.FillRect(&cursorRect)
 }
 
 func (kb *virtualKeyboard) renderKeys(renderer *sdl.Renderer, font *ttf.Font) {
@@ -756,6 +821,7 @@ func (kb *virtualKeyboard) renderSpecialKeys(renderer *sdl.Renderer) {
 	kb.renderSpecialKey(renderer, kb.BackspaceRect, "←", kb.SelectedSpecial == 1)
 	kb.renderSpecialKey(renderer, kb.EnterRect, "↵", kb.SelectedSpecial == 2)
 	kb.renderSpecialKey(renderer, kb.ShiftRect, "⇧", kb.SelectedSpecial == 4 || kb.CurrentState == upperCase)
+	kb.renderSpecialKey(renderer, kb.SymbolRect, "sym", kb.SelectedSpecial == 5 || kb.CurrentState == symbolsMode)
 	kb.renderSpaceKey(renderer)
 }
 
