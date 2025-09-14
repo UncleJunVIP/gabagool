@@ -10,6 +10,8 @@ type GabagoolOptions struct {
 // InitSDL initializes SDL and the UI
 // Must be called before any other UI functions!
 func InitSDL(options GabagoolOptions) {
+	createLogger()
+
 	if options.IsCannoli {
 		initTheme()
 	} else {
@@ -24,6 +26,7 @@ func InitSDL(options GabagoolOptions) {
 func CloseSDL() {
 	closeFonts()
 	SDLCleanup()
+	CloseLogger()
 }
 
 func HideWindow() {

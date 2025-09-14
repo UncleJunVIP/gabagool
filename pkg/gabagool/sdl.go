@@ -28,6 +28,7 @@ func Init(title string, showBackground bool) {
 		if sdl.IsGameController(i) {
 			controller := sdl.GameControllerOpen(i)
 			if controller != nil {
+				GetLoggerInstance().Info("Opened game controller: %s", controller.Name(), "controller", controller)
 				gameControllers = append(gameControllers, controller)
 			}
 		}
