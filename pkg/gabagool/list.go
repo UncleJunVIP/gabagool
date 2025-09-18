@@ -649,6 +649,14 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 func (lc *listController) renderContent(renderer *sdl.Renderer, visibleItems []MenuItem) {
 	itemStartY := lc.StartY
 
+	// Render background
+	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
+		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
+		if selectedItem.BackgroundFilename != "" {
+			lc.renderSelectedItemBackground(renderer, selectedItem.BackgroundFilename)
+		}
+	}
+
 	// Render title
 	if lc.Options.Title != "" {
 		titleFont := fonts.extraLargeFont
@@ -818,6 +826,25 @@ func (lc *listController) renderEmptyMessage(renderer *sdl.Renderer, font *ttf.F
 		texture.Destroy()
 		surface.Free()
 	}
+}
+
+func (lc *listController) renderSelectedItemBackground(renderer *sdl.Renderer, imageFilename string) {
+	texture, err := img.LoadTexture(renderer, imageFilename)
+	if err != nil {
+		return
+	}
+	defer texture.Destroy()
+
+	screenWidth, screenHeight, _ := renderer.GetOutputSize()
+
+	destRect := sdl.Rect{
+		X: 0,
+		Y: 0,
+		W: screenWidth,
+		H: screenHeight,
+	}
+
+	renderer.Copy(texture, nil, &destRect)
 }
 
 func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageFilename string) {

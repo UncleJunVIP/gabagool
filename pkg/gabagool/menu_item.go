@@ -7,6 +7,7 @@ type MenuItem struct {
 	NotMultiSelectable bool
 	Metadata           interface{}
 	ImageFilename      string
+	BackgroundFilename	string
 }
 
 type ListReturn struct {
