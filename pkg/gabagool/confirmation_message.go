@@ -14,6 +14,7 @@ type confirmationMessageSettings struct {
 	MessageText      string
 	MessageAlign     TextAlign
 	ButtonSpacing    int32
+	ConfirmKey       sdl.Keycode
 	ConfirmButton    Button
 	ImagePath        string
 	MaxImageHeight   int32
@@ -28,6 +29,7 @@ type confirmationMessageSettings struct {
 
 type MessageOptions struct {
 	ImagePath     string
+	ConfirmKey    sdl.Keycode
 	ConfirmButton Button
 }
 type ConfirmationMessageReturn struct {
@@ -40,6 +42,7 @@ func defaultMessageSettings(message string) confirmationMessageSettings {
 		MessageText:      message,
 		MessageAlign:     TextAlignCenter,
 		ButtonSpacing:    20,
+		ConfirmKey:       sdl.K_a,
 		ConfirmButton:    ButtonA,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
@@ -64,6 +67,10 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 
 	if options.ConfirmButton != 0 {
 		settings.ConfirmButton = options.ConfirmButton
+	}
+
+	if options.ConfirmKey != 0 {
+		settings.ConfirmKey = options.ConfirmKey
 	}
 
 	result := ConfirmationMessageReturn{Cancelled: true}
@@ -137,7 +144,7 @@ func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, s
 			*lastInputTime = time.Now()
 
 			switch e.Keysym.Sym {
-			case sdl.K_a, sdl.K_RETURN:
+			case settings.ConfirmKey, sdl.K_RETURN:
 				result.Cancelled = false
 				return false
 			case sdl.K_b, sdl.K_ESCAPE:
