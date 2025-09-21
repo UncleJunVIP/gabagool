@@ -1,16 +1,20 @@
 package gabagool
 
-// GabagoolOptions is used to configure global settings
-type GabagoolOptions struct {
+import "log/slog"
+
+type Options struct {
 	WindowTitle    string
 	ShowBackground bool
 	IsCannoli      bool
+	LogFilename    string
+	LogLevel       slog.Level
 }
 
 // InitSDL initializes SDL and the UI
 // Must be called before any other UI functions!
-func InitSDL(options GabagoolOptions) {
-	createLogger()
+func InitSDL(options Options) {
+	setLogFilename(options.LogFilename)
+	SetLogLevel(options.LogLevel)
 
 	if options.IsCannoli {
 		initTheme()
@@ -26,7 +30,6 @@ func InitSDL(options GabagoolOptions) {
 func CloseSDL() {
 	closeFonts()
 	SDLCleanup()
-	CloseLogger()
 }
 
 func HideWindow() {

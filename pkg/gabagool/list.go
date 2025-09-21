@@ -566,10 +566,9 @@ func (lc *listController) updateSelectionState() {
 			lc.Options.Items[i].Selected = i == lc.Options.SelectedIndex
 		}
 		lc.SelectedItems = map[int]bool{lc.Options.SelectedIndex: true}
-	} else if !lc.Options.Items[lc.Options.SelectedIndex].NotMultiSelectable {
-		lc.Options.Items[lc.Options.SelectedIndex].Selected = true
-		lc.SelectedItems[lc.Options.SelectedIndex] = true
 	}
+	// In multi-select mode, don't automatically select items during navigation
+	// Selection should only happen when 'A' button is explicitly pressed via toggleSelection()
 }
 
 func (lc *listController) getSelectedItems() []int {
