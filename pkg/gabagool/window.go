@@ -45,7 +45,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		height = config.UI.Window.Height
 	}
 
-	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN)
+	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_BORDERLESS)
 	if err != nil {
 		panic(err)
 	}
