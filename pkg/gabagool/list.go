@@ -346,6 +346,18 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 		if lc.Options.EnableAction {
 			*running = false
 			result.ActionTriggered = true
+			// New logic to handle returning the value(s) selected when X is pressed, if the app wants to use them
+			// If not multi select, returns a single value like A button
+			// if multi select, returns selected values like start button
+			if len(lc.Options.Items) > 0 {
+				if lc.MultiSelect {
+					if indices := lc.getSelectedItems(); len(indices) > 0 {
+						result.populateMultiSelection(indices, lc.Options.Items, lc.Options.VisibleStartIndex)
+					}
+				} else {
+					result.populateSingleSelection(lc.Options.SelectedIndex, lc.Options.Items, lc.Options.VisibleStartIndex)
+				}
+			}
 		}
 	}
 
