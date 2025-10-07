@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 )
 
@@ -13,7 +14,7 @@ var (
 	levelVar    *slog.LevelVar
 	logFile     *os.File
 	loggerOnce  sync.Once
-	logFilename string = "app.log"
+	logFilename = "app.log"
 )
 
 func setLogFilename(filename string) {
@@ -47,6 +48,26 @@ func GetLoggerInstance() *slog.Logger {
 }
 
 func SetLogLevel(level slog.Level) {
+	GetLoggerInstance()
+	levelVar.Set(level)
+}
+
+func SetRawLogLevel(rawLevel string) {
+	var level slog.Level
+
+	switch strings.ToLower(rawLevel) {
+	case "debug":
+		level = slog.LevelDebug
+	case "info":
+		level = slog.LevelInfo
+	case "warn", "warning":
+		level = slog.LevelWarn
+	case "error":
+		level = slog.LevelError
+	default:
+		level = slog.LevelInfo
+	}
+
 	GetLoggerInstance()
 	levelVar.Set(level)
 }
