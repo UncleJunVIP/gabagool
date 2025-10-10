@@ -53,6 +53,9 @@ type ListOptions struct {
 
 	OnSelect  func(index int, item *MenuItem)
 	OnReorder func(from, to int)
+
+	SwapImages	bool
+	NoBackground	bool
 }
 
 func DefaultListOptions(title string, items []MenuItem) ListOptions {
@@ -662,13 +665,15 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 	itemStartY := lc.StartY
 
 	// Render background
-	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
-		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
-		if selectedItem.BackgroundFilename != "" {
-			lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
+	if !lc.Options.SwapImages {
+		if !lc.Options.NoBackground && lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
+			selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
+			if selectedItem.BackgroundFilename != "" {
+				lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
+			}
+		} else {
+			window.RenderBackground()
 		}
-	} else {
-		window.RenderBackground()
 	}
 
 	// Render title
@@ -690,6 +695,18 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 	// Render selected item image
 	if lc.imageIsDisplayed() {
 		lc.renderSelectedItemImage(renderer, lc.Options.Items[lc.Options.SelectedIndex].ImageFilename)
+	}
+
+	// render swapped images
+	if lc.Options.SwapImages {
+		if !lc.Options.NoBackground && lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
+			selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
+			if selectedItem.BackgroundFilename != "" {
+				lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
+			}
+		} else {
+			window.RenderBackground()
+		}
 	}
 
 	// Render footer
