@@ -665,7 +665,7 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
 		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
 		if selectedItem.BackgroundFilename != "" {
-			lc.renderSelectedItemBackground(renderer, selectedItem.BackgroundFilename)
+			lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
 		}
 	} else {
 		window.RenderBackground()
@@ -849,23 +849,13 @@ func (lc *listController) renderEmptyMessage(renderer *sdl.Renderer, font *ttf.F
 	}
 }
 
-func (lc *listController) renderSelectedItemBackground(renderer *sdl.Renderer, imageFilename string) {
-	texture, err := img.LoadTexture(renderer, imageFilename)
+func (lc *listController) renderSelectedItemBackground(window *Window, imageFilename string) {
+	bgTexture, err := img.LoadTexture(window.Renderer, imageFilename)
 	if err != nil {
 		return
 	}
-	defer texture.Destroy()
-
-	screenWidth, screenHeight, _ := renderer.GetOutputSize()
-
-	destRect := sdl.Rect{
-		X: 0,
-		Y: 0,
-		W: screenWidth,
-		H: screenHeight,
-	}
-
-	renderer.Copy(texture, nil, &destRect)
+	defer bgTexture.Destroy()
+	window.Renderer.Copy(bgTexture, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
 }
 
 func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageFilename string) {
