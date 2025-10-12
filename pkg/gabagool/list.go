@@ -566,10 +566,9 @@ func (lc *listController) updateSelectionState() {
 			lc.Options.Items[i].Selected = i == lc.Options.SelectedIndex
 		}
 		lc.SelectedItems = map[int]bool{lc.Options.SelectedIndex: true}
-	} else if !lc.Options.Items[lc.Options.SelectedIndex].NotMultiSelectable {
-		lc.Options.Items[lc.Options.SelectedIndex].Selected = true
-		lc.SelectedItems[lc.Options.SelectedIndex] = true
 	}
+	// In multi-select mode, don't automatically select items during navigation
+	// Selection should only happen when 'A' button is explicitly pressed via toggleSelection()
 }
 
 func (lc *listController) getSelectedItems() []int {
@@ -830,12 +829,31 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 	_, _, textureWidth, textureHeight, _ := texture.Query()
 	screenWidth, screenHeight, _ := renderer.GetOutputSize()
 
+	// Ensure texture has valid dimensions
+	if textureWidth == 0 || textureHeight == 0 {
+		return
+	}
+
 	maxImageWidth := screenWidth / 3
 	maxImageHeight := screenHeight / 2
 
-	scale := min32(maxImageWidth/textureWidth, maxImageHeight/textureHeight)
-	imageWidth := textureWidth * scale
-	imageHeight := textureHeight * scale
+	// Calculate scale using float arithmetic to avoid integer division issues
+	scaleX := float32(maxImageWidth) / float32(textureWidth)
+	scaleY := float32(maxImageHeight) / float32(textureHeight)
+
+	// Use the smaller scale to maintain aspect ratio
+	scale := scaleX
+	if scaleY < scaleX {
+		scale = scaleY
+	}
+
+	imageWidth := int32(float32(textureWidth) * scale)
+	imageHeight := int32(float32(textureHeight) * scale)
+
+	// Ensure we have valid dimensions after scaling
+	if imageWidth <= 0 || imageHeight <= 0 {
+		return
+	}
 
 	destRect := sdl.Rect{
 		X: screenWidth - imageWidth - 20,

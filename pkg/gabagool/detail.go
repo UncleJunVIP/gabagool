@@ -41,12 +41,13 @@ type DetailScreenOptions struct {
 	MetadataColor       sdl.Color
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
-	ConfirmButton       Button
+	EnableAction        bool
+	ActionKey           sdl.Keycode
+	ActionButton        Button
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
 	ShowThemeBackground bool
-	EnableAction        bool
 }
 
 type DetailScreenReturn struct {
@@ -94,7 +95,8 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
-		ConfirmButton:    ButtonA,
+		ActionKey:        sdl.K_a,
+		ActionButton:     ButtonA,
 		ShowScrollbar:    true,
 		EnableAction:     false,
 	}
@@ -215,7 +217,7 @@ func (s *detailScreenState) loadTextures(title string) {
 func (s *detailScreenState) initializeSlideshows() {
 	for i, section := range s.options.Sections {
 		if section.Type == SectionTypeSlideshow || section.Type == SectionTypeImage {
-			state := s.createSlideshowState(section, i)
+			state := s.createSlideshowState(section)
 			if len(state.textures) > 0 {
 				s.slideshowStates[i] = state
 			}
@@ -223,7 +225,7 @@ func (s *detailScreenState) initializeSlideshows() {
 	}
 }
 
-func (s *detailScreenState) createSlideshowState(section Section, sectionIndex int) slideshowState {
+func (s *detailScreenState) createSlideshowState(section Section) slideshowState {
 	maxWidth := section.MaxWidth
 	maxHeight := section.MaxHeight
 	if maxWidth == 0 {
@@ -372,7 +374,7 @@ func (s *detailScreenState) handleControllerEvent(e *sdl.ControllerButtonEvent) 
 			s.handleSlideshowNavigation(Button(e.Button) == ButtonLeft)
 		case ButtonB:
 			s.result.Cancelled = true
-		case s.options.ConfirmButton:
+		case s.options.ActionButton:
 			s.result.Cancelled = false
 		case ButtonX:
 			if s.options.EnableAction {
@@ -561,7 +563,7 @@ func (s *detailScreenState) renderSectionTitle(sectionIndex int, margins padding
 }
 
 func (s *detailScreenState) renderSectionDivider(margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
-	if isLineVisible(margins.Left, currentY, contentWidth, safeAreaHeight) {
+	if isLineVisible(currentY, safeAreaHeight) {
 		s.renderer.SetDrawColor(80, 80, 80, 255)
 		s.renderer.DrawLine(margins.Left, currentY, margins.Left+contentWidth, currentY)
 	}
@@ -810,7 +812,6 @@ func (s *detailScreenState) cleanup() {
 	}
 }
 
-// ... existing helper functions remain unchanged ...
 func renderText(renderer *sdl.Renderer, text string, font *ttf.Font, color sdl.Color) *sdl.Texture {
 	if text == "" {
 		return nil
@@ -977,7 +978,7 @@ func isRectVisible(rect sdl.Rect, viewportHeight int32) bool {
 	return true
 }
 
-func isLineVisible(x, y, width int32, viewportHeight int32) bool {
+func isLineVisible(y, viewportHeight int32) bool {
 	if y < 0 || y > viewportHeight {
 		return false
 	}
