@@ -688,11 +688,8 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 	}
 
 	// Render selected item image
-	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
-		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
-		if selectedItem.ImageFilename != "" {
-			lc.renderSelectedItemImage(renderer, selectedItem.ImageFilename)
-		}
+	if lc.imageIsDisplayed() {
+		lc.renderSelectedItemImage(renderer, lc.Options.Items[lc.Options.SelectedIndex].ImageFilename)
 	}
 
 	// Render footer
