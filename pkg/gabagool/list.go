@@ -666,6 +666,8 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
 		if selectedItem.BackgroundFilename != "" {
 			lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
+		} else {
+			window.RenderBackground()
 		}
 	} else {
 		window.RenderBackground()
