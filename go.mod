@@ -1,4 +1,4 @@
-module github.com/redria7/gabagool
+module github.com/UncleJunVIP/gabagool
 
 go 1.24
 
