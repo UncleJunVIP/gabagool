@@ -13,7 +13,7 @@ import (
 var window *Window
 var gameControllers []*sdl.GameController
 
-func Init(title string, showBackground bool) {
+func Init(title string, showBackground bool, controllerConfig string) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO |
 		img.INIT_PNG | img.INIT_JPG | img.INIT_TIF | img.INIT_WEBP |
 		sdl.INIT_GAMECONTROLLER | sdl.INIT_JOYSTICK); err != nil {
@@ -22,6 +22,10 @@ func Init(title string, showBackground bool) {
 
 	if err := ttf.Init(); err != nil {
 		os.Exit(1)
+	}
+
+	if err := LoadControllerConfiguration(controllerConfig); err != nil {
+		GetLoggerInstance().Debug("Failed to load controller configuration", "path", controllerConfig)
 	}
 
 	detectAndOpenAllGameControllers()
@@ -47,7 +51,7 @@ func SDLCleanup() {
 
 func detectAndOpenAllGameControllers() {
 	numJoysticks := sdl.NumJoysticks()
-	GetLoggerInstance().Info("Detecting controllers", "numJoysticks", numJoysticks)
+	GetLoggerInstance().Debug("Detecting controllers", "numJoysticks", numJoysticks)
 
 	for i := 0; i < numJoysticks; i++ {
 		if sdl.IsGameController(i) {
@@ -59,7 +63,7 @@ func detectAndOpenAllGameControllers() {
 				// If GUID methods aren't available, we'll use controller name for basic mapping
 				guid := fmt.Sprintf("controller_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
 
-				GetLoggerInstance().Info("Opened game controller",
+				GetLoggerInstance().Debug("Opened game controller",
 					"index", i,
 					"name", name,
 					"guid", guid,
@@ -77,7 +81,7 @@ func detectAndOpenAllGameControllers() {
 			joystick := sdl.JoystickOpen(i)
 			if joystick != nil {
 				name := joystick.Name()
-				GetLoggerInstance().Info("Found joystick (not a game controller)",
+				GetLoggerInstance().Debug("Found joystick (not a game controller)",
 					"index", i,
 					"name", name,
 				)
@@ -86,7 +90,7 @@ func detectAndOpenAllGameControllers() {
 		}
 	}
 
-	GetLoggerInstance().Info("Controller detection complete",
+	GetLoggerInstance().Debug("Controller detection complete",
 		"gameControllers", len(gameControllers),
 		"totalJoysticks", numJoysticks,
 	)
@@ -96,40 +100,5 @@ func detectAndOpenAllGameControllers() {
 
 	// Log the final button mapping that's being used
 	currentMapping := GetCurrentButtonMapping()
-	GetLoggerInstance().Info("Final button mapping applied", "mapping", currentMapping)
-}
-
-func GetConnectedControllers() []map[string]interface{} {
-	var controllers []map[string]interface{}
-
-	for i, controller := range gameControllers {
-		if controller == nil {
-			continue
-		}
-
-		controllerInfo := map[string]interface{}{
-			"index": i,
-			"name":  controller.Name(),
-		}
-
-		controllers = append(controllers, controllerInfo)
-	}
-
-	return controllers
-}
-
-func LogControllerDetails() {
-	controllers := GetConnectedControllers()
-
-	if len(controllers) == 0 {
-		GetLoggerInstance().Info("No game controllers connected")
-		return
-	}
-
-	for _, controller := range controllers {
-		GetLoggerInstance().Info("Controller Details",
-			"index", controller["index"],
-			"name", controller["name"],
-		)
-	}
+	GetLoggerInstance().Debug("Final button mapping applied", "mapping", currentMapping)
 }

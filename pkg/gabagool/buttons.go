@@ -33,26 +33,6 @@ var (
 	ButtonR2 Button = 16
 )
 
-var defaultButtonValues = map[string]Button{
-	"ButtonUp":     11,
-	"ButtonDown":   12,
-	"ButtonLeft":   13,
-	"ButtonRight":  14,
-	"ButtonA":      1,
-	"ButtonB":      0,
-	"ButtonX":      3,
-	"ButtonY":      2,
-	"ButtonStart":  6,
-	"ButtonSelect": 4,
-	"ButtonMenu":   5,
-	"ButtonF1":     7,
-	"ButtonF2":     8,
-	"ButtonL1":     9,
-	"ButtonR1":     10,
-	"ButtonL2":     15,
-	"ButtonR2":     16,
-}
-
 func UpdateButtonMapping(mapping map[string]Button) {
 	if val, exists := mapping["ButtonUp"]; exists {
 		ButtonUp = val
@@ -107,26 +87,6 @@ func UpdateButtonMapping(mapping map[string]Button) {
 	}
 }
 
-func ResetButtonMappingToDefaults() {
-	ButtonUp = defaultButtonValues["ButtonUp"]
-	ButtonDown = defaultButtonValues["ButtonDown"]
-	ButtonLeft = defaultButtonValues["ButtonLeft"]
-	ButtonRight = defaultButtonValues["ButtonRight"]
-	ButtonA = defaultButtonValues["ButtonA"]
-	ButtonB = defaultButtonValues["ButtonB"]
-	ButtonX = defaultButtonValues["ButtonX"]
-	ButtonY = defaultButtonValues["ButtonY"]
-	ButtonStart = defaultButtonValues["ButtonStart"]
-	ButtonSelect = defaultButtonValues["ButtonSelect"]
-	ButtonMenu = defaultButtonValues["ButtonMenu"]
-	ButtonF1 = defaultButtonValues["ButtonF1"]
-	ButtonF2 = defaultButtonValues["ButtonF2"]
-	ButtonL1 = defaultButtonValues["ButtonL1"]
-	ButtonR1 = defaultButtonValues["ButtonR1"]
-	ButtonL2 = defaultButtonValues["ButtonL2"]
-	ButtonR2 = defaultButtonValues["ButtonR2"]
-}
-
 func GetCurrentButtonMapping() map[string]Button {
 	return map[string]Button{
 		"ButtonUp":     ButtonUp,
@@ -146,110 +106,5 @@ func GetCurrentButtonMapping() map[string]Button {
 		"ButtonR1":     ButtonR1,
 		"ButtonL2":     ButtonL2,
 		"ButtonR2":     ButtonR2,
-	}
-}
-
-func ApplyBestControllerMapping() {
-	stats := GetMappingStatistics()
-	if stats["total"] == 0 {
-		GetLoggerInstance().Info("No controller mappings available, using defaults")
-		return
-	}
-
-	// Find the best mapping to use (prioritize GUID, then name, then default)
-	var bestMapping DynamicButtonMapping
-	var found bool
-
-	// Priority 1: Look for a GUID-based mapping
-	for _, mapping := range activeMappings {
-		if mapping.MappingSource == "guid" {
-			bestMapping = mapping
-			found = true
-			break
-		}
-	}
-
-	// Priority 2: Look for a name-based mapping
-	if !found {
-		for _, mapping := range activeMappings {
-			if mapping.MappingSource == "name" {
-				bestMapping = mapping
-				found = true
-				break
-			}
-		}
-	}
-
-	// Priority 3: Use any available mapping
-	if !found {
-		for _, mapping := range activeMappings {
-			bestMapping = mapping
-			found = true
-			break
-		}
-	}
-
-	if !found {
-		GetLoggerInstance().Info("No controller mappings to apply")
-		return
-	}
-
-	// Convert the button mapping to string-based mapping for UpdateButtonMapping
-	stringMapping := make(map[string]Button)
-
-	for ourButton, sdlButton := range bestMapping.ButtonMap {
-		buttonName := getButtonConstantName(ourButton)
-		if buttonName != "" {
-			stringMapping[buttonName] = Button(sdlButton)
-		}
-	}
-
-	// Apply the mapping to global constants
-	UpdateButtonMapping(stringMapping)
-
-	GetLoggerInstance().Info("Applied controller mapping to global constants",
-		"source", bestMapping.MappingSource,
-		"controller", bestMapping.ControllerName,
-		"mappings_applied", len(stringMapping))
-}
-
-func getButtonConstantName(button Button) string {
-	switch button {
-	case ButtonA:
-		return "ButtonA"
-	case ButtonB:
-		return "ButtonB"
-	case ButtonX:
-		return "ButtonX"
-	case ButtonY:
-		return "ButtonY"
-	case ButtonSelect:
-		return "ButtonSelect"
-	case ButtonMenu:
-		return "ButtonMenu"
-	case ButtonStart:
-		return "ButtonStart"
-	case ButtonL1:
-		return "ButtonL1"
-	case ButtonR1:
-		return "ButtonR1"
-	case ButtonL2:
-		return "ButtonL2"
-	case ButtonR2:
-		return "ButtonR2"
-	case ButtonUp:
-		return "ButtonUp"
-	case ButtonDown:
-		return "ButtonDown"
-	case ButtonLeft:
-		return "ButtonLeft"
-	case ButtonRight:
-		return "ButtonRight"
-	case ButtonF1:
-		return "ButtonF1"
-	case ButtonF2:
-		return "ButtonF2"
-	default:
-		return ""
 	}
 }

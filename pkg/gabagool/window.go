@@ -96,7 +96,9 @@ func (window *Window) loadBackground() {
 }
 
 func (window *Window) closeWindow() {
-	window.PowerButtonWG.Done()
+	if !IsDev {
+		window.PowerButtonWG.Done()
+	}
 
 	if window.Background != nil {
 		window.Background.Destroy()

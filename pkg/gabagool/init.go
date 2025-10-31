@@ -3,11 +3,12 @@ package gabagool
 import "log/slog"
 
 type Options struct {
-	WindowTitle    string
-	ShowBackground bool
-	IsCannoli      bool
-	LogFilename    string
-	LogLevel       slog.Level
+	WindowTitle          string
+	ShowBackground       bool
+	IsCannoli            bool
+	ControllerConfigFile string
+	LogFilename          string
+	LogLevel             slog.Level
 }
 
 // InitSDL initializes SDL and the UI
@@ -22,7 +23,7 @@ func InitSDL(options Options) {
 		initNextUITheme()
 	}
 
-	Init(options.WindowTitle, options.ShowBackground)
+	Init(options.WindowTitle, options.ShowBackground, options.ControllerConfigFile)
 }
 
 // CloseSDL Tidies up SDL and the UI

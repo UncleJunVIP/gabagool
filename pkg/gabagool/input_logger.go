@@ -8,16 +8,18 @@ import (
 )
 
 type inputLoggerController struct {
-	lastInput string
-	font      *ttf.Font
-	textColor sdl.Color
+	lastInput      string
+	lastButtonName string
+	font           *ttf.Font
+	textColor      sdl.Color
 }
 
 func newInputLogger() *inputLoggerController {
 	return &inputLoggerController{
-		lastInput: "",
-		font:      fonts.largeFont,
-		textColor: sdl.Color{R: 200, G: 100, B: 255, A: 255},
+		lastInput:      "",
+		lastButtonName: "",
+		font:           fonts.largeFont,
+		textColor:      sdl.Color{R: 200, G: 100, B: 255, A: 255},
 	}
 }
 
@@ -50,23 +52,28 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 				return false
 			}
 			il.lastInput = fmt.Sprintf("Keyboard: %d", int(e.Keysym.Scancode))
+			il.lastButtonName = ""
 		}
 	case *sdl.JoyButtonEvent:
 		if e.State == sdl.PRESSED {
 			il.lastInput = fmt.Sprintf("Controller: %d", int(e.Button))
+			il.lastButtonName = getButtonNameFromCode(e.Button)
 		}
 	case *sdl.ControllerButtonEvent:
 		if e.State == sdl.PRESSED {
 			il.lastInput = fmt.Sprintf("Gamepad: %d", int(e.Button))
+			il.lastButtonName = getButtonNameFromCode(e.Button)
 		}
 	case *sdl.JoyAxisEvent:
 		// Only log significant axis movements
 		if abs(int(e.Value)) > 16000 {
 			il.lastInput = fmt.Sprintf("Axis: %d", int(e.Axis))
+			il.lastButtonName = ""
 		}
 	case *sdl.JoyHatEvent:
 		if e.Value != sdl.HAT_CENTERED {
 			il.lastInput = fmt.Sprintf("Hat: %d", int(e.Value))
+			il.lastButtonName = ""
 		}
 	}
 	return true
@@ -85,10 +92,24 @@ func (il *inputLoggerController) render() {
 		instructionText := "Press any button or key"
 		il.renderText(renderer, instructionText, GetWindow().Width/2, GetWindow().Height/2, true)
 	} else {
-		il.renderText(renderer, il.lastInput, GetWindow().Width/2, GetWindow().Height/2, true)
+		il.renderText(renderer, il.lastInput, GetWindow().Width/2, GetWindow().Height/2-40, true)
+		if il.lastButtonName != "" {
+			il.renderText(renderer, il.lastButtonName, GetWindow().Width/2, GetWindow().Height/2+40, true)
+		}
 	}
 
 	renderer.Present()
+}
+
+func getButtonNameFromCode(code uint8) string {
+	// Check against current button mappings
+	mapping := GetCurrentButtonMapping()
+	for buttonName, buttonCode := range mapping {
+		if buttonCode == Button(code) {
+			return buttonName
+		}
+	}
+	return "Unknown"
 }
 
 func (il *inputLoggerController) renderText(renderer *sdl.Renderer, text string, x, y int32, centered bool) {
