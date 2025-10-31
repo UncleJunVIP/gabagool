@@ -204,6 +204,42 @@ func (h *helpOverlay) scroll(direction int) {
 	h.ScrollOffset = newOffset
 }
 
+// Help overlay input handling
+func (h *helpOverlay) handleInput(event interface{}) bool {
+	processor := GetInputProcessor()
+	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+
+	if inputEvent == nil || !inputEvent.Pressed {
+		return false
+	}
+
+	button := inputEvent.Button
+
+	switch button {
+	case InternalButtonUp:
+		h.scroll(-1)
+		return true
+	case InternalButtonDown:
+		h.scroll(1)
+		return true
+	case InternalButtonMenu, InternalButtonB:
+		return false // Signal to close help
+	default:
+		return false
+	}
+}
+
+func (lc *listController) handleHelpScreenInput(event interface{}) bool {
+	if lc.helpOverlay != nil {
+		shouldClose := !lc.helpOverlay.handleInput(event)
+		if shouldClose {
+			lc.ShowingHelp = false
+		}
+		return true
+	}
+	return false
+}
+
 func (h *helpOverlay) toggle() {
 	h.ShowingHelp = !h.ShowingHelp
 	if h.ShowingHelp {

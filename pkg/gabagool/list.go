@@ -43,10 +43,10 @@ type ListOptions struct {
 	ScrollPauseTime int
 
 	InputDelay        time.Duration
-	MultiSelectKey    sdl.Keycode
-	MultiSelectButton Button
-	ReorderKey        sdl.Keycode
-	ReorderButton     Button
+	MultiSelectKey    sdl.Keycode    // Keep for legacy, will be deprecated
+	MultiSelectButton InternalButton // New button mapping
+	ReorderKey        sdl.Keycode    // Keep for legacy, will be deprecated
+	ReorderButton     InternalButton // New button mapping
 
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
@@ -69,9 +69,9 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		ScrollPauseTime:   1250,
 		InputDelay:        DefaultInputDelay,
 		MultiSelectKey:    sdl.K_SPACE,
-		MultiSelectButton: ButtonSelect,
+		MultiSelectButton: InternalButtonSelect, // New default
 		ReorderKey:        sdl.K_SPACE,
-		ReorderButton:     ButtonSelect,
+		ReorderButton:     InternalButtonSelect, // New default
 		EmptyMessage:      "No items available",
 		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	}
@@ -148,13 +148,11 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
+			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
-			case *sdl.KeyboardEvent:
-				lc.handleInput(e, &running, &result)
-			case *sdl.ControllerButtonEvent:
-				lc.handleInput(e, &running, &result)
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+				lc.handleInput(event, &running, &result)
 			}
 		}
 
@@ -175,105 +173,69 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 }
 
 func (lc *listController) handleInput(event interface{}, running *bool, result *ListReturn) {
-	var keyPressed sdl.Keycode
-	var buttonPressed Button
-	var isKeyboard bool
-	var isPressed bool
+	processor := GetInputProcessor()
 
-	switch e := event.(type) {
-	case *sdl.KeyboardEvent:
-		if e.Type != sdl.KEYDOWN {
-			return
-		}
-		keyPressed = e.Keysym.Sym
-		isKeyboard = true
-		isPressed = true
-	case *sdl.ControllerButtonEvent:
-		isPressed = e.Type == sdl.CONTROLLERBUTTONDOWN
-		if !isPressed && e.Type != sdl.CONTROLLERBUTTONUP {
-			return
-		}
-		buttonPressed = Button(e.Button)
-		result.LastPressedBtn = Button(e.Button)
-
-		// Handle directional button holds
-		lc.updateHeldDirections(buttonPressed, isPressed)
-		if !isPressed {
-			return
-		}
+	// Process raw SDL event through the input processor
+	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+	if inputEvent == nil {
+		return
 	}
 
-	// Handle help screen input separately
+	if !inputEvent.Pressed {
+		return
+	}
+
 	if lc.ShowingHelp {
-		lc.handleHelpInput(keyPressed, buttonPressed, isKeyboard)
+		lc.handleHelpInput(inputEvent.Button)
 		return
 	}
 
 	// Exit reorder mode on non-directional input
-	if lc.ReorderMode && !lc.isDirectionalInput(keyPressed, buttonPressed, isKeyboard) {
+	if lc.ReorderMode && !lc.isDirectionalInput(inputEvent.Button) {
 		lc.ReorderMode = false
 		return
 	}
 
 	// Handle navigation
-	if lc.handleNavigation(keyPressed, buttonPressed, isKeyboard) {
+	if lc.handleNavigation(inputEvent.Button) {
 		return
 	}
 
 	// Handle action buttons
-	lc.handleActionButtons(keyPressed, buttonPressed, isKeyboard, running, result)
+	lc.handleActionButtons(inputEvent.Button, running, result)
 }
 
-func (lc *listController) handleHelpInput(key sdl.Keycode, button Button, isKeyboard bool) {
-	if isKeyboard {
-		switch key {
-		case sdl.K_UP:
-			if lc.helpOverlay != nil {
-				lc.helpOverlay.scroll(-1)
-			}
-		case sdl.K_DOWN:
-			if lc.helpOverlay != nil {
-				lc.helpOverlay.scroll(1)
-			}
-		case sdl.K_h:
-			lc.ShowingHelp = false
-		default:
-			lc.ShowingHelp = false
-		}
-	} else {
-		switch button {
-		case ButtonUp:
-			if lc.helpOverlay != nil {
-				lc.helpOverlay.scroll(-1)
-			}
-		case ButtonDown:
-			if lc.helpOverlay != nil {
-				lc.helpOverlay.scroll(1)
-			}
-		case ButtonMenu:
-			lc.ShowingHelp = false
-		default:
-			lc.ShowingHelp = false
-		}
-	}
-}
-
-func (lc *listController) isDirectionalInput(key sdl.Keycode, button Button, isKeyboard bool) bool {
-	if isKeyboard {
-		return key == sdl.K_UP || key == sdl.K_DOWN || key == sdl.K_LEFT || key == sdl.K_RIGHT
-	}
-	return button == ButtonUp || button == ButtonDown || button == ButtonLeft || button == ButtonRight
-}
-
-func (lc *listController) updateHeldDirections(button Button, pressed bool) {
+func (lc *listController) handleHelpInput(button InternalButton) {
 	switch button {
-	case ButtonUp:
+	case InternalButtonUp:
+		if lc.helpOverlay != nil {
+			lc.helpOverlay.scroll(-1)
+		}
+	case InternalButtonDown:
+		if lc.helpOverlay != nil {
+			lc.helpOverlay.scroll(1)
+		}
+	case InternalButtonMenu:
+		lc.ShowingHelp = false
+	default:
+		lc.ShowingHelp = false
+	}
+}
+
+func (lc *listController) isDirectionalInput(button InternalButton) bool {
+	return button == InternalButtonUp || button == InternalButtonDown ||
+		button == InternalButtonLeft || button == InternalButtonRight
+}
+
+func (lc *listController) updateHeldDirections(button InternalButton, pressed bool) {
+	switch button {
+	case InternalButtonUp:
 		lc.heldDirections.up = pressed
-	case ButtonDown:
+	case InternalButtonDown:
 		lc.heldDirections.down = pressed
-	case ButtonLeft:
+	case InternalButtonLeft:
 		lc.heldDirections.left = pressed
-	case ButtonRight:
+	case InternalButtonRight:
 		lc.heldDirections.right = pressed
 	}
 
@@ -282,34 +244,21 @@ func (lc *listController) updateHeldDirections(button Button, pressed bool) {
 	}
 }
 
-func (lc *listController) handleNavigation(key sdl.Keycode, button Button, isKeyboard bool) bool {
+func (lc *listController) handleNavigation(button InternalButton) bool {
 	if len(lc.Options.Items) == 0 {
 		return false
 	}
 
 	direction := ""
-	if isKeyboard {
-		switch key {
-		case sdl.K_UP:
-			direction = "up"
-		case sdl.K_DOWN:
-			direction = "down"
-		case sdl.K_LEFT:
-			direction = "left"
-		case sdl.K_RIGHT:
-			direction = "right"
-		}
-	} else {
-		switch button {
-		case ButtonUp:
-			direction = "up"
-		case ButtonDown:
-			direction = "down"
-		case ButtonLeft:
-			direction = "left"
-		case ButtonRight:
-			direction = "right"
-		}
+	switch button {
+	case InternalButtonUp:
+		direction = "up"
+	case InternalButtonDown:
+		direction = "down"
+	case InternalButtonLeft:
+		direction = "left"
+	case InternalButtonRight:
+		direction = "right"
 	}
 
 	if direction != "" {
@@ -319,13 +268,13 @@ func (lc *listController) handleNavigation(key sdl.Keycode, button Button, isKey
 	return false
 }
 
-func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, isKeyboard bool, running *bool, result *ListReturn) {
-	if len(lc.Options.Items) == 0 && key != sdl.K_b && button != ButtonB && key != sdl.K_h && button != ButtonMenu {
+func (lc *listController) handleActionButtons(button InternalButton, running *bool, result *ListReturn) {
+	if len(lc.Options.Items) == 0 && button != InternalButtonB && button != InternalButtonMenu {
 		return
 	}
 
-	// Primary action (A button / Enter key)
-	if (isKeyboard && key == sdl.K_a) || (!isKeyboard && button == ButtonA) {
+	// Primary action (A button)
+	if button == InternalButtonA {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleSelection(lc.Options.SelectedIndex)
 		} else if len(lc.Options.Items) > 0 {
@@ -335,7 +284,7 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 	}
 
 	// Back button
-	if (isKeyboard && key == sdl.K_b) || (!isKeyboard && button == ButtonB) {
+	if button == InternalButtonB {
 		if !lc.Options.DisableBackButton {
 			*running = false
 			result.SelectedIndex = -1
@@ -343,7 +292,7 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 	}
 
 	// Action button (X)
-	if (isKeyboard && key == sdl.K_x) || (!isKeyboard && button == ButtonX) {
+	if button == InternalButtonX {
 		if lc.Options.EnableAction {
 			*running = false
 			result.ActionTriggered = true
@@ -351,14 +300,14 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 	}
 
 	// Help
-	if (isKeyboard && key == sdl.K_h) || (!isKeyboard && button == ButtonMenu) {
+	if button == InternalButtonMenu {
 		if lc.Options.EnableHelp {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 	}
 
-	// Multi-select confirmation (Enter/Start)
-	if (isKeyboard && key == sdl.K_RETURN) || (!isKeyboard && button == ButtonStart) {
+	// Multi-select confirmation (Start)
+	if button == InternalButtonStart {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
@@ -368,14 +317,14 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 	}
 
 	// Toggle multi-select mode
-	if (isKeyboard && key == lc.Options.MultiSelectKey) || (!isKeyboard && button == lc.Options.MultiSelectButton) {
+	if button == lc.Options.MultiSelectButton {
 		if lc.Options.EnableMultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleMultiSelect()
 		}
 	}
 
 	// Toggle reorder mode
-	if (isKeyboard && key == lc.Options.ReorderKey) || (!isKeyboard && button == lc.Options.ReorderButton) {
+	if button == lc.Options.ReorderButton {
 		if lc.Options.EnableReordering && len(lc.Options.Items) > 0 {
 			lc.ReorderMode = !lc.ReorderMode
 		}
