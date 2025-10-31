@@ -12,6 +12,7 @@ import (
 
 var window *Window
 var gameControllers []*sdl.GameController
+var rawJoysticks []*sdl.Joystick
 
 func Init(title string, showBackground bool, controllerConfig string) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO |
@@ -37,18 +38,6 @@ func Init(title string, showBackground bool, controllerConfig string) {
 	}
 }
 
-func SDLCleanup() {
-	window.closeWindow()
-	for _, controller := range gameControllers {
-		if controller != nil {
-			controller.Close()
-		}
-	}
-	ttf.Quit()
-	img.Quit()
-	sdl.Quit()
-}
-
 func detectAndOpenAllGameControllers() {
 	numJoysticks := sdl.NumJoysticks()
 	GetLoggerInstance().Debug("Detecting controllers", "numJoysticks", numJoysticks)
@@ -59,8 +48,6 @@ func detectAndOpenAllGameControllers() {
 			if controller != nil {
 				name := controller.Name()
 
-				// Try to get GUID for mapping (this might not work with current SDL version)
-				// If GUID methods aren't available, we'll use controller name for basic mapping
 				guid := fmt.Sprintf("controller_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
 
 				GetLoggerInstance().Debug("Opened game controller",
@@ -69,7 +56,6 @@ func detectAndOpenAllGameControllers() {
 					"guid", guid,
 				)
 
-				// Initialize dynamic button mapping for this controller
 				InitializeControllerMapping(name, guid)
 
 				gameControllers = append(gameControllers, controller)
@@ -77,28 +63,52 @@ func detectAndOpenAllGameControllers() {
 				GetLoggerInstance().Error("Failed to open game controller", "index", i)
 			}
 		} else {
-			// This is a joystick but not recognized as a game controller
+			// This is a raw joystick - try to open it anyway (for devices like RG35XXSP)
 			joystick := sdl.JoystickOpen(i)
 			if joystick != nil {
 				name := joystick.Name()
-				GetLoggerInstance().Debug("Found joystick (not a game controller)",
+				guid := fmt.Sprintf("joystick_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
+
+				GetLoggerInstance().Debug("Opened raw joystick (not a standard game controller)",
 					"index", i,
 					"name", name,
+					"guid", guid,
 				)
-				joystick.Close()
+
+				InitializeControllerMapping(name, guid)
+
+				rawJoysticks = append(rawJoysticks, joystick)
+			} else {
+				GetLoggerInstance().Debug("Failed to open raw joystick", "index", i)
 			}
 		}
 	}
 
 	GetLoggerInstance().Debug("Controller detection complete",
 		"gameControllers", len(gameControllers),
+		"rawJoysticks", len(rawJoysticks),
 		"totalJoysticks", numJoysticks,
 	)
 
-	// Apply the best available controller mapping to global constants
 	ApplyBestControllerMapping()
 
-	// Log the final button mapping that's being used
 	currentMapping := GetCurrentButtonMapping()
 	GetLoggerInstance().Debug("Final button mapping applied", "mapping", currentMapping)
+}
+
+func SDLCleanup() {
+	window.closeWindow()
+	for _, controller := range gameControllers {
+		if controller != nil {
+			controller.Close()
+		}
+	}
+	for _, joystick := range rawJoysticks {
+		if joystick != nil {
+			joystick.Close()
+		}
+	}
+	ttf.Quit()
+	img.Quit()
+	sdl.Quit()
 }

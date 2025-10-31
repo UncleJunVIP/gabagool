@@ -55,25 +55,41 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = ""
 		}
 	case *sdl.JoyButtonEvent:
+		// This handles raw joystick button events (like RG35XXSP muOS-Keys)
 		if e.State == sdl.PRESSED {
-			il.lastInput = fmt.Sprintf("Controller: %d", int(e.Button))
+			il.lastInput = fmt.Sprintf("Joystick Button: %d", int(e.Button))
 			il.lastButtonName = getButtonNameFromCode(e.Button)
+			GetLoggerInstance().Debug("Raw joystick button pressed", "button", e.Button, "mapped", il.lastButtonName)
 		}
 	case *sdl.ControllerButtonEvent:
+		// This handles standardized game controller button events
 		if e.State == sdl.PRESSED {
-			il.lastInput = fmt.Sprintf("Gamepad: %d", int(e.Button))
+			il.lastInput = fmt.Sprintf("Game Controller: %d", int(e.Button))
 			il.lastButtonName = getButtonNameFromCode(e.Button)
 		}
 	case *sdl.JoyAxisEvent:
 		// Only log significant axis movements
 		if abs(int(e.Value)) > 16000 {
-			il.lastInput = fmt.Sprintf("Axis: %d", int(e.Axis))
+			il.lastInput = fmt.Sprintf("Joystick Axis: %d", int(e.Axis))
 			il.lastButtonName = ""
+			GetLoggerInstance().Debug("Joystick axis motion", "axis", e.Axis, "value", e.Value)
 		}
 	case *sdl.JoyHatEvent:
 		if e.Value != sdl.HAT_CENTERED {
-			il.lastInput = fmt.Sprintf("Hat: %d", int(e.Value))
+			hatName := ""
+			switch e.Value {
+			case sdl.HAT_UP:
+				hatName = "UP"
+			case sdl.HAT_DOWN:
+				hatName = "DOWN"
+			case sdl.HAT_LEFT:
+				hatName = "LEFT"
+			case sdl.HAT_RIGHT:
+				hatName = "RIGHT"
+			}
+			il.lastInput = fmt.Sprintf("Hat Switch: %s", hatName)
 			il.lastButtonName = ""
+			GetLoggerInstance().Debug("Joystick hat motion", "hat", e.Hat, "value", hatName)
 		}
 	}
 	return true
