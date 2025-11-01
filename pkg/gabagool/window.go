@@ -118,3 +118,7 @@ func (window *Window) RenderBackground() {
 		window.Renderer.Copy(window.Background, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
 	}
 }
+
+func ResetBackground() {
+	window.loadBackground()
+}

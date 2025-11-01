@@ -55,6 +55,7 @@ type DetailScreenReturn struct {
 	LastPressedBtn  uint8
 	Cancelled       bool
 	ActionTriggered bool
+	ConfirmTriggered	bool
 }
 
 type detailScreenState struct {
@@ -310,7 +311,7 @@ func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32
 
 func (s *detailScreenState) isFinished() bool {
 	// Continue running until we get a definitive exit condition
-	return s.result.Cancelled || s.result.ActionTriggered
+	return s.result.Cancelled || s.result.ActionTriggered || s.result.ConfirmTriggered
 }
 
 func (s *detailScreenState) handleEvents() {
@@ -346,6 +347,7 @@ func (s *detailScreenState) handleKeyboardEvent(e *sdl.KeyboardEvent) {
 			s.result.Cancelled = true
 		case sdl.K_a, sdl.K_RETURN:
 			s.result.Cancelled = false
+			s.result.ConfirmTriggered = true
 		case sdl.K_x:
 			if s.options.EnableAction {
 				s.result.Cancelled = false
@@ -376,6 +378,7 @@ func (s *detailScreenState) handleControllerEvent(e *sdl.ControllerButtonEvent) 
 			s.result.Cancelled = true
 		case s.options.ActionButton:
 			s.result.Cancelled = false
+			s.result.ConfirmTriggered = true
 		case ButtonX:
 			if s.options.EnableAction {
 				s.result.Cancelled = false
