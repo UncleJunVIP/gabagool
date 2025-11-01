@@ -164,8 +164,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 		renderer.Clear()
 		renderer.SetDrawBlendMode(sdl.BLENDMODE_BLEND)
 
-		window.RenderBackground()
-		lc.render(renderer)
+		lc.render(window)
 		renderer.Present()
 		sdl.Delay(8)
 	}
@@ -347,6 +346,18 @@ func (lc *listController) handleActionButtons(key sdl.Keycode, button Button, is
 		if lc.Options.EnableAction {
 			*running = false
 			result.ActionTriggered = true
+			// New logic to handle returning the value(s) selected when X is pressed, if the app wants to use them
+			// If not multi select, returns a single value like A button
+			// if multi select, returns selected values like start button
+			if len(lc.Options.Items) > 0 {
+				if lc.MultiSelect {
+					if indices := lc.getSelectedItems(); len(indices) > 0 {
+						result.populateMultiSelection(indices, lc.Options.Items, lc.Options.VisibleStartIndex)
+					}
+				} else {
+					result.populateSingleSelection(lc.Options.SelectedIndex, lc.Options.Items, lc.Options.VisibleStartIndex)
+				}
+			}
 		}
 	}
 
@@ -615,7 +626,7 @@ func (lc *listController) handleDirectionalRepeats() {
 	}
 }
 
-func (lc *listController) render(renderer *sdl.Renderer) {
+func (lc *listController) render(window *Window) {
 	lc.updateScrolling()
 
 	// Update focus states
@@ -637,16 +648,30 @@ func (lc *listController) render(renderer *sdl.Renderer) {
 	}
 
 	// Render everything
-	lc.renderContent(renderer, visibleItems)
+	lc.renderContent(window, visibleItems)
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
 		lc.helpOverlay.ShowingHelp = true
-		lc.helpOverlay.render(renderer, fonts.smallFont)
+		lc.helpOverlay.render(window.Renderer, fonts.smallFont)
 	}
 }
 
-func (lc *listController) renderContent(renderer *sdl.Renderer, visibleItems []MenuItem) {
+func (lc *listController) renderContent(window *Window, visibleItems []MenuItem) {
+	renderer := window.Renderer
+	
 	itemStartY := lc.StartY
+
+	// Render background
+	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
+		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
+		if selectedItem.BackgroundFilename != "" {
+			lc.renderSelectedItemBackground(window, selectedItem.BackgroundFilename)
+		} else {
+			window.RenderBackground()
+		}
+	} else {
+		window.RenderBackground()
+	}
 
 	// Render title
 	if lc.Options.Title != "" {
@@ -665,15 +690,22 @@ func (lc *listController) renderContent(renderer *sdl.Renderer, visibleItems []M
 	}
 
 	// Render selected item image
-	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
-		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
-		if selectedItem.ImageFilename != "" {
-			lc.renderSelectedItemImage(renderer, selectedItem.ImageFilename)
-		}
+	if lc.imageIsDisplayed() {
+		lc.renderSelectedItemImage(renderer, lc.Options.Items[lc.Options.SelectedIndex].ImageFilename)
 	}
 
 	// Render footer
 	renderFooter(renderer, fonts.smallFont, lc.Options.FooterHelpItems, lc.Options.Margins.Bottom, true)
+}
+
+func (lc *listController) imageIsDisplayed() bool {
+	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
+		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
+		if selectedItem.ImageFilename != "" {
+			return true
+		}
+	}
+	return false
 }
 
 func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, visibleItems []MenuItem, startY int32) {
@@ -682,12 +714,12 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 
 	screenWidth, _, _ := renderer.GetOutputSize()
 	availableWidth := screenWidth - lc.Options.Margins.Left - lc.Options.Margins.Right
-	if lc.Options.EnableImages {
+	if lc.imageIsDisplayed() {
 		availableWidth -= screenWidth / 7
 	}
 
 	maxPillWidth := availableWidth
-	if lc.Options.EnableImages {
+	if lc.imageIsDisplayed() {
 		maxPillWidth = availableWidth * 3 / 4
 	}
 	maxTextWidth := maxPillWidth - pillPadding
@@ -817,6 +849,15 @@ func (lc *listController) renderEmptyMessage(renderer *sdl.Renderer, font *ttf.F
 		texture.Destroy()
 		surface.Free()
 	}
+}
+
+func (lc *listController) renderSelectedItemBackground(window *Window, imageFilename string) {
+	bgTexture, err := img.LoadTexture(window.Renderer, imageFilename)
+	if err != nil {
+		return
+	}
+	defer bgTexture.Destroy()
+	window.Renderer.Copy(bgTexture, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
 }
 
 func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageFilename string) {
