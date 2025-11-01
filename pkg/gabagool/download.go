@@ -55,7 +55,9 @@ type downloadManager struct {
 	progressBarHeight int32
 	progressBarX      int32
 
-	headers map[string]string
+	headers       map[string]string
+	lastInputTime time.Time
+	inputDelay    time.Duration
 }
 
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
@@ -79,6 +81,8 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		progressBarWidth:   progressBarWidth,
 		progressBarHeight:  progressBarHeight,
 		progressBarX:       progressBarX,
+		lastInputTime:      time.Now(),
+		inputDelay:         DefaultInputDelay,
 	}
 }
 
@@ -100,6 +104,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 	window := GetWindow()
 	renderer := window.Renderer
+	processor := GetInputProcessor()
 
 	// Initialize the download queue
 	for _, download := range downloads {
@@ -126,41 +131,36 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
+			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
 				err = sdl.GetError()
 				downloadManager.cancelAllDownloads()
 				result.Cancelled = true
 
-			case *sdl.KeyboardEvent:
-				if e.Type == sdl.KEYDOWN {
-					result.LastPressedKey = e.Keysym.Sym
-
-					if downloadManager.isAllComplete {
-						running = false
-						continue
-					}
-
-					if e.Keysym.Sym == sdl.K_ESCAPE {
-						downloadManager.cancelAllDownloads()
-						result.Cancelled = true
-					}
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+				if inputEvent == nil || !inputEvent.Pressed {
+					continue
 				}
 
-			case *sdl.ControllerButtonEvent:
-				if e.Type == sdl.CONTROLLERBUTTONDOWN {
-					result.LastPressedBtn = e.Button
+				if !downloadManager.isInputAllowed() {
+					continue
+				}
+				downloadManager.lastInputTime = time.Now()
 
-					if downloadManager.isAllComplete {
-						running = false
-						continue
-					}
+				result.LastPressedKey = sdl.Keycode(inputEvent.RawCode)
+				result.LastPressedBtn = uint8(inputEvent.RawCode)
 
-					if Button(e.Button) == ButtonY {
-						downloadManager.cancelAllDownloads()
-						result.Cancelled = true
-					}
+				if downloadManager.isAllComplete {
+					running = false
+					continue
+				}
+
+				// Cancel on Y button or Escape key
+				if inputEvent.Button == InternalButtonY {
+					downloadManager.cancelAllDownloads()
+					result.Cancelled = true
 				}
 			}
 		}
@@ -194,6 +194,10 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 	result.Errors = downloadManager.errors
 
 	return result, err
+}
+
+func (dm *downloadManager) isInputAllowed() bool {
+	return time.Since(dm.lastInputTime) >= dm.inputDelay
 }
 
 func (dm *downloadManager) startNextDownloads() {

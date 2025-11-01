@@ -3,7 +3,6 @@ package gabagool
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log/slog"
 	"os"
 	"os/exec"
@@ -160,7 +159,7 @@ func loadNextVal() (*NextVal, error) {
 
 func loadStaticNextVal(filePath string) (*NextVal, error) {
 	// Read the file
-	data, err := ioutil.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("error reading config file: %w", err)
 	}

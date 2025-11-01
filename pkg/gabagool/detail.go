@@ -42,8 +42,7 @@ type DetailScreenOptions struct {
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
 	EnableAction        bool
-	ActionKey           sdl.Keycode
-	ActionButton        Button
+	ActionButton        InternalButton
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
@@ -51,11 +50,11 @@ type DetailScreenOptions struct {
 }
 
 type DetailScreenReturn struct {
-	LastPressedKey  sdl.Keycode
-	LastPressedBtn  uint8
-	Cancelled       bool
-	ActionTriggered bool
-	ConfirmTriggered	bool
+	LastPressedKey   sdl.Keycode
+	LastPressedBtn   uint8
+	Cancelled        bool
+	ActionTriggered  bool
+	ConfirmTriggered bool
 }
 
 type detailScreenState struct {
@@ -96,8 +95,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
-		ActionKey:        sdl.K_a,
-		ActionButton:     ButtonA,
+		ActionButton:     InternalButtonA,
 		ShowScrollbar:    true,
 		EnableAction:     false,
 	}
@@ -315,78 +313,60 @@ func (s *detailScreenState) isFinished() bool {
 }
 
 func (s *detailScreenState) handleEvents() {
+	processor := GetInputProcessor()
+
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-		switch e := event.(type) {
+		switch event.(type) {
 		case *sdl.QuitEvent:
 			s.result.Cancelled = true
 			return
-		case *sdl.KeyboardEvent:
-			s.handleKeyboardEvent(e)
-		case *sdl.ControllerButtonEvent:
-			s.handleControllerEvent(e)
+		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+			if inputEvent == nil {
+				continue
+			}
+
+			if inputEvent.Pressed {
+				s.handleInputEvent(inputEvent)
+			} else {
+				s.handleInputEventRelease(inputEvent)
+			}
 		}
 	}
 }
 
-func (s *detailScreenState) handleKeyboardEvent(e *sdl.KeyboardEvent) {
-	if e.Type == sdl.KEYDOWN {
-		s.result.LastPressedKey = e.Keysym.Sym
-		if !s.isInputAllowed() {
-			return
-		}
-		s.lastInputTime = time.Now()
+func (s *detailScreenState) handleInputEvent(inputEvent *InputEvent) {
+	if !s.isInputAllowed() {
+		return
+	}
+	s.lastInputTime = time.Now()
 
-		switch e.Keysym.Sym {
-		case sdl.K_UP:
-			s.startScrolling(true)
-		case sdl.K_DOWN:
-			s.startScrolling(false)
-		case sdl.K_LEFT, sdl.K_RIGHT:
-			s.handleSlideshowNavigation(e.Keysym.Sym == sdl.K_LEFT)
-		case sdl.K_b, sdl.K_ESCAPE:
-			s.result.Cancelled = true
-		case sdl.K_a, sdl.K_RETURN:
+	switch inputEvent.Button {
+	case InternalButtonUp:
+		s.startScrolling(true)
+	case InternalButtonDown:
+		s.startScrolling(false)
+	case InternalButtonLeft, InternalButtonRight:
+		s.handleSlideshowNavigation(inputEvent.Button == InternalButtonLeft)
+	case InternalButtonB:
+		s.result.Cancelled = true
+	case s.options.ActionButton, InternalButtonA, InternalButtonStart:
+		s.result.Cancelled = false
+		s.result.ConfirmTriggered = true
+	case InternalButtonX:
+		if s.options.EnableAction {
 			s.result.Cancelled = false
-			s.result.ConfirmTriggered = true
-		case sdl.K_x:
-			if s.options.EnableAction {
-				s.result.Cancelled = false
-				s.result.ActionTriggered = true
-			}
+			s.result.ActionTriggered = true
 		}
-	} else if e.Type == sdl.KEYUP {
-		s.stopScrolling(e.Keysym.Sym)
 	}
 }
 
-func (s *detailScreenState) handleControllerEvent(e *sdl.ControllerButtonEvent) {
-	if e.Type == sdl.CONTROLLERBUTTONDOWN {
-		s.result.LastPressedBtn = e.Button
-		if !s.isInputAllowed() {
-			return
-		}
-		s.lastInputTime = time.Now()
-
-		switch Button(e.Button) {
-		case ButtonUp:
-			s.startScrolling(true)
-		case ButtonDown:
-			s.startScrolling(false)
-		case ButtonLeft, ButtonRight:
-			s.handleSlideshowNavigation(Button(e.Button) == ButtonLeft)
-		case ButtonB:
-			s.result.Cancelled = true
-		case s.options.ActionButton:
-			s.result.Cancelled = false
-			s.result.ConfirmTriggered = true
-		case ButtonX:
-			if s.options.EnableAction {
-				s.result.Cancelled = false
-				s.result.ActionTriggered = true
-			}
-		}
-	} else if e.Type == sdl.CONTROLLERBUTTONUP {
-		s.stopScrollingButton(Button(e.Button))
+func (s *detailScreenState) handleInputEventRelease(inputEvent *InputEvent) {
+	switch inputEvent.Button {
+	case InternalButtonUp:
+		s.heldDirections.up = false
+	case InternalButtonDown:
+		s.heldDirections.down = false
 	}
 }
 
@@ -403,24 +383,6 @@ func (s *detailScreenState) startScrolling(up bool) {
 		s.targetScrollY = min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 	}
 	s.lastRepeatTime = time.Now()
-}
-
-func (s *detailScreenState) stopScrolling(key sdl.Keycode) {
-	switch key {
-	case sdl.K_UP:
-		s.heldDirections.up = false
-	case sdl.K_DOWN:
-		s.heldDirections.down = false
-	}
-}
-
-func (s *detailScreenState) stopScrollingButton(button Button) {
-	switch button {
-	case ButtonUp:
-		s.heldDirections.up = false
-	case ButtonDown:
-		s.heldDirections.down = false
-	}
 }
 
 func (s *detailScreenState) handleSlideshowNavigation(isLeft bool) {

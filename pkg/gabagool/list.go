@@ -43,10 +43,8 @@ type ListOptions struct {
 	ScrollPauseTime int
 
 	InputDelay        time.Duration
-	MultiSelectKey    sdl.Keycode    // Keep for legacy, will be deprecated
-	MultiSelectButton InternalButton // New button mapping
-	ReorderKey        sdl.Keycode    // Keep for legacy, will be deprecated
-	ReorderButton     InternalButton // New button mapping
+	MultiSelectButton InternalButton
+	ReorderButton     InternalButton
 
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
@@ -68,9 +66,7 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		ScrollSpeed:       4.0,
 		ScrollPauseTime:   1250,
 		InputDelay:        DefaultInputDelay,
-		MultiSelectKey:    sdl.K_SPACE,
 		MultiSelectButton: InternalButtonSelect, // New default
-		ReorderKey:        sdl.K_SPACE,
 		ReorderButton:     InternalButtonSelect, // New default
 		EmptyMessage:      "No items available",
 		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
@@ -607,7 +603,7 @@ func (lc *listController) render(window *Window) {
 
 func (lc *listController) renderContent(window *Window, visibleItems []MenuItem) {
 	renderer := window.Renderer
-	
+
 	itemStartY := lc.StartY
 
 	// Render background

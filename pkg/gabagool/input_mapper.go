@@ -7,7 +7,8 @@ import (
 type InternalButton int
 
 const (
-	InternalButtonUp InternalButton = iota
+	InternalButtonUnassigned InternalButton = iota
+	InternalButtonUp
 	InternalButtonDown
 	InternalButtonLeft
 	InternalButtonRight
@@ -22,7 +23,6 @@ const (
 	InternalButtonStart
 	InternalButtonSelect
 	InternalButtonMenu
-	InternalButtonUnassigned
 )
 
 type InputSource int

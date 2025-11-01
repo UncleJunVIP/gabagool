@@ -186,6 +186,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
 	window := GetWindow()
 	renderer := window.Renderer
+	processor := GetInputProcessor()
 
 	optionsListController := newOptionsListController(title, items)
 
@@ -206,328 +207,21 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 		window.RenderBackground()
 
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
+			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
 				err = sdl.GetError()
 
-			case *sdl.KeyboardEvent:
-				if e.Type != sdl.KEYDOWN {
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+				if inputEvent == nil {
 					continue
 				}
 
-				switch e.Keysym.Sym {
-				case sdl.K_b:
-					if optionsListController.showingColorPicker {
-						// If showing color picker, hide it and return to options list
-						optionsListController.hideColorPicker()
-					} else {
-						running = false
-						result.SelectedIndex = -1
-						result.Canceled = true
-					}
-
-				case sdl.K_a:
-					if optionsListController.showingColorPicker {
-						// If showing color picker, handle color selection
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker {
-										item.Options[j].Value = selectedColor
-										item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
-											selectedColor.R, selectedColor.G, selectedColor.B)
-
-										if item.Options[j].OnUpdate != nil {
-											item.Options[j].OnUpdate(selectedColor)
-										}
-										break
-									}
-								}
-								optionsListController.hideColorPicker()
-							}
-						}
-					} else if optionsListController.SelectedIndex >= 0 &&
-						optionsListController.SelectedIndex < len(optionsListController.Items) {
-						item := &optionsListController.Items[optionsListController.SelectedIndex]
-						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
-							option := item.Options[item.SelectedOption]
-							if option.Type == OptionTypeKeyboard {
-								prompt := option.KeyboardPrompt
-								if prompt == "" {
-									prompt = "Enter value"
-								}
-								keyboardResult, keyboardErr := Keyboard(prompt)
-								if keyboardErr == nil && keyboardResult.IsSome() {
-									enteredText := keyboardResult.Unwrap()
-									item.Options[item.SelectedOption] = Option{
-										DisplayName:    enteredText,
-										Value:          enteredText,
-										Type:           OptionTypeKeyboard,
-										KeyboardPrompt: option.KeyboardPrompt,
-									}
-								}
-								continue
-							} else if option.Type == OptionTypeClickable {
-								running = false
-								result.SelectedIndex = optionsListController.SelectedIndex
-								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-								result.Canceled = false
-							} else if option.Type == OptionTypeColorPicker {
-								// Show the color picker
-								optionsListController.showColorPicker(optionsListController.SelectedIndex)
-							}
-						}
-					}
-
-				case sdl.K_RETURN:
-					if !optionsListController.showingColorPicker {
-						running = false
-						result.SelectedIndex = optionsListController.SelectedIndex
-						result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-						result.Canceled = false
-					}
-
-				case sdl.K_LEFT:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(e.Keysym.Sym)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-
-							}
-						}
-					} else {
-						optionsListController.cycleOptionLeft()
-					}
-
-				case sdl.K_RIGHT:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(e.Keysym.Sym)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.cycleOptionRight()
-					}
-
-				case sdl.K_UP, sdl.K_DOWN:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(e.Keysym.Sym)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.handleEvent(event)
-					}
-
-				default:
-					optionsListController.handleEvent(event)
-				}
-
-			case *sdl.ControllerButtonEvent:
-				if e.Type != sdl.CONTROLLERBUTTONDOWN {
-					continue
-				}
-
-				switch Button(e.Button) {
-				case ButtonB:
-					if optionsListController.showingColorPicker {
-						// If showing color picker, hide it and return to options list
-						optionsListController.hideColorPicker()
-					} else {
-						result.SelectedIndex = -1
-						result.Canceled = true
-						running = false
-					}
-
-				case ButtonA:
-					if optionsListController.showingColorPicker {
-						// If showing color picker, handle color selection
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker {
-										item.Options[j].Value = selectedColor
-										item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
-											selectedColor.R, selectedColor.G, selectedColor.B)
-										break
-									}
-								}
-								optionsListController.hideColorPicker()
-							}
-						}
-					} else if optionsListController.SelectedIndex >= 0 &&
-						optionsListController.SelectedIndex < len(optionsListController.Items) {
-						item := &optionsListController.Items[optionsListController.SelectedIndex]
-						if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
-							option := item.Options[item.SelectedOption]
-							if option.Type == OptionTypeKeyboard {
-								prompt := option.KeyboardPrompt
-								if prompt == "" {
-									prompt = "Enter value"
-								}
-								keyboardResult, keyboardErr := Keyboard(prompt)
-								if keyboardErr == nil && keyboardResult.IsSome() {
-									enteredText := keyboardResult.Unwrap()
-									item.Options[item.SelectedOption] = Option{
-										DisplayName:    enteredText,
-										Value:          enteredText,
-										Type:           OptionTypeKeyboard,
-										KeyboardPrompt: option.KeyboardPrompt,
-									}
-								}
-								continue
-							} else if option.Type == OptionTypeClickable {
-								running = false
-								result.SelectedIndex = optionsListController.SelectedIndex
-								result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-								result.Canceled = false
-							} else if option.Type == OptionTypeColorPicker {
-								// Show the color picker
-								optionsListController.showColorPicker(optionsListController.SelectedIndex)
-							}
-						}
-					}
-
-				case ButtonStart:
-					if !optionsListController.showingColorPicker {
-						running = false
-						result.SelectedIndex = optionsListController.SelectedIndex
-						result.SelectedItem = &optionsListController.Items[optionsListController.SelectedIndex]
-						result.Canceled = false
-					}
-
-				case ButtonLeft:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(sdl.K_LEFT)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.cycleOptionLeft()
-					}
-
-				case ButtonRight:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(sdl.K_RIGHT)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.cycleOptionRight()
-					}
-
-				case ButtonUp:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(sdl.K_UP)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.handleEvent(event)
-					}
-
-				case ButtonDown:
-					if optionsListController.showingColorPicker {
-						// Let the color picker handle the event
-						if optionsListController.activeColorPickerIdx >= 0 &&
-							optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
-							item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
-							if item.colorPicker != nil {
-								item.colorPicker.handleKeyPress(sdl.K_DOWN)
-
-								selectedColor := item.colorPicker.GetSelectedColor()
-								for j := range item.Options {
-									if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
-										item.Options[j].OnUpdate(selectedColor)
-										break
-									}
-								}
-							}
-						}
-					} else {
-						optionsListController.handleEvent(event)
-					}
-
-				default:
-					optionsListController.handleEvent(event)
+				if optionsListController.showingColorPicker {
+					optionsListController.handleColorPickerInput(inputEvent)
+				} else {
+					optionsListController.handleOptionsInput(inputEvent, &running, &result)
 				}
 			}
 		}
@@ -560,7 +254,195 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	return option.Some(result), nil
 }
 
-// showColorPicker activates the color picker for the given item index
+// handleColorPickerInput processes input while color picker is active
+func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent) {
+	if !inputEvent.Pressed {
+		return
+	}
+
+	if olc.activeColorPickerIdx < 0 || olc.activeColorPickerIdx >= len(olc.Items) {
+		return
+	}
+
+	item := &olc.Items[olc.activeColorPickerIdx]
+	if item.colorPicker == nil {
+		return
+	}
+
+	switch inputEvent.Button {
+	case InternalButtonB:
+		olc.hideColorPicker()
+	case InternalButtonA:
+		selectedColor := item.colorPicker.GetSelectedColor()
+		for j := range item.Options {
+			if item.Options[j].Type == OptionTypeColorPicker {
+				item.Options[j].Value = selectedColor
+				item.Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X",
+					selectedColor.R, selectedColor.G, selectedColor.B)
+				if item.Options[j].OnUpdate != nil {
+					item.Options[j].OnUpdate(selectedColor)
+				}
+				break
+			}
+		}
+		olc.hideColorPicker()
+	case InternalButtonLeft, InternalButtonRight, InternalButtonUp, InternalButtonDown:
+		// Convert internal button to keycode for color picker
+		var keycode sdl.Keycode
+		switch inputEvent.Button {
+		case InternalButtonLeft:
+			keycode = sdl.K_LEFT
+		case InternalButtonRight:
+			keycode = sdl.K_RIGHT
+		case InternalButtonUp:
+			keycode = sdl.K_UP
+		case InternalButtonDown:
+			keycode = sdl.K_DOWN
+		}
+		item.colorPicker.handleKeyPress(keycode)
+
+		selectedColor := item.colorPicker.GetSelectedColor()
+		for j := range item.Options {
+			if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
+				item.Options[j].OnUpdate(selectedColor)
+				break
+			}
+		}
+	}
+}
+
+// handleOptionsInput processes input for the options list
+func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, running *bool, result *OptionsListReturn) {
+	if !inputEvent.Pressed {
+		return
+	}
+
+	currentTime := time.Now()
+	if currentTime.Sub(olc.lastInputTime) < olc.Settings.InputDelay {
+		return
+	}
+
+	switch inputEvent.Button {
+	case InternalButtonMenu:
+		olc.toggleHelp()
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonB:
+		if olc.ShowingHelp {
+			olc.ShowingHelp = false
+		} else {
+			*running = false
+			result.SelectedIndex = -1
+			result.Canceled = true
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonA:
+		if olc.ShowingHelp {
+			olc.ShowingHelp = false
+		} else {
+			olc.handleAButton(running, result)
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonStart:
+		if !olc.ShowingHelp && olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
+			*running = false
+			result.SelectedIndex = olc.SelectedIndex
+			result.SelectedItem = &olc.Items[olc.SelectedIndex]
+			result.Canceled = false
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonLeft:
+		if !olc.ShowingHelp {
+			olc.cycleOptionLeft()
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonRight:
+		if !olc.ShowingHelp {
+			olc.cycleOptionRight()
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonUp:
+		if olc.ShowingHelp {
+			olc.scrollHelpOverlay(-1)
+		} else {
+			olc.moveSelection(-1)
+		}
+		olc.lastInputTime = time.Now()
+
+	case InternalButtonDown:
+		if olc.ShowingHelp {
+			olc.scrollHelpOverlay(1)
+		} else {
+			olc.moveSelection(1)
+		}
+		olc.lastInputTime = time.Now()
+	}
+}
+
+func (olc *optionsListController) handleAButton(running *bool, result *OptionsListReturn) {
+	if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
+		item := &olc.Items[olc.SelectedIndex]
+		if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
+			option := item.Options[item.SelectedOption]
+			switch option.Type {
+			case OptionTypeKeyboard:
+				prompt := option.KeyboardPrompt
+				if prompt == "" {
+					prompt = "Enter value"
+				}
+				keyboardResult, err := Keyboard(prompt)
+				if err == nil && keyboardResult.IsSome() {
+					enteredText := keyboardResult.Unwrap()
+					item.Options[item.SelectedOption] = Option{
+						DisplayName:    enteredText,
+						Value:          enteredText,
+						Type:           OptionTypeKeyboard,
+						KeyboardPrompt: option.KeyboardPrompt,
+					}
+				}
+			case OptionTypeColorPicker:
+				olc.showColorPicker(olc.SelectedIndex)
+			case OptionTypeClickable:
+				*running = false
+				result.SelectedIndex = olc.SelectedIndex
+				result.SelectedItem = &olc.Items[olc.SelectedIndex]
+				result.Canceled = false
+			}
+		}
+	}
+}
+
+func (olc *optionsListController) moveSelection(direction int) {
+	if len(olc.Items) == 0 {
+		return
+	}
+
+	olc.Items[olc.SelectedIndex].Item.Selected = false
+	if direction > 0 {
+		if olc.SelectedIndex < len(olc.Items)-1 {
+			olc.SelectedIndex++
+		} else {
+			olc.SelectedIndex = 0
+		}
+	} else {
+		if olc.SelectedIndex > 0 {
+			olc.SelectedIndex--
+		} else {
+			olc.SelectedIndex = len(olc.Items) - 1
+		}
+	}
+	olc.Items[olc.SelectedIndex].Item.Selected = true
+	olc.scrollTo(olc.SelectedIndex)
+	if olc.OnSelect != nil {
+		olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
+	}
+}
+
 func (olc *optionsListController) showColorPicker(itemIndex int) {
 	if itemIndex < 0 || itemIndex >= len(olc.Items) {
 		return
@@ -574,7 +456,6 @@ func (olc *optionsListController) showColorPicker(itemIndex int) {
 	}
 }
 
-// hideColorPicker hides the active color picker
 func (olc *optionsListController) hideColorPicker() {
 	if olc.activeColorPickerIdx >= 0 && olc.activeColorPickerIdx < len(olc.Items) {
 		item := &olc.Items[olc.activeColorPickerIdx]
@@ -653,205 +534,6 @@ func (olc *optionsListController) scrollTo(index int) {
 			olc.VisibleStartIndex = 0
 		}
 	}
-}
-
-func (olc *optionsListController) handleEvent(event sdl.Event) bool {
-	currentTime := time.Now()
-	if currentTime.Sub(olc.lastInputTime) < olc.Settings.InputDelay {
-		return false
-	}
-
-	switch t := event.(type) {
-	case *sdl.KeyboardEvent:
-		if t.Type == sdl.KEYDOWN {
-			return olc.handleKeyDown(t.Keysym.Sym)
-		}
-	case *sdl.ControllerButtonEvent:
-		if t.Type == sdl.CONTROLLERBUTTONDOWN {
-			return olc.handleButtonPress(t.Button)
-		}
-	}
-	return false
-}
-
-func (olc *optionsListController) handleKeyDown(key sdl.Keycode) bool {
-	olc.lastInputTime = time.Now()
-
-	if key == sdl.K_h {
-		olc.toggleHelp()
-		return true
-	}
-
-	if olc.ShowingHelp {
-		return olc.handleHelpScreenInput(key)
-	}
-
-	if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
-		item := &olc.Items[olc.SelectedIndex]
-		if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
-			option := item.Options[item.SelectedOption]
-			if option.Type == OptionTypeKeyboard {
-				if key == sdl.K_a {
-					prompt := option.KeyboardPrompt
-					if prompt == "" {
-						prompt = "Enter value"
-					}
-					keyboardResult, err := Keyboard(prompt)
-					if err == nil && keyboardResult.IsSome() {
-						enteredText := keyboardResult.Unwrap()
-						item.Options[item.SelectedOption] = Option{
-							DisplayName:    enteredText,
-							Value:          enteredText,
-							Type:           OptionTypeKeyboard,
-							KeyboardPrompt: option.KeyboardPrompt,
-						}
-					}
-					return true
-				}
-			}
-		}
-	}
-
-	return olc.handleNormalModeInput(key)
-}
-
-func (olc *optionsListController) handleHelpScreenInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		olc.scrollHelpOverlay(-1)
-		return true
-	case sdl.K_DOWN:
-		olc.scrollHelpOverlay(1)
-		return true
-	default:
-		olc.ShowingHelp = false
-		return true
-	}
-}
-
-func (olc *optionsListController) handleNormalModeInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		olc.Items[olc.SelectedIndex].Item.Selected = false
-		if olc.SelectedIndex > 0 {
-			olc.SelectedIndex--
-		} else {
-			olc.SelectedIndex = len(olc.Items) - 1
-		}
-		olc.Items[olc.SelectedIndex].Item.Selected = true
-		olc.scrollTo(olc.SelectedIndex)
-		if olc.OnSelect != nil {
-			olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
-		}
-		return true
-
-	case sdl.K_DOWN:
-		olc.Items[olc.SelectedIndex].Item.Selected = false
-		if olc.SelectedIndex < len(olc.Items)-1 {
-			olc.SelectedIndex++
-		} else {
-			olc.SelectedIndex = 0
-		}
-		olc.Items[olc.SelectedIndex].Item.Selected = true
-		olc.scrollTo(olc.SelectedIndex)
-		if olc.OnSelect != nil {
-			olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
-		}
-		return true
-
-	default:
-		return false
-	}
-}
-
-func (olc *optionsListController) handleButtonPress(button uint8) bool {
-	olc.lastInputTime = time.Now()
-
-	if Button(button) == ButtonMenu {
-		olc.toggleHelp()
-		return true
-	}
-
-	if olc.ShowingHelp {
-		return olc.handleHelpScreenButton(button)
-	}
-
-	return olc.handleNormalModeButton(button)
-}
-
-func (olc *optionsListController) handleHelpScreenButton(button uint8) bool {
-	switch Button(button) {
-	case ButtonUp:
-		olc.scrollHelpOverlay(-1)
-		return true
-	case ButtonDown:
-		olc.scrollHelpOverlay(1)
-		return true
-	default:
-		olc.ShowingHelp = false
-		return true
-	}
-}
-
-func (olc *optionsListController) handleNormalModeButton(button uint8) bool {
-	switch Button(button) {
-	case ButtonUp:
-		olc.Items[olc.SelectedIndex].Item.Selected = false
-		if olc.SelectedIndex > 0 {
-			olc.SelectedIndex--
-		} else {
-			olc.SelectedIndex = len(olc.Items) - 1
-		}
-		olc.Items[olc.SelectedIndex].Item.Selected = true
-		olc.scrollTo(olc.SelectedIndex)
-		if olc.OnSelect != nil {
-			olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
-		}
-		return true
-
-	case ButtonDown:
-		olc.Items[olc.SelectedIndex].Item.Selected = false
-		if olc.SelectedIndex < len(olc.Items)-1 {
-			olc.SelectedIndex++
-		} else {
-			olc.SelectedIndex = 0
-		}
-		olc.Items[olc.SelectedIndex].Item.Selected = true
-		olc.scrollTo(olc.SelectedIndex)
-		if olc.OnSelect != nil {
-			olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
-		}
-		return true
-
-	case ButtonA:
-		if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
-			item := &olc.Items[olc.SelectedIndex]
-			if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
-				option := item.Options[item.SelectedOption]
-				if option.Type == OptionTypeKeyboard {
-					prompt := option.KeyboardPrompt
-					if prompt == "" {
-						prompt = "Enter value"
-					}
-					keyboardResult, err := Keyboard(prompt)
-					if err == nil && keyboardResult.IsSome() {
-						enteredText := keyboardResult.Unwrap()
-						item.Options[item.SelectedOption] = Option{
-							DisplayName:    enteredText,
-							Value:          enteredText,
-							Type:           OptionTypeKeyboard,
-							KeyboardPrompt: option.KeyboardPrompt,
-						}
-					}
-					return true
-				}
-			}
-		}
-
-	default:
-		return false
-	}
-	return false
 }
 
 func (olc *optionsListController) toggleHelp() {
