@@ -23,7 +23,7 @@ func InitSDL(options Options) {
 		initNextUITheme()
 	}
 
-	Init(options.WindowTitle, options.ShowBackground, options.ControllerConfigFile)
+	Init(options.WindowTitle, options.ShowBackground)
 }
 
 // CloseSDL Tidies up SDL and the UI

@@ -74,10 +74,10 @@ func DefaultInputMapping() *InputMapping {
 			sdl.CONTROLLER_BUTTON_DPAD_DOWN:  InternalButtonDown,
 			sdl.CONTROLLER_BUTTON_DPAD_LEFT:  InternalButtonLeft,
 			sdl.CONTROLLER_BUTTON_DPAD_RIGHT: InternalButtonRight,
-			sdl.CONTROLLER_BUTTON_A:          InternalButtonA,
-			sdl.CONTROLLER_BUTTON_B:          InternalButtonB,
-			sdl.CONTROLLER_BUTTON_X:          InternalButtonX,
-			sdl.CONTROLLER_BUTTON_Y:          InternalButtonY,
+			sdl.CONTROLLER_BUTTON_A:          InternalButtonB,
+			sdl.CONTROLLER_BUTTON_B:          InternalButtonA,
+			sdl.CONTROLLER_BUTTON_X:          InternalButtonY,
+			sdl.CONTROLLER_BUTTON_Y:          InternalButtonX,
 			sdl.CONTROLLER_BUTTON_START:      InternalButtonStart,
 			sdl.CONTROLLER_BUTTON_BACK:       InternalButtonSelect,
 			sdl.CONTROLLER_BUTTON_GUIDE:      InternalButtonMenu,
@@ -99,89 +99,4 @@ func DefaultInputMapping() *InputMapping {
 			5: InternalButtonStart,
 		},
 	}
-}
-
-type InputProcessor struct {
-	mapping *InputMapping
-}
-
-func NewInputProcessor() *InputProcessor {
-	return &InputProcessor{
-		mapping: DefaultInputMapping(),
-	}
-}
-
-func (ip *InputProcessor) SetMapping(mapping *InputMapping) {
-	ip.mapping = mapping
-}
-
-func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
-	switch e := event.(type) {
-	case *sdl.KeyboardEvent:
-		if button, exists := ip.mapping.KeyboardMap[e.Keysym.Sym]; exists {
-			return &InputEvent{
-				Button:  button,
-				Pressed: e.Type == sdl.KEYDOWN,
-				Source:  InputSourceKeyboard,
-				RawCode: int(e.Keysym.Sym),
-			}
-		}
-	case *sdl.ControllerButtonEvent:
-		if button, exists := ip.mapping.ControllerButtonMap[sdl.GameControllerButton(e.Button)]; exists {
-			return &InputEvent{
-				Button:  button,
-				Pressed: e.Type == sdl.CONTROLLERBUTTONDOWN,
-				Source:  InputSourceController,
-				RawCode: int(e.Button),
-			}
-		}
-	case *sdl.ControllerAxisEvent:
-		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
-			if e.Value > axisConfig.Threshold {
-				return &InputEvent{
-					Button:  axisConfig.PositiveButton,
-					Pressed: true,
-					Source:  InputSourceController,
-					RawCode: int(e.Axis),
-				}
-			}
-			if e.Value < -axisConfig.Threshold {
-				return &InputEvent{
-					Button:  axisConfig.NegativeButton,
-					Pressed: true,
-					Source:  InputSourceController,
-					RawCode: int(e.Axis),
-				}
-			}
-		}
-	case *sdl.JoyButtonEvent:
-		if button, exists := ip.mapping.JoystickButtonMap[e.Button]; exists {
-			return &InputEvent{
-				Button:  button,
-				Pressed: e.Type == sdl.JOYBUTTONDOWN,
-				Source:  InputSourceJoystick,
-				RawCode: int(e.Button),
-			}
-		}
-	case *sdl.JoyAxisEvent:
-		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
-			if e.Value > axisConfig.Threshold {
-				return &InputEvent{
-					Button:  axisConfig.PositiveButton,
-					Pressed: true,
-					Source:  InputSourceJoystick,
-					RawCode: int(e.Axis),
-				}
-			}
-			if e.Value < -axisConfig.Threshold {
-				return &InputEvent{
-					Button:  axisConfig.NegativeButton,
-					Pressed: true,
-					Source:  InputSourceJoystick,
-					RawCode: int(e.Axis),
-				}
-			}
-		}
-	}
-	return nil
 }

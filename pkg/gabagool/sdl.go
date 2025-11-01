@@ -1,9 +1,7 @@
 package gabagool
 
 import (
-	"fmt"
 	"os"
-	"strings"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
@@ -14,7 +12,7 @@ var window *Window
 var gameControllers []*sdl.GameController
 var rawJoysticks []*sdl.Joystick
 
-func Init(title string, showBackground bool, controllerConfig string) {
+func Init(title string, showBackground bool) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO |
 		img.INIT_PNG | img.INIT_JPG | img.INIT_TIF | img.INIT_WEBP |
 		sdl.INIT_GAMECONTROLLER | sdl.INIT_JOYSTICK); err != nil {
@@ -25,9 +23,7 @@ func Init(title string, showBackground bool, controllerConfig string) {
 		os.Exit(1)
 	}
 
-	if err := LoadControllerConfiguration(controllerConfig); err != nil {
-		GetLoggerInstance().Debug("Failed to load controller configuration", "path", controllerConfig)
-	}
+	InitInputProcessor()
 
 	detectAndOpenAllGameControllers()
 
@@ -42,40 +38,34 @@ func detectAndOpenAllGameControllers() {
 	numJoysticks := sdl.NumJoysticks()
 	GetLoggerInstance().Debug("Detecting controllers", "numJoysticks", numJoysticks)
 
+	processor := GetInputProcessor()
+
 	for i := 0; i < numJoysticks; i++ {
 		if sdl.IsGameController(i) {
 			controller := sdl.GameControllerOpen(i)
 			if controller != nil {
 				name := controller.Name()
 
-				guid := fmt.Sprintf("controller_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
+				// Register this joystick INDEX (not instance ID) as being handled by a game controller
+				processor.RegisterGameControllerJoystickIndex(i)
 
 				GetLoggerInstance().Debug("Opened game controller",
 					"index", i,
 					"name", name,
-					"guid", guid,
 				)
-
-				InitializeControllerMapping(name, guid)
 
 				gameControllers = append(gameControllers, controller)
 			} else {
 				GetLoggerInstance().Error("Failed to open game controller", "index", i)
 			}
 		} else {
-			// This is a raw joystick - try to open it anyway (for devices like RG35XXSP)
 			joystick := sdl.JoystickOpen(i)
 			if joystick != nil {
 				name := joystick.Name()
-				guid := fmt.Sprintf("joystick_%d_%s", i, strings.ReplaceAll(name, " ", "_"))
-
 				GetLoggerInstance().Debug("Opened raw joystick (not a standard game controller)",
 					"index", i,
 					"name", name,
-					"guid", guid,
 				)
-
-				InitializeControllerMapping(name, guid)
 
 				rawJoysticks = append(rawJoysticks, joystick)
 			} else {
@@ -89,11 +79,6 @@ func detectAndOpenAllGameControllers() {
 		"rawJoysticks", len(rawJoysticks),
 		"totalJoysticks", numJoysticks,
 	)
-
-	ApplyBestControllerMapping()
-
-	currentMapping := GetCurrentButtonMapping()
-	GetLoggerInstance().Debug("Final button mapping applied", "mapping", currentMapping)
 }
 
 func SDLCleanup() {
