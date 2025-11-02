@@ -1,8 +1,6 @@
 package gabagool
 
 import (
-	"log/slog"
-
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -46,7 +44,7 @@ func (ip *InputProcessor) IsGameControllerJoystick(joystickIndex int) bool {
 }
 
 func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
-	slog.Debug("Event detected", "event", event)
+	GetLoggerInstance().Debug("Event detected", "event", event)
 	switch e := event.(type) {
 	case *sdl.KeyboardEvent:
 		if button, exists := ip.mapping.KeyboardMap[e.Keysym.Sym]; exists {
@@ -67,12 +65,14 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyHatEvent:
-		if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
-			return &InputEvent{
-				Button:  button,
-				Pressed: true,
-				Source:  InputSourceHatSwitch,
-				RawCode: int(e.Value),
+		if e.Value != sdl.HAT_CENTERED {
+			if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
+				return &InputEvent{
+					Button:  button,
+					Pressed: true,
+					Source:  InputSourceHatSwitch,
+					RawCode: int(e.Value),
+				}
 			}
 		}
 	case *sdl.ControllerAxisEvent:
