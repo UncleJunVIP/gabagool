@@ -55,12 +55,12 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		height = 480
 	}
 
-	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE)
+	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN)
 	if err != nil {
 		panic(err)
 	}
 
-	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_TARGETTEXTURE|sdl.RENDERER_PRESENTVSYNC)
+	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC)
 	if err != nil {
 		slog.Error("Failed to create renderer!", "error", err)
 		os.Exit(1)
