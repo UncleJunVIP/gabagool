@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -584,9 +585,9 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 				case TextAlignLeft:
 					titleX = olc.Settings.Margins.Left
 				case TextAlignCenter:
-					titleX = (window.Width - titleSurface.W) / 2
+					titleX = (window.GetWidth() - titleSurface.W) / 2
 				case TextAlignRight:
-					titleX = window.Width - olc.Settings.Margins.Right - titleSurface.W
+					titleX = window.GetWidth() - olc.Settings.Margins.Right - titleSurface.W
 				}
 
 				renderer.Copy(titleTexture, nil, &sdl.Rect{
@@ -607,12 +608,12 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
 
-		textColor := GetTheme().ListTextColor
+		textColor := core.GetTheme().ListTextColor
 		bgColor := sdl.Color{R: 0, G: 0, B: 0, A: 0}
 
 		if item.Item.Selected {
-			textColor = GetTheme().ListTextSelectedColor
-			bgColor = GetTheme().MainColor
+			textColor = core.GetTheme().ListTextSelectedColor
+			bgColor = core.GetTheme().MainColor
 		}
 
 		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
@@ -621,7 +622,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 			selectionRect := &sdl.Rect{
 				X: olc.Settings.Margins.Left - 10,
 				Y: itemY - 5,
-				W: window.Width - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
+				W: window.GetWidth() - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
 				H: olc.Settings.ItemSpacing,
 			}
 			drawRoundedRect(renderer, selectionRect, 20, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
@@ -659,7 +660,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						defer optionTexture.Destroy()
 
 						renderer.Copy(optionTexture, nil, &sdl.Rect{
-							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							X: window.GetWidth() - olc.Settings.Margins.Right - optionSurface.W,
 							Y: itemY,
 							W: optionSurface.W,
 							H: optionSurface.H,
@@ -677,7 +678,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						defer optionTexture.Destroy()
 
 						renderer.Copy(optionTexture, nil, &sdl.Rect{
-							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							X: window.GetWidth() - olc.Settings.Margins.Right - optionSurface.W,
 							Y: itemY,
 							W: optionSurface.W,
 							H: optionSurface.H,
@@ -712,7 +713,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						swatchSpacing := int32(10)                            // Space between text and swatch
 
 						// Position swatch on the right
-						swatchX := window.Width - olc.Settings.Margins.Right - swatchWidth
+						swatchX := window.GetWidth() - olc.Settings.Margins.Right - swatchWidth
 
 						// Position the text to the left of the swatch
 						textX := swatchX - optionSurface.W - swatchSpacing
@@ -763,7 +764,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						defer optionTexture.Destroy()
 
 						renderer.Copy(optionTexture, nil, &sdl.Rect{
-							X: window.Width - olc.Settings.Margins.Right - optionSurface.W,
+							X: window.GetWidth() - olc.Settings.Margins.Right - optionSurface.W,
 							Y: itemY,
 							W: optionSurface.W,
 							H: optionSurface.H,

@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/img"
@@ -802,7 +803,7 @@ func (lc *listController) renderSelectedItemBackground(window *Window, imageFile
 		return
 	}
 	defer bgTexture.Destroy()
-	window.Renderer.Copy(bgTexture, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
+	window.Renderer.Copy(bgTexture, nil, &sdl.Rect{X: 0, Y: 0, W: window.GetWidth(), H: window.GetHeight()})
 }
 
 func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageFilename string) {
@@ -852,7 +853,7 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 }
 
 func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align TextAlign, startY, marginLeft int32) int32 {
-	surface, _ := font.RenderUTF8Blended(title, GetTheme().ListTextColor)
+	surface, _ := font.RenderUTF8Blended(title, core.GetTheme().ListTextColor)
 	if surface == nil {
 		return startY + 40
 	}
@@ -1014,18 +1015,18 @@ func (lc *listController) formatItemText(item MenuItem, multiSelect bool) string
 
 func (lc *listController) getItemColors(item MenuItem) (textColor, bgColor sdl.Color) {
 	if item.Focused && item.Selected {
-		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
+		return core.GetTheme().ListTextSelectedColor, core.GetTheme().MainColor
 	} else if item.Focused {
-		return GetTheme().ListTextSelectedColor, GetTheme().MainColor
+		return core.GetTheme().ListTextSelectedColor, core.GetTheme().MainColor
 	} else if item.Selected {
-		return GetTheme().ListTextColor, sdl.Color{R: 255, G: 0, B: 0, A: 0}
+		return core.GetTheme().ListTextColor, sdl.Color{R: 255, G: 0, B: 0, A: 0}
 	}
-	return GetTheme().ListTextColor, sdl.Color{}
+	return core.GetTheme().ListTextColor, sdl.Color{}
 }
 
 func (lc *listController) getTextColor(focused bool) sdl.Color {
 	if focused {
-		return GetTheme().ListTextSelectedColor
+		return core.GetTheme().ListTextSelectedColor
 	}
-	return GetTheme().ListTextColor
+	return core.GetTheme().ListTextColor
 }

@@ -1,6 +1,12 @@
 package gabagool
 
-import "log/slog"
+import (
+	"log/slog"
+
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/platform/cannoli"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/platform/nextui"
+)
 
 type Options struct {
 	WindowTitle          string
@@ -17,10 +23,12 @@ func InitSDL(options Options) {
 	setLogFilename(options.LogFilename)
 	SetLogLevel(options.LogLevel)
 
+	config := GetConfig()
+
 	if options.IsCannoli {
-		initTheme()
+		core.SetTheme(cannoli.InitCannoliTheme(config.Theme.DefaultFontPath))
 	} else {
-		initNextUITheme()
+		core.SetTheme(nextui.InitNextUITheme())
 	}
 
 	Init(options.WindowTitle, options.ShowBackground)

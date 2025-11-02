@@ -157,21 +157,21 @@ func (p *processMessage) render(renderer *sdl.Renderer) {
 		height := p.imageHeight
 
 		if width == 0 {
-			width = p.window.Width
+			width = p.window.GetWidth()
 		}
 
 		if height == 0 {
-			height = p.window.Height
+			height = p.window.GetHeight()
 		}
 
-		x := (p.window.Width - width) / 2
-		y := (p.window.Height - height) / 2
+		x := (p.window.GetWidth() - width) / 2
+		y := (p.window.GetHeight() - height) / 2
 
 		renderer.Copy(p.imageTexture, nil, &sdl.Rect{X: x, Y: y, W: width, H: height})
 	}
 
 	font := fonts.smallFont
 
-	maxWidth := p.window.Width * 3 / 4
-	renderMultilineText(renderer, p.message, font, maxWidth, p.window.Width/2, p.window.Height/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	maxWidth := p.window.GetWidth() * 3 / 4
+	renderMultilineText(renderer, p.message, font, maxWidth, p.window.GetWidth()/2, p.window.GetHeight()/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 }

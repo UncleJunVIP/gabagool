@@ -3,6 +3,7 @@ package gabagool
 import (
 	"os"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -29,7 +30,7 @@ func Init(title string, showBackground bool) {
 
 	window = initWindow(title, showBackground)
 
-	if !IsDev {
+	if !core.IsDevMode() {
 		window.initPowerButtonHandling()
 	}
 }

@@ -1,15 +1,8 @@
 package gabagool
 
 import (
-	"os"
 	"time"
 )
-
-const Development = "DEV"
-
-var IsDev = os.Getenv("ENVIRONMENT") == Development
-
-const EnvSettingsFile = "SETTINGS_FILE"
 
 type TextAlign int
 

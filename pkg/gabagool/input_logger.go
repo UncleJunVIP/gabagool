@@ -102,15 +102,15 @@ func (il *inputLoggerController) render() {
 	renderer.Clear()
 
 	title := "Gabagool Input Tester"
-	il.renderText(renderer, title, GetWindow().Width/2, 50, true)
+	il.renderText(renderer, title, GetWindow().GetWidth()/2, 50, true)
 
 	if il.lastInput == "" {
 		instructionText := "Press any button or key"
-		il.renderText(renderer, instructionText, GetWindow().Width/2, GetWindow().Height/2, true)
+		il.renderText(renderer, instructionText, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2, true)
 	} else {
-		il.renderText(renderer, il.lastInput, GetWindow().Width/2, GetWindow().Height/2-40, true)
+		il.renderText(renderer, il.lastInput, GetWindow().GetWidth()/2, GetWindow().GetWidth()/2-40, true)
 		if il.lastButtonName != "" {
-			il.renderText(renderer, il.lastButtonName, GetWindow().Width/2, GetWindow().Height/2+40, true)
+			il.renderText(renderer, il.lastButtonName, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+40, true)
 		}
 	}
 

@@ -258,7 +258,7 @@ func Keyboard(initialText string) (types.Option[string], error) {
 	renderer := window.Renderer
 	font := fonts.mediumFont
 
-	kb := createKeyboard(window.Width, window.Height)
+	kb := createKeyboard(window.GetWidth(), window.GetHeight())
 	if initialText != "" {
 		kb.TextBuffer = initialText
 		kb.CursorPosition = len(initialText)

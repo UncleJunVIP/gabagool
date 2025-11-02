@@ -184,13 +184,13 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 
 func (s *detailScreenState) initializeImageDefaults() {
 	footerHeight := int32(30)
-	safeAreaHeight := s.window.Height - footerHeight
+	safeAreaHeight := s.window.GetHeight() - footerHeight
 
 	if s.options.MaxImageHeight == 0 {
 		s.options.MaxImageHeight = int32(float64(safeAreaHeight) / 2)
 	}
 	if s.options.MaxImageWidth == 0 {
-		s.options.MaxImageWidth = int32(float64(s.window.Width) / 2)
+		s.options.MaxImageWidth = int32(float64(s.window.GetWidth()) / 2)
 	}
 }
 
@@ -299,12 +299,12 @@ func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32
 		case TextAlignLeft:
 			return 20
 		case TextAlignRight:
-			return s.window.Width - 20 - imageW
+			return s.window.GetWidth() - 20 - imageW
 		default:
-			return (s.window.Width - imageW) / 2
+			return (s.window.GetHeight() - imageW) / 2
 		}
 	}
-	return (s.window.Width - imageW) / 2
+	return (s.window.GetWidth() - imageW) / 2
 }
 
 func (s *detailScreenState) isFinished() bool {
@@ -433,7 +433,7 @@ func (s *detailScreenState) render() {
 
 	margins := uniformPadding(20)
 	footerHeight := int32(30)
-	safeAreaHeight := s.window.Height - footerHeight
+	safeAreaHeight := s.window.GetHeight() - footerHeight
 
 	currentY := s.renderTitle(margins)
 	currentY, totalContentHeight := s.renderSections(margins, currentY, safeAreaHeight)
@@ -469,13 +469,13 @@ func (s *detailScreenState) renderTitle(margins padding) int32 {
 	}
 
 	titleRect := sdl.Rect{
-		X: (s.window.Width - titleW) / 2,
+		X: (s.window.GetWidth() - titleW) / 2,
 		Y: margins.Top - s.scrollY,
 		W: titleW,
 		H: titleH,
 	}
 
-	if isRectVisible(titleRect, s.window.Height) {
+	if isRectVisible(titleRect, s.window.GetHeight()) {
 		s.renderer.Copy(s.titleTexture, nil, &titleRect)
 	}
 
@@ -484,7 +484,7 @@ func (s *detailScreenState) renderTitle(margins padding) int32 {
 
 func (s *detailScreenState) renderSections(margins padding, startY int32, safeAreaHeight int32) (int32, int32) {
 	currentY := startY
-	contentWidth := s.window.Width - (margins.Left + margins.Right)
+	contentWidth := s.window.GetWidth() - (margins.Left + margins.Right)
 
 	// Reset active slideshow at start of rendering
 	s.activeSlideshow = -1
@@ -578,7 +578,7 @@ func (s *detailScreenState) renderSlideshowIndicators(state slideshowState, curr
 	indicatorSpacing := int32(5)
 	totalIndicatorsWidth := (indicatorSize * int32(len(state.textures))) + (indicatorSpacing * int32(len(state.textures)-1))
 
-	indicatorX := (s.window.Width - totalIndicatorsWidth) / 2
+	indicatorX := (s.window.GetWidth() - totalIndicatorsWidth) / 2
 	indicatorY := currentY
 
 	for i := 0; i < len(state.textures); i++ {
@@ -712,7 +712,7 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 	// Background
 	s.renderer.SetDrawColor(50, 50, 50, 120)
 	s.renderer.FillRect(&sdl.Rect{
-		X: s.window.Width - scrollbarWidth - 5,
+		X: s.window.GetWidth() - scrollbarWidth - 5,
 		Y: 5,
 		W: scrollbarWidth,
 		H: safeAreaHeight - 10,
@@ -721,7 +721,7 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 	// Thumb
 	s.renderer.SetDrawColor(180, 180, 180, 200)
 	scrollbarRect := &sdl.Rect{
-		X: s.window.Width - scrollbarWidth - 5,
+		X: s.window.GetWidth() - scrollbarWidth - 5,
 		Y: 5 + scrollbarY,
 		W: scrollbarWidth,
 		H: scrollbarHeight,

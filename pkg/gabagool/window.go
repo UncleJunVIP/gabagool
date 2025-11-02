@@ -5,6 +5,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -13,8 +14,6 @@ type Window struct {
 	Window            *sdl.Window
 	Renderer          *sdl.Renderer
 	Title             string
-	Width             int32
-	Height            int32
 	FontSize          int
 	SmallFontSize     int
 	Background        *sdl.Texture
@@ -38,14 +37,12 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 
 	config := GetConfig()
 
-	if IsDev {
-		x = width/2 - config.UI.Window.Width/2
-		y = height/2 - config.UI.Window.Height/2
-		width = config.UI.Window.Width
-		height = config.UI.Window.Height
+	if core.IsDevMode() {
+		width = 1024
+		height = 768
 	}
 
-	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_BORDERLESS)
+	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE)
 	if err != nil {
 		panic(err)
 	}
@@ -62,8 +59,6 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		Window:            window,
 		Renderer:          renderer,
 		Title:             title,
-		Width:             width,
-		Height:            height,
 		DisplayBackground: displayBackground,
 	}
 
@@ -80,14 +75,9 @@ func (window *Window) initPowerButtonHandling() {
 func (window *Window) loadBackground() {
 	img.Init(img.INIT_PNG)
 
-	config := GetConfig()
-	bgPath := config.Environment.NextUIBackgroundPath
+	theme := core.GetTheme()
 
-	if IsDev {
-		bgPath = os.Getenv(config.Environment.BackgroundPathEnvVar)
-	}
-
-	bgTexture, err := img.LoadTexture(window.Renderer, bgPath)
+	bgTexture, err := img.LoadTexture(window.Renderer, theme.BackgroundImagePath)
 	if err == nil {
 		window.Background = bgTexture
 	} else {
@@ -96,7 +86,7 @@ func (window *Window) loadBackground() {
 }
 
 func (window *Window) closeWindow() {
-	if !IsDev {
+	if !core.IsDevMode() {
 		window.PowerButtonWG.Done()
 	}
 
@@ -113,9 +103,19 @@ func GetWindow() *Window {
 	return window
 }
 
+func (window *Window) GetWidth() int32 {
+	w, _ := window.Window.GetSize()
+	return w
+}
+
+func (window *Window) GetHeight() int32 {
+	_, h := window.Window.GetSize()
+	return h
+}
+
 func (window *Window) RenderBackground() {
 	if window.Background != nil {
-		window.Renderer.Copy(window.Background, nil, &sdl.Rect{X: 0, Y: 0, W: window.Width, H: window.Height})
+		window.Renderer.Copy(window.Background, nil, &sdl.Rect{X: 0, Y: 0, W: window.GetWidth(), H: window.GetHeight()})
 	}
 }
 

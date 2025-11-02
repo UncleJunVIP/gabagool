@@ -62,8 +62,8 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 
 	if options.ImagePath != "" {
 		settings.ImagePath = options.ImagePath
-		settings.MaxImageHeight = int32(float64(window.Height) / 1.75)
-		settings.MaxImageWidth = int32(float64(window.Width) / 1.75)
+		settings.MaxImageWidth = int32(float64(window.GetWidth()) / 1.75)
+		settings.MaxImageHeight = int32(float64(window.GetHeight()) / 1.75)
 	}
 
 	if options.ConfirmButton != InternalButtonUnassigned {
@@ -178,23 +178,23 @@ func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMe
 	renderer.Clear()
 
 	contentHeight := calculateContentHeight(settings, imageRect)
-	startY := (window.Height - contentHeight) / 2
+	startY := (window.GetHeight() - contentHeight) / 2
 
 	if imageTexture != nil {
-		imageRect.X = (window.Width - imageRect.W) / 2
+		imageRect.X = (window.GetWidth() - imageRect.W) / 2
 		imageRect.Y = startY
 		renderer.Copy(imageTexture, nil, &imageRect)
 		startY = imageRect.Y + imageRect.H + 30
 	}
 
 	if len(settings.MessageText) > 0 {
-		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
+		maxWidth := window.GetWidth() - (settings.Margins.Left + settings.Margins.Right)
 		renderMultilineText(
 			renderer,
 			settings.MessageText,
 			fonts.smallFont,
 			maxWidth,
-			window.Width/2,
+			window.GetWidth()/2,
 			startY,
 			settings.MessageTextColor)
 	}

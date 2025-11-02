@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
@@ -27,12 +28,12 @@ type fontsManager struct {
 func initFonts(configuration *Configuration) {
 	fontSizes := configuration.UI.FontSizes
 
-	xlFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.XLarge)
-	largeFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Large)
-	mediumFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Medium)
-	smallFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Small)
-	tinyFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Tiny)
-	microFont := loadFont(currentTheme.FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Micro)
+	xlFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.XLarge)
+	largeFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Large)
+	mediumFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Medium)
+	smallFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Small)
+	tinyFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Tiny)
+	microFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Micro)
 
 	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Large)
 	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Medium)

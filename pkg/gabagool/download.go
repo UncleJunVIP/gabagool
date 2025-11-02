@@ -63,9 +63,9 @@ type downloadManager struct {
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
 	window := GetWindow()
 
-	progressBarWidth := window.Width * 3 / 4
+	progressBarWidth := window.GetWidth() * 3 / 4
 	progressBarHeight := int32(30)
-	progressBarX := (window.Width - progressBarWidth) / 2
+	progressBarX := (window.GetWidth() - progressBarWidth) / 2
 
 	return &downloadManager{
 		window:             window,
@@ -382,7 +382,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
 		if err == nil {
 			titleRect := &sdl.Rect{
-				X: (dm.window.Width - titleSurface.W) / 2,
+				X: (dm.window.GetWidth() - titleSurface.W) / 2,
 				Y: 30,
 				W: titleSurface.W,
 				H: titleSurface.H,
@@ -422,8 +422,8 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			completeTexture, err := renderer.CreateTextureFromSurface(completeSurface)
 			if err == nil {
 				completeRect := &sdl.Rect{
-					X: (dm.window.Width - completeSurface.W) / 2,
-					Y: dm.window.Height/2 - completeSurface.H/2,
+					X: (dm.window.GetWidth() - completeSurface.W) / 2,
+					Y: dm.window.GetHeight()/2 - completeSurface.H/2,
 					W: completeSurface.W,
 					H: completeSurface.H,
 				}
@@ -443,7 +443,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		spacing := dm.progressBarHeight + 120 // Increased spacing between downloads (from 100 to 120)
 
 		if len(dm.downloads) == 1 {
-			baseY += dm.window.Height/5 + 45
+			baseY += dm.window.GetHeight()/5 + 45
 			spacing = 0
 		}
 
@@ -459,7 +459,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			}
 
 			// Truncate filename to fit on a single line
-			maxWidth := dm.window.Width * 3 / 4
+			maxWidth := dm.window.GetWidth() * 3 / 4
 			displayText = truncateFilename(displayText, maxWidth, font) // Use filenameFont instead of font
 
 			// Render filename with smallFont
@@ -468,7 +468,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 				filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
 				if err == nil {
 					filenameRect := &sdl.Rect{
-						X: (dm.window.Width - filenameSurface.W) / 2,
+						X: (dm.window.GetWidth() - filenameSurface.W) / 2,
 						Y: y - 50, // Increased vertical padding from 40 to 50
 						W: filenameSurface.W,
 						H: filenameSurface.H,
@@ -515,7 +515,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 				percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
 				if err == nil {
 					percentRect := &sdl.Rect{
-						X: (dm.window.Width - percentSurface.W) / 2,
+						X: (dm.window.GetWidth() - percentSurface.W) / 2,
 						Y: y + dm.progressBarHeight + 10,
 						W: percentSurface.W,
 						H: percentSurface.H,
@@ -535,7 +535,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 				queueTexture, err := renderer.CreateTextureFromSurface(queueSurface)
 				if err == nil {
 					queueRect := &sdl.Rect{
-						X: (dm.window.Width - queueSurface.W) / 2,
+						X: (dm.window.GetWidth() - queueSurface.W) / 2,
 						Y: baseY + int32(len(dm.activeJobs))*spacing + 20,
 						W: queueSurface.W,
 						H: queueSurface.H,
