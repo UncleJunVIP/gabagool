@@ -3,6 +3,7 @@ package gabagool
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -14,25 +15,30 @@ type buttonConfig struct {
 }
 
 type inputLoggerController struct {
-	lastInput        string
-	lastButtonName   string
-	font             *ttf.Font
-	textColor        sdl.Color
-	currentButtonIdx int
-	mappedButtons    map[InternalButton]int
-	currentSource    InputSource
-	mutex            sync.Mutex
-	buttonSequence   []buttonConfig
+	lastInput         string
+	lastButtonName    string
+	font              *ttf.Font
+	textColor         sdl.Color
+	currentButtonIdx  int
+	mappedButtons     map[InternalButton]int
+	currentSource     InputSource
+	mutex             sync.Mutex
+	buttonSequence    []buttonConfig
+	lastInputTime     time.Time
+	debounceDelay     time.Duration
+	waitingForRelease bool
 }
 
 func newInputLogger() *inputLoggerController {
 	return &inputLoggerController{
-		lastInput:        "",
-		lastButtonName:   "",
-		font:             fonts.largeFont,
-		textColor:        sdl.Color{R: 200, G: 100, B: 255, A: 255},
-		mappedButtons:    make(map[InternalButton]int),
-		currentButtonIdx: 0,
+		lastInput:         "",
+		lastButtonName:    "",
+		font:              fonts.largeFont,
+		textColor:         sdl.Color{R: 200, G: 100, B: 255, A: 255},
+		mappedButtons:     make(map[InternalButton]int),
+		currentButtonIdx:  0,
+		debounceDelay:     500 * time.Millisecond, // Wait 500ms before accepting next input
+		waitingForRelease: false,
 		buttonSequence: []buttonConfig{
 			{InternalButtonA, "A Button"},
 			{InternalButtonB, "B Button"},
@@ -49,11 +55,11 @@ func newInputLogger() *inputLoggerController {
 			{InternalButtonL2, "L2"},
 			{InternalButtonR1, "R1"},
 			{InternalButtonR2, "R2"},
-			{InternalButtonF1, "F1"},
-			{InternalButtonF2, "F2"},
-			{InternalButtonVolumeUp, "Volume Up"},
-			{InternalButtonVolumeDown, "Volume Down"},
-			{InternalButtonPower, "Power"},
+			//{InternalButtonF1, "F1"},
+			//{InternalButtonF2, "F2"},
+			//{InternalButtonVolumeUp, "Volume Up"},
+			//{InternalButtonVolumeDown, "Volume Down"},
+			//{InternalButtonPower, "Power"},
 		},
 	}
 }
@@ -89,6 +95,35 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 		return false
 	}
 
+	// Check debounce - if we're waiting for the button to be released or debounce time hasn't passed, ignore
+	if il.waitingForRelease {
+		// Wait for button release
+		switch e := event.(type) {
+		case *sdl.KeyboardEvent:
+			if e.State == sdl.RELEASED {
+				il.waitingForRelease = false
+			}
+		case *sdl.JoyButtonEvent:
+			if e.State == sdl.RELEASED {
+				il.waitingForRelease = false
+			}
+		case *sdl.ControllerButtonEvent:
+			if e.State == sdl.RELEASED {
+				il.waitingForRelease = false
+			}
+		case *sdl.JoyAxisEvent:
+			// Axis has to go back to center
+			if abs(int(e.Value)) < 5000 {
+				il.waitingForRelease = false
+			}
+		case *sdl.JoyHatEvent:
+			if e.Value == sdl.HAT_CENTERED {
+				il.waitingForRelease = false
+			}
+		}
+		return true
+	}
+
 	currentButton := il.buttonSequence[il.currentButtonIdx]
 
 	switch e := event.(type) {
@@ -103,6 +138,8 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = "Registered!"
 			il.mappedButtons[currentButton.internalButton] = int(e.Keysym.Sym)
 			il.currentSource = InputSourceKeyboard
+			il.lastInputTime = time.Now()
+			il.waitingForRelease = true
 			GetLoggerInstance().Debug("Registered keyboard button",
 				"button", currentButton.displayName,
 				"keycode", e.Keysym.Sym,
@@ -115,6 +152,8 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = "Registered!"
 			il.mappedButtons[currentButton.internalButton] = int(e.Button)
 			il.currentSource = InputSourceJoystick
+			il.lastInputTime = time.Now()
+			il.waitingForRelease = true
 			il.advanceToNextButton()
 		}
 	case *sdl.ControllerButtonEvent:
@@ -123,6 +162,8 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = "Registered!"
 			il.mappedButtons[currentButton.internalButton] = int(e.Button)
 			il.currentSource = InputSourceController
+			il.lastInputTime = time.Now()
+			il.waitingForRelease = true
 			il.advanceToNextButton()
 		}
 	case *sdl.JoyAxisEvent:
@@ -136,6 +177,8 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = "Registered!"
 			il.mappedButtons[currentButton.internalButton] = int(e.Axis)
 			il.currentSource = InputSourceJoystick
+			il.lastInputTime = time.Now()
+			il.waitingForRelease = true
 			il.advanceToNextButton()
 		}
 	case *sdl.JoyHatEvent:
@@ -155,6 +198,8 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.lastButtonName = "Registered!"
 			il.mappedButtons[currentButton.internalButton] = int(e.Hat)
 			il.currentSource = InputSourceHatSwitch
+			il.lastInputTime = time.Now()
+			il.waitingForRelease = true
 			il.advanceToNextButton()
 		}
 	}
@@ -194,7 +239,11 @@ func (il *inputLoggerController) render() {
 
 		if il.lastInput != "" {
 			il.renderText(renderer, il.lastInput, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2-20, true)
-			il.renderText(renderer, il.lastButtonName, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+20, true)
+			if il.waitingForRelease {
+				il.renderText(renderer, "Release button...", GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+20, true)
+			} else {
+				il.renderText(renderer, il.lastButtonName, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+20, true)
+			}
 		}
 
 		escapeHint := "Press ESC to cancel"
