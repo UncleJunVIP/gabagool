@@ -1,6 +1,8 @@
 package gabagool
 
 import (
+	"log/slog"
+
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -64,6 +66,7 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyHatEvent:
+		slog.Debug("Joystick hat event", "hat", e.Value)
 		if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
 			return &InputEvent{
 				Button:  button,
