@@ -138,7 +138,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				downloadManager.cancelAllDownloads()
 				result.Cancelled = true
 
-			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
 				if inputEvent == nil || !inputEvent.Pressed {
 					continue

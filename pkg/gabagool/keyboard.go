@@ -288,7 +288,7 @@ func (kb *virtualKeyboard) handleEvents() bool {
 		case *sdl.QuitEvent:
 			return true
 
-		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
 			if inputEvent == nil {
 				continue

@@ -153,7 +153,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
-			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 				lc.handleInput(event, &running, &result)
 			case *sdl.WindowEvent:
 				// Handle window resize events

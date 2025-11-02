@@ -214,7 +214,7 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 				running = false
 				err = sdl.GetError()
 
-			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
 				if inputEvent == nil {
 					continue
