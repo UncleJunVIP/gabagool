@@ -60,12 +60,12 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		panic(err)
 	}
 
-	slog.Info("Window created successfully")
+	GetLoggerInstance().Info("Window created successfully")
 
 	numDrivers, err := sdl.GetNumRenderDrivers()
 
 	if err != nil {
-		slog.Error("Failed to get render drivers!", "error", err)
+		GetLoggerInstance().Error("Failed to get render drivers!", "error", err)
 		os.Exit(1)
 	}
 
@@ -73,14 +73,59 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	for i := 0; i < numDrivers; i++ {
 		info := &sdl.RendererInfo{}
 		sdl.GetRenderDriverInfo(i, info)
-		slog.Info("Render driver", "index", i, "name", info.Name)
+		GetLoggerInstance().Info("Render driver", "index", i, "name", info.Name)
 	}
 
-	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC)
-	if err != nil {
-		slog.Error("Failed to create renderer!", "error", err)
+	var renderer *sdl.Renderer
+	var lastErr error
+
+	// Try 1: Default renderer with no flags (uses best available)
+	GetLoggerInstance().Info("Attempting default renderer (no flags)")
+	renderer, lastErr = sdl.CreateRenderer(window, -1, 0)
+	if renderer != nil {
+		GetLoggerInstance().Info("Successfully created default renderer")
+	} else {
+		GetLoggerInstance().Warn("Default renderer failed", "error", lastErr)
+
+		// Try 2: Accelerated with PRESENTVSYNC
+		GetLoggerInstance().Info("Attempting accelerated renderer with PRESENTVSYNC")
+		renderer, lastErr = sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC)
+		if renderer != nil {
+			GetLoggerInstance().Info("Successfully created accelerated renderer with PRESENTVSYNC")
+		} else {
+			GetLoggerInstance().Warn("Accelerated renderer with PRESENTVSYNC failed", "error", lastErr)
+
+			// Try 3: Accelerated without PRESENTVSYNC
+			GetLoggerInstance().Info("Attempting accelerated renderer without PRESENTVSYNC")
+			renderer, lastErr = sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED)
+			if renderer != nil {
+				GetLoggerInstance().Info("Successfully created accelerated renderer")
+			} else {
+				GetLoggerInstance().Warn("Accelerated renderer failed", "error", lastErr)
+
+				// Try 4: Software renderer (last resort)
+				GetLoggerInstance().Info("Attempting software renderer (fallback)")
+				renderer, lastErr = sdl.CreateRenderer(window, -1, sdl.RENDERER_SOFTWARE)
+				if renderer != nil {
+					GetLoggerInstance().Info("Successfully created software renderer")
+				}
+			}
+		}
+	}
+
+	if renderer == nil {
+		GetLoggerInstance().Error("Failed to create any renderer!", "final_error", lastErr)
 		os.Exit(1)
 	}
+
+	rendererInfo, _ := renderer.GetInfo()
+	GetLoggerInstance().Info("Renderer info",
+		"name", rendererInfo.Name,
+		"flags", rendererInfo.Flags,
+		"num_texture_formats", rendererInfo.NumTextureFormats,
+	)
+
+	renderer.SetLogicalSize(width, height)
 
 	win := &Window{
 		Window:            window,
