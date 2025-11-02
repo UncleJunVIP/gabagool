@@ -60,6 +60,22 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		panic(err)
 	}
 
+	slog.Info("Window created successfully")
+
+	numDrivers, err := sdl.GetNumRenderDrivers()
+
+	if err != nil {
+		slog.Error("Failed to get render drivers!", "error", err)
+		os.Exit(1)
+	}
+
+	slog.Info("Available render drivers", "count", numDrivers)
+	for i := 0; i < numDrivers; i++ {
+		info := &sdl.RendererInfo{}
+		sdl.GetRenderDriverInfo(i, info)
+		slog.Info("Render driver", "index", i, "name", info.Name)
+	}
+
 	renderer, err := sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC)
 	if err != nil {
 		slog.Error("Failed to create renderer!", "error", err)
