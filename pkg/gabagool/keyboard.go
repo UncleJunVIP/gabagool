@@ -308,10 +308,11 @@ func (kb *virtualKeyboard) handleEvents() bool {
 
 func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
 	// Rate limit navigation to prevent too-fast input
-	if !kb.isDirectionalButton(inputEvent.Button) {
+	if kb.isDirectionalButton(inputEvent.Button) {
+		if time.Since(kb.lastInputTime) < kb.InputDelay {
+			return false
+		}
 		kb.lastInputTime = time.Now()
-	} else if time.Since(kb.lastInputTime) < kb.InputDelay {
-		return false
 	}
 
 	button := inputEvent.Button
