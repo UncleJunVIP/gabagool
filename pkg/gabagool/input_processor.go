@@ -98,10 +98,6 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyButtonEvent:
-		// Skip if this joystick index is already handled as a game controller
-		if ip.IsGameControllerJoystick(int(e.Which)) {
-			return nil
-		}
 		if button, exists := ip.mapping.JoystickButtonMap[e.Button]; exists {
 			return &InputEvent{
 				Button:  button,
@@ -111,10 +107,6 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyAxisEvent:
-		// Skip if this joystick index is already handled as a game controller
-		if ip.IsGameControllerJoystick(int(e.Which)) {
-			return nil
-		}
 		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
 			if e.Value > axisConfig.Threshold {
 				return &InputEvent{
