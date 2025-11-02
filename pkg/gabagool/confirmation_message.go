@@ -177,24 +177,32 @@ func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMe
 		settings.BackgroundColor.A)
 	renderer.Clear()
 
+	// Calculate responsive max width based on screen size
+	windowWidth := window.GetWidth()
+	windowHeight := window.GetHeight()
+	responsiveMaxWidth := int32(float64(windowWidth) * 0.75) // Use 75% of screen width
+	if responsiveMaxWidth > 800 {
+		responsiveMaxWidth = 800 // Cap max width for very large screens
+	}
+
 	contentHeight := calculateContentHeight(settings, imageRect)
-	startY := (window.GetHeight() - contentHeight) / 2
+	startY := (windowHeight - contentHeight) / 2
 
 	if imageTexture != nil {
-		imageRect.X = (window.GetWidth() - imageRect.W) / 2
+		imageRect.X = (windowWidth - imageRect.W) / 2
 		imageRect.Y = startY
 		renderer.Copy(imageTexture, nil, &imageRect)
 		startY = imageRect.Y + imageRect.H + 30
 	}
 
 	if len(settings.MessageText) > 0 {
-		maxWidth := window.GetWidth() - (settings.Margins.Left + settings.Margins.Right)
+		centerX := windowWidth / 2
 		renderMultilineText(
 			renderer,
 			settings.MessageText,
 			fonts.smallFont,
-			maxWidth,
-			window.GetWidth()/2,
+			responsiveMaxWidth,
+			centerX,
 			startY,
 			settings.MessageTextColor)
 	}
