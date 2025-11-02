@@ -64,17 +64,13 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyHatEvent:
-		if e.Value != sdl.HAT_CENTERED {
-			if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
-				return &InputEvent{
-					Button:  button,
-					Pressed: true,
-					Source:  InputSourceHatSwitch,
-					RawCode: int(e.Value),
-				}
+		if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
+			return &InputEvent{
+				Button:  button,
+				Pressed: true,
+				Source:  InputSourceHatSwitch,
+				RawCode: int(e.Value),
 			}
-		} else {
-			return nil
 		}
 	case *sdl.ControllerAxisEvent:
 		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
