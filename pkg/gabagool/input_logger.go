@@ -98,10 +98,15 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			if e.Keysym.Scancode == sdl.SCANCODE_ESCAPE {
 				return false
 			}
-			il.lastInput = fmt.Sprintf("Keyboard: %d", int(e.Keysym.Scancode))
+			// Store the KEYCODE (Sym), not the scancode
+			il.lastInput = fmt.Sprintf("Keyboard: %d", int(e.Keysym.Sym))
 			il.lastButtonName = "Registered!"
-			il.mappedButtons[currentButton.internalButton] = int(e.Keysym.Scancode)
+			il.mappedButtons[currentButton.internalButton] = int(e.Keysym.Sym)
 			il.currentSource = InputSourceKeyboard
+			GetLoggerInstance().Debug("Registered keyboard button",
+				"button", currentButton.displayName,
+				"keycode", e.Keysym.Sym,
+				"scancode", e.Keysym.Scancode)
 			il.advanceToNextButton()
 		}
 	case *sdl.JoyButtonEvent:

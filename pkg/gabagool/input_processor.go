@@ -43,14 +43,21 @@ func (ip *InputProcessor) IsGameControllerJoystick(joystickIndex int) bool {
 func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 	switch e := event.(type) {
 	case *sdl.KeyboardEvent:
-		if button, exists := ip.mapping.KeyboardMap[e.Keysym.Sym]; exists {
+		keyCode := e.Keysym.Sym
+		if button, exists := ip.mapping.KeyboardMap[keyCode]; exists {
+			GetLoggerInstance().Debug("Keyboard input mapped",
+				"keyCode", keyCode,
+				"button", button)
 			return &InputEvent{
 				Button:  button,
 				Pressed: e.Type == sdl.KEYDOWN,
 				Source:  InputSourceKeyboard,
-				RawCode: int(e.Keysym.Sym),
+				RawCode: int(keyCode),
 			}
 		}
+		GetLoggerInstance().Debug("Keyboard input not mapped",
+			"keyCode", keyCode,
+			"mappingSize", len(ip.mapping.KeyboardMap))
 	case *sdl.ControllerButtonEvent:
 		if button, exists := ip.mapping.ControllerButtonMap[sdl.GameControllerButton(e.Button)]; exists {
 			return &InputEvent{
