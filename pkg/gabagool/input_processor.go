@@ -5,9 +5,12 @@ import (
 )
 
 var globalInputProcessor *InputProcessor
+var gameControllers []*sdl.GameController
+var rawJoysticks []*sdl.Joystick
 
 func InitInputProcessor() {
 	globalInputProcessor = NewInputProcessor()
+	DetectAndOpenAllGameControllers()
 }
 
 func GetInputProcessor() *InputProcessor {
@@ -18,27 +21,21 @@ func GetInputProcessor() *InputProcessor {
 }
 
 type InputProcessor struct {
-	mapping                       *InputMapping
-	gameControllerJoystickIndices map[int]bool // Track which joystick indices are game controllers
+	mapping                       *InternalInputMapping
+	gameControllerJoystickIndices map[int]bool
 }
 
 func NewInputProcessor() *InputProcessor {
 	return &InputProcessor{
-		mapping:                       DefaultInputMapping(),
+		mapping:                       GetInputMapping(),
 		gameControllerJoystickIndices: make(map[int]bool),
 	}
 }
 
-func (ip *InputProcessor) SetMapping(mapping *InputMapping) {
-	ip.mapping = mapping
-}
-
-// RegisterGameControllerJoystickIndex marks a joystick index as being handled by a game controller
 func (ip *InputProcessor) RegisterGameControllerJoystickIndex(joystickIndex int) {
 	ip.gameControllerJoystickIndices[joystickIndex] = true
 }
 
-// IsGameControllerJoystick checks if this joystick index is already handled as a game controller
 func (ip *InputProcessor) IsGameControllerJoystick(joystickIndex int) bool {
 	return ip.gameControllerJoystickIndices[joystickIndex]
 }
@@ -131,4 +128,64 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 		}
 	}
 	return nil
+}
+
+func DetectAndOpenAllGameControllers() {
+	numJoysticks := sdl.NumJoysticks()
+	GetLoggerInstance().Debug("Detecting controllers", "numJoysticks", numJoysticks)
+
+	processor := GetInputProcessor()
+
+	for i := 0; i < numJoysticks; i++ {
+		if sdl.IsGameController(i) {
+			controller := sdl.GameControllerOpen(i)
+			if controller != nil {
+				name := controller.Name()
+
+				// Register this joystick INDEX (not instance ID) as being handled by a game controller
+				processor.RegisterGameControllerJoystickIndex(i)
+
+				GetLoggerInstance().Debug("Opened game controller",
+					"index", i,
+					"name", name,
+				)
+
+				gameControllers = append(gameControllers, controller)
+			} else {
+				GetLoggerInstance().Error("Failed to open game controller", "index", i)
+			}
+		} else {
+			joystick := sdl.JoystickOpen(i)
+			if joystick != nil {
+				name := joystick.Name()
+				GetLoggerInstance().Debug("Opened raw joystick (not a standard game controller)",
+					"index", i,
+					"name", name,
+				)
+
+				rawJoysticks = append(rawJoysticks, joystick)
+			} else {
+				GetLoggerInstance().Debug("Failed to open raw joystick", "index", i)
+			}
+		}
+	}
+
+	GetLoggerInstance().Debug("Controller detection complete",
+		"gameControllers", len(gameControllers),
+		"rawJoysticks", len(rawJoysticks),
+		"totalJoysticks", numJoysticks,
+	)
+}
+
+func CloseAllControllers() {
+	for _, controller := range gameControllers {
+		if controller != nil {
+			controller.Close()
+		}
+	}
+	for _, joystick := range rawJoysticks {
+		if joystick != nil {
+			joystick.Close()
+		}
+	}
 }

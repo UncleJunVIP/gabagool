@@ -2,28 +2,63 @@ package gabagool
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
+type buttonConfig struct {
+	internalButton InternalButton
+	displayName    string
+}
+
 type inputLoggerController struct {
-	lastInput      string
-	lastButtonName string
-	font           *ttf.Font
-	textColor      sdl.Color
+	lastInput        string
+	lastButtonName   string
+	font             *ttf.Font
+	textColor        sdl.Color
+	currentButtonIdx int
+	mappedButtons    map[InternalButton]int
+	currentSource    InputSource
+	mutex            sync.Mutex
+	buttonSequence   []buttonConfig
 }
 
 func newInputLogger() *inputLoggerController {
 	return &inputLoggerController{
-		lastInput:      "",
-		lastButtonName: "",
-		font:           fonts.largeFont,
-		textColor:      sdl.Color{R: 200, G: 100, B: 255, A: 255},
+		lastInput:        "",
+		lastButtonName:   "",
+		font:             fonts.largeFont,
+		textColor:        sdl.Color{R: 200, G: 100, B: 255, A: 255},
+		mappedButtons:    make(map[InternalButton]int),
+		currentButtonIdx: 0,
+		buttonSequence: []buttonConfig{
+			{InternalButtonA, "A Button"},
+			{InternalButtonB, "B Button"},
+			{InternalButtonX, "X Button"},
+			{InternalButtonY, "Y Button"},
+			{InternalButtonUp, "D-Pad Up"},
+			{InternalButtonDown, "D-Pad Down"},
+			{InternalButtonLeft, "D-Pad Left"},
+			{InternalButtonRight, "D-Pad Right"},
+			{InternalButtonStart, "Start"},
+			{InternalButtonSelect, "Select"},
+			{InternalButtonMenu, "Menu"},
+			{InternalButtonL1, "L1"},
+			{InternalButtonL2, "L2"},
+			{InternalButtonR1, "R1"},
+			{InternalButtonR2, "R2"},
+			{InternalButtonF1, "F1"},
+			{InternalButtonF2, "F2"},
+			{InternalButtonVolumeUp, "Volume Up"},
+			{InternalButtonVolumeDown, "Volume Down"},
+			{InternalButtonPower, "Power"},
+		},
 	}
 }
 
-func InputLogger() {
+func InputLogger() *InternalInputMapping {
 	logger := newInputLogger()
 
 	running := true
@@ -41,9 +76,21 @@ func InputLogger() {
 		logger.render()
 		sdl.Delay(16) // ~60 FPS
 	}
+
+	return logger.buildMapping()
 }
 
 func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
+	il.mutex.Lock()
+	defer il.mutex.Unlock()
+
+	// Check if we're done with all buttons
+	if il.currentButtonIdx >= len(il.buttonSequence) {
+		return false
+	}
+
+	currentButton := il.buttonSequence[il.currentButtonIdx]
+
 	switch e := event.(type) {
 	case *sdl.KeyboardEvent:
 		if e.State == sdl.PRESSED {
@@ -52,27 +99,39 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 				return false
 			}
 			il.lastInput = fmt.Sprintf("Keyboard: %d", int(e.Keysym.Scancode))
-			il.lastButtonName = ""
+			il.lastButtonName = "Registered!"
+			il.mappedButtons[currentButton.internalButton] = int(e.Keysym.Scancode)
+			il.currentSource = InputSourceKeyboard
+			il.advanceToNextButton()
 		}
 	case *sdl.JoyButtonEvent:
-		// This handles raw joystick button events (like RG35XXSP muOS-Keys)
 		if e.State == sdl.PRESSED {
 			il.lastInput = fmt.Sprintf("Joystick Button: %d", int(e.Button))
-			il.lastButtonName = getButtonNameFromCode(e.Button)
-			GetLoggerInstance().Debug("Raw joystick button pressed", "button", e.Button, "mapped", il.lastButtonName)
+			il.lastButtonName = "Registered!"
+			il.mappedButtons[currentButton.internalButton] = int(e.Button)
+			il.currentSource = InputSourceJoystick
+			il.advanceToNextButton()
 		}
 	case *sdl.ControllerButtonEvent:
-		// This handles standardized game controller button events
 		if e.State == sdl.PRESSED {
 			il.lastInput = fmt.Sprintf("Game Controller: %d", int(e.Button))
-			il.lastButtonName = getButtonNameFromCode(e.Button)
+			il.lastButtonName = "Registered!"
+			il.mappedButtons[currentButton.internalButton] = int(e.Button)
+			il.currentSource = InputSourceController
+			il.advanceToNextButton()
 		}
 	case *sdl.JoyAxisEvent:
 		// Only log significant axis movements
 		if abs(int(e.Value)) > 16000 {
-			il.lastInput = fmt.Sprintf("Joystick Axis: %d", int(e.Axis))
-			il.lastButtonName = ""
-			GetLoggerInstance().Debug("Joystick axis motion", "axis", e.Axis, "value", e.Value)
+			if e.Value > 16000 {
+				il.lastInput = fmt.Sprintf("Joystick Axis %d (Positive)", int(e.Axis))
+			} else {
+				il.lastInput = fmt.Sprintf("Joystick Axis %d (Negative)", int(e.Axis))
+			}
+			il.lastButtonName = "Registered!"
+			il.mappedButtons[currentButton.internalButton] = int(e.Axis)
+			il.currentSource = InputSourceJoystick
+			il.advanceToNextButton()
 		}
 	case *sdl.JoyHatEvent:
 		if e.Value != sdl.HAT_CENTERED {
@@ -88,11 +147,19 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 				hatName = "RIGHT"
 			}
 			il.lastInput = fmt.Sprintf("Hat Switch: %s", hatName)
-			il.lastButtonName = ""
-			GetLoggerInstance().Debug("Joystick hat motion", "hat", e.Hat, "value", hatName)
+			il.lastButtonName = "Registered!"
+			il.mappedButtons[currentButton.internalButton] = int(e.Hat)
+			il.currentSource = InputSourceHatSwitch
+			il.advanceToNextButton()
 		}
 	}
 	return true
+}
+
+func (il *inputLoggerController) advanceToNextButton() {
+	il.currentButtonIdx++
+	il.lastInput = ""
+	il.lastButtonName = ""
 }
 
 func (il *inputLoggerController) render() {
@@ -101,31 +168,65 @@ func (il *inputLoggerController) render() {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	title := "Gabagool Input Tester"
+	il.mutex.Lock()
+	defer il.mutex.Unlock()
+
+	title := "Gabagool Input Configuration"
 	il.renderText(renderer, title, GetWindow().GetWidth()/2, 50, true)
 
-	if il.lastInput == "" {
-		instructionText := "Press any button or key"
-		il.renderText(renderer, instructionText, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2, true)
+	if il.currentButtonIdx >= len(il.buttonSequence) {
+		completionText := "Configuration Complete!"
+		il.renderText(renderer, completionText, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2-40, true)
+		instructionText := "Press any button to exit"
+		il.renderText(renderer, instructionText, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+40, true)
 	} else {
-		il.renderText(renderer, il.lastInput, GetWindow().GetWidth()/2, GetWindow().GetWidth()/2-40, true)
-		if il.lastButtonName != "" {
-			il.renderText(renderer, il.lastButtonName, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+40, true)
+		currentButton := il.buttonSequence[il.currentButtonIdx]
+		progressText := fmt.Sprintf("Button %d of %d", il.currentButtonIdx+1, len(il.buttonSequence))
+		il.renderText(renderer, progressText, GetWindow().GetWidth()/2, 120, true)
+
+		buttonPrompt := fmt.Sprintf("Press: %s", currentButton.displayName)
+		il.renderText(renderer, buttonPrompt, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2-60, true)
+
+		if il.lastInput != "" {
+			il.renderText(renderer, il.lastInput, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2-20, true)
+			il.renderText(renderer, il.lastButtonName, GetWindow().GetWidth()/2, GetWindow().GetHeight()/2+20, true)
 		}
+
+		escapeHint := "Press ESC to cancel"
+		il.renderText(renderer, escapeHint, GetWindow().GetWidth()/2, GetWindow().GetHeight()-80, true)
 	}
 
 	renderer.Present()
 }
 
-func getButtonNameFromCode(code uint8) string {
-	// Check against current button mappings
-	mapping := GetCurrentButtonMapping()
-	for buttonName, buttonCode := range mapping {
-		if buttonCode == Button(code) {
-			return buttonName
+func (il *inputLoggerController) buildMapping() *InternalInputMapping {
+	il.mutex.Lock()
+	defer il.mutex.Unlock()
+
+	mapping := &InternalInputMapping{
+		KeyboardMap:         make(map[sdl.Keycode]InternalButton),
+		ControllerButtonMap: make(map[sdl.GameControllerButton]InternalButton),
+		ControllerHatMap:    make(map[uint8]InternalButton),
+		JoystickAxisMap:     make(map[uint8]JoystickAxisMapping),
+		JoystickButtonMap:   make(map[uint8]InternalButton),
+		JoystickHatMap:      make(map[uint8]InternalButton),
+	}
+
+	// Populate the mapping based on the current source and mapped buttons
+	for button, code := range il.mappedButtons {
+		switch il.currentSource {
+		case InputSourceKeyboard:
+			mapping.KeyboardMap[sdl.Keycode(code)] = button
+		case InputSourceController:
+			mapping.ControllerButtonMap[sdl.GameControllerButton(code)] = button
+		case InputSourceJoystick:
+			mapping.JoystickButtonMap[uint8(code)] = button
+		case InputSourceHatSwitch:
+			mapping.JoystickHatMap[uint8(code)] = button
 		}
 	}
-	return "Unknown"
+
+	return mapping
 }
 
 func (il *inputLoggerController) renderText(renderer *sdl.Renderer, text string, x, y int32, centered bool) {
