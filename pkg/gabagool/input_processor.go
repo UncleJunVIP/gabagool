@@ -46,6 +46,7 @@ func (ip *InputProcessor) IsGameControllerJoystick(joystickIndex int) bool {
 }
 
 func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
+	slog.Debug("Event detected", "event", event)
 	switch e := event.(type) {
 	case *sdl.KeyboardEvent:
 		if button, exists := ip.mapping.KeyboardMap[e.Keysym.Sym]; exists {
@@ -66,7 +67,6 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 			}
 		}
 	case *sdl.JoyHatEvent:
-		slog.Debug("Joystick hat event", "hat", e.Value)
 		if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
 			return &InputEvent{
 				Button:  button,
