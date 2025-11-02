@@ -191,7 +191,8 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 	optionsListController := newOptionsListController(title, items)
 
-	optionsListController.MaxVisibleItems = 8
+	// Calculate MaxVisibleItems based on window height
+	optionsListController.MaxVisibleItems = int(optionsListController.calculateMaxVisibleItems(window))
 	optionsListController.Settings.FooterHelpItems = footerHelpItems
 
 	running := true
@@ -255,7 +256,32 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	return option.Some(result), nil
 }
 
-// handleColorPickerInput processes input while color picker is active
+func (olc *optionsListController) calculateMaxVisibleItems(window *Window) int32 {
+	scaleFactor := GetScaleFactor()
+
+	itemSpacing := int32(float32(60) * scaleFactor)
+
+	_, screenHeight, _ := window.Renderer.GetOutputSize()
+
+	var titleHeight int32 = 0
+	if olc.Settings.Title != "" {
+		titleHeight = int32(float32(60) * scaleFactor)
+		titleHeight += olc.Settings.TitleSpacing
+	}
+
+	footerHeight := int32(float32(50) * scaleFactor)
+
+	availableHeight := screenHeight - titleHeight - footerHeight - olc.StartY
+
+	maxItems := availableHeight / itemSpacing
+
+	if maxItems < 1 {
+		maxItems = 1
+	}
+
+	return maxItems
+}
+
 func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent) {
 	if !inputEvent.Pressed {
 		return
@@ -312,7 +338,6 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent)
 	}
 }
 
-// handleOptionsInput processes input for the options list
 func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, running *bool, result *OptionsListReturn) {
 	if !inputEvent.Pressed {
 		return
@@ -424,21 +449,28 @@ func (olc *optionsListController) moveSelection(direction int) {
 	}
 
 	olc.Items[olc.SelectedIndex].Item.Selected = false
+
 	if direction > 0 {
-		if olc.SelectedIndex < len(olc.Items)-1 {
-			olc.SelectedIndex++
-		} else {
+		olc.SelectedIndex++
+		if olc.SelectedIndex >= len(olc.Items) {
 			olc.SelectedIndex = 0
+			olc.VisibleStartIndex = 0
 		}
 	} else {
-		if olc.SelectedIndex > 0 {
-			olc.SelectedIndex--
-		} else {
+		olc.SelectedIndex--
+		if olc.SelectedIndex < 0 {
 			olc.SelectedIndex = len(olc.Items) - 1
+			if len(olc.Items) > olc.MaxVisibleItems {
+				olc.VisibleStartIndex = len(olc.Items) - olc.MaxVisibleItems
+			} else {
+				olc.VisibleStartIndex = 0
+			}
 		}
 	}
+
 	olc.Items[olc.SelectedIndex].Item.Selected = true
 	olc.scrollTo(olc.SelectedIndex)
+
 	if olc.OnSelect != nil {
 		olc.OnSelect(olc.SelectedIndex, &olc.Items[olc.SelectedIndex])
 	}
@@ -568,9 +600,14 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		return
 	}
 
+	scaleFactor := GetScaleFactor()
 	window := GetWindow()
 	titleFont := fonts.largeSymbolFont
 	font := fonts.smallFont
+
+	itemSpacing := int32(float32(60) * scaleFactor)
+	selectionRectHeight := int32(float32(60) * scaleFactor)
+	cornerRadius := int32(float32(20) * scaleFactor)
 
 	if olc.Settings.Title != "" {
 		titleSurface, _ := titleFont.RenderUTF8Blended(olc.Settings.Title, sdl.Color{R: 255, G: 255, B: 255, A: 255})
@@ -602,6 +639,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		}
 	}
 
+	olc.MaxVisibleItems = int(olc.calculateMaxVisibleItems(window))
 	visibleCount := min(olc.MaxVisibleItems, len(olc.Items)-olc.VisibleStartIndex)
 
 	for i := 0; i < visibleCount; i++ {
@@ -616,16 +654,16 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 			bgColor = core.GetTheme().MainColor
 		}
 
-		itemY := olc.StartY + (int32(i) * olc.Settings.ItemSpacing)
+		itemY := olc.StartY + (int32(i) * itemSpacing)
 
 		if item.Item.Selected {
 			selectionRect := &sdl.Rect{
 				X: olc.Settings.Margins.Left - 10,
 				Y: itemY - 5,
 				W: window.GetWidth() - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
-				H: olc.Settings.ItemSpacing,
+				H: selectionRectHeight,
 			}
-			drawRoundedRect(renderer, selectionRect, 20, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
+			drawRoundedRect(renderer, selectionRect, cornerRadius, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
 		}
 
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
@@ -685,11 +723,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						})
 					}
 				}
-			} else // For color picker options, we need to position both the hex text and color swatch
-			// with appropriate spacing
-
-			// Calculate positions more carefully
-			if selectedOption.Type == OptionTypeColorPicker {
+			} else if selectedOption.Type == OptionTypeColorPicker {
 				// For color picker option, display the color swatch and hex value
 				indicatorText := selectedOption.DisplayName
 				if indicatorText == "" {
@@ -710,7 +744,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						// Make the swatch slightly smaller than text height
 						swatchHeight := int32(float32(optionSurface.H) * 0.8) // 80% of text height
 						swatchWidth := swatchHeight                           // Keep it square
-						swatchSpacing := int32(10)                            // Space between text and swatch
+						swatchSpacing := int32(float32(10) * scaleFactor)     // Scale spacing
 
 						// Position swatch on the right
 						swatchX := window.GetWidth() - olc.Settings.Margins.Right - swatchWidth

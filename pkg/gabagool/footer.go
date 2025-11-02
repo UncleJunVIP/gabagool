@@ -84,7 +84,8 @@ func renderFooter(
 }
 
 func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerPillHeight, innerPillMargin int32) int32 {
-	var totalWidth int32 = 20
+	scaleFactor := GetScaleFactor()
+	var totalWidth int32 = int32(float32(10) * scaleFactor)
 
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
@@ -109,7 +110,7 @@ func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerP
 		buttonSurface.Free()
 		helpSurface.Free()
 	}
-	totalWidth += 15
+	totalWidth += int32(float32(10) * scaleFactor)
 	return totalWidth
 }
 
@@ -147,6 +148,13 @@ func renderGroupAsContinuousPill(
 
 	currentX := startX + int32(float32(10)*scaleFactor)
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
+
+	// Apply damping to padding for smaller screens
+	var paddingFactor float32 = 1.0
+	if scaleFactor < 1.0 {
+		paddingFactor = 0.5 + (scaleFactor * 0.5) // Reduces padding impact on small screens
+	}
+	rightPadding := int32(float32(30) * paddingFactor)
 
 	for _, item := range items {
 		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, core.GetTheme().SecondaryAccentColor)
@@ -201,7 +209,7 @@ func renderGroupAsContinuousPill(
 			helpTexture.Destroy()
 		}
 
-		currentX += helpSurface.W + int32(float32(30)*scaleFactor)
+		currentX += helpSurface.W + rightPadding
 		buttonSurface.Free()
 		helpSurface.Free()
 	}

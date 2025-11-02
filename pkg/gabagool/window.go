@@ -40,9 +40,19 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	//	height = height - 400
 	//}
 
+	//if core.IsDevMode() {
+	//	width = 1024
+	//	height = 768
+	//}
+
+	//if core.IsDevMode() {
+	//	width = 1280
+	//	height = 720
+	//}
+
 	if core.IsDevMode() {
-		width = 1024
-		height = 768
+		width = 640
+		height = 480
 	}
 
 	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN|sdl.WINDOW_RESIZABLE)

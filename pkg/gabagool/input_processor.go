@@ -63,6 +63,23 @@ func (ip *InputProcessor) ProcessSDLEvent(event sdl.Event) *InputEvent {
 				RawCode: int(e.Button),
 			}
 		}
+	case *sdl.JoyHatEvent:
+		// Skip if this joystick index is already handled as a game controller
+		if ip.IsGameControllerJoystick(int(e.Which)) {
+			return nil
+		}
+		if e.Value != sdl.HAT_CENTERED {
+			if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
+				return &InputEvent{
+					Button:  button,
+					Pressed: true,
+					Source:  InputSourceHatSwitch,
+					RawCode: int(e.Value),
+				}
+			}
+		} else {
+			return nil
+		}
 	case *sdl.ControllerAxisEvent:
 		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
 			if e.Value > axisConfig.Threshold {

@@ -31,6 +31,7 @@ const (
 	InputSourceKeyboard InputSource = iota
 	InputSourceController
 	InputSourceJoystick
+	InputSourceHatSwitch
 )
 
 type InputEvent struct {
@@ -45,6 +46,8 @@ type InputMapping struct {
 
 	ControllerButtonMap map[sdl.GameControllerButton]InternalButton
 
+	ControllerHatMap map[uint8]InternalButton
+
 	JoystickAxisMap map[uint8]struct {
 		PositiveButton InternalButton
 		NegativeButton InternalButton
@@ -52,6 +55,8 @@ type InputMapping struct {
 	}
 
 	JoystickButtonMap map[uint8]InternalButton
+
+	JoystickHatMap map[uint8]InternalButton
 }
 
 func DefaultInputMapping() *InputMapping {
@@ -91,12 +96,23 @@ func DefaultInputMapping() *InputMapping {
 			1: {InternalButtonDown, InternalButtonUp, 16000},    // Y axis
 		},
 		JoystickButtonMap: map[uint8]InternalButton{
-			0: InternalButtonA,
-			1: InternalButtonB,
-			2: InternalButtonX,
-			3: InternalButtonY,
-			4: InternalButtonSelect,
-			5: InternalButtonStart,
+			3:  InternalButtonA,
+			4:  InternalButtonB,
+			6:  InternalButtonX,
+			5:  InternalButtonY,
+			9:  InternalButtonSelect,
+			10: InternalButtonStart,
+			14: InternalButtonMenu,
+			7:  InternalButtonL1,
+			8:  InternalButtonR1,
+			12: InternalButtonL2,
+			13: InternalButtonR2,
+		},
+		JoystickHatMap: map[uint8]InternalButton{
+			sdl.HAT_UP:    InternalButtonUp,
+			sdl.HAT_DOWN:  InternalButtonDown,
+			sdl.HAT_LEFT:  InternalButtonLeft,
+			sdl.HAT_RIGHT: InternalButtonRight,
 		},
 	}
 }

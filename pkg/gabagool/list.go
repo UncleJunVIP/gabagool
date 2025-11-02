@@ -723,7 +723,34 @@ func (lc *listController) renderItemText(renderer *sdl.Renderer, font *ttf.Font,
 	}
 }
 
+func (lc *listController) renderStaticText(renderer *sdl.Renderer, font *ttf.Font, text string, color sdl.Color, itemY, pillHeight int32) {
+	scaleFactor := GetScaleFactor()
+
+	surface, _ := font.RenderUTF8Blended(text, color)
+	if surface == nil {
+		return
+	}
+	defer surface.Free()
+
+	texture, _ := renderer.CreateTextureFromSurface(surface)
+	if texture == nil {
+		return
+	}
+	defer texture.Destroy()
+
+	textPadding := int32(float32(20) * scaleFactor)
+	destRect := sdl.Rect{
+		X: lc.Options.Margins.Left + textPadding,
+		Y: itemY + (pillHeight-surface.H)/2,
+		W: surface.W,
+		H: surface.H,
+	}
+
+	renderer.Copy(texture, nil, &destRect)
+}
+
 func (lc *listController) renderScrollingText(renderer *sdl.Renderer, font *ttf.Font, text string, color sdl.Color, globalIndex int, itemY, pillHeight, maxWidth int32) {
+	scaleFactor := GetScaleFactor()
 	scrollData := lc.getOrCreateScrollData(globalIndex, text, font, maxWidth)
 
 	surface, _ := font.RenderUTF8Blended(text, color)
@@ -745,37 +772,15 @@ func (lc *listController) renderScrollingText(renderer *sdl.Renderer, font *ttf.
 		H: surface.H,
 	}
 
+	textPadding := int32(float32(20) * scaleFactor)
 	destRect := sdl.Rect{
-		X: lc.Options.Margins.Left + 20,
+		X: lc.Options.Margins.Left + textPadding,
 		Y: itemY + (pillHeight-surface.H)/2,
 		W: clipRect.W,
 		H: surface.H,
 	}
 
 	renderer.Copy(texture, clipRect, &destRect)
-}
-
-func (lc *listController) renderStaticText(renderer *sdl.Renderer, font *ttf.Font, text string, color sdl.Color, itemY, pillHeight int32) {
-	surface, _ := font.RenderUTF8Blended(text, color)
-	if surface == nil {
-		return
-	}
-	defer surface.Free()
-
-	texture, _ := renderer.CreateTextureFromSurface(surface)
-	if texture == nil {
-		return
-	}
-	defer texture.Destroy()
-
-	destRect := sdl.Rect{
-		X: lc.Options.Margins.Left + 20,
-		Y: itemY + (pillHeight-surface.H)/2,
-		W: surface.W,
-		H: surface.H,
-	}
-
-	renderer.Copy(texture, nil, &destRect)
 }
 
 func (lc *listController) renderEmptyMessage(renderer *sdl.Renderer, font *ttf.Font, startY int32) {
