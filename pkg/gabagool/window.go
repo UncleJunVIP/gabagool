@@ -35,7 +35,10 @@ func initWindow(title string, displayBackground bool) *Window {
 func initWindowWithSize(title string, width, height int32, displayBackground bool) *Window {
 	x, y := int32(0), int32(0)
 
-	config := GetConfig()
+	//if core.IsDevMode() {
+	//	width = width - 400
+	//	height = height - 400
+	//}
 
 	if core.IsDevMode() {
 		width = 1024
@@ -52,8 +55,6 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		slog.Error("Failed to create renderer!", "error", err)
 		os.Exit(1)
 	}
-
-	initFonts(config)
 
 	win := &Window{
 		Window:            window,

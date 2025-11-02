@@ -74,12 +74,12 @@ var TempHardcodedConfig = Configuration{
 			Tiny   int `json:"tiny" yaml:"tiny"`
 			Micro  int `json:"micro" yaml:"micro"`
 		}{
-			XLarge: 22 * 3, // Fix Scaling
-			Large:  18 * 3,
-			Medium: 16 * 3,
-			Small:  12 * 3,
-			Tiny:   8 * 3,
-			Micro:  6 * 3,
+			XLarge: 66,
+			Large:  54,
+			Medium: 48,
+			Small:  36,
+			Tiny:   24,
+			Micro:  18,
 		},
 		InputDelay:     20 * time.Millisecond,
 		TitleSpacing:   5,

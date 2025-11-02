@@ -25,21 +25,57 @@ type fontsManager struct {
 	microSymbolFont  *ttf.Font
 }
 
+func CalculateFontSizeForResolution(baseSize int, screenWidth int32) int {
+	const referenceWidth int32 = 1024
+	scaleFactor := float32(screenWidth) / float32(referenceWidth)
+
+	// Apply damping for larger screens to reduce scaling growth
+	if screenWidth > referenceWidth {
+		scaleFactor = 1.0 + (scaleFactor-1.0)*0.75 // 75% of the growth above 1x
+	}
+
+	return int(float32(baseSize) * scaleFactor)
+}
+
+// GetScaleFactor returns the scale factor based on current screen width
+func GetScaleFactor() float32 {
+	const referenceWidth int32 = 1024
+	screenWidth := GetWindow().GetWidth()
+
+	scaleFactor := float32(screenWidth) / float32(referenceWidth)
+
+	// Apply damping for larger screens
+	if screenWidth > referenceWidth {
+		scaleFactor = 1.0 + (scaleFactor-1.0)*0.75
+	}
+
+	return scaleFactor
+}
+
 func initFonts(configuration *Configuration) {
-	fontSizes := configuration.UI.FontSizes
+	fontSizesConfig := configuration.UI.FontSizes
 
-	xlFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.XLarge)
-	largeFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Large)
-	mediumFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Medium)
-	smallFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Small)
-	tinyFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Tiny)
-	microFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), fontSizes.Micro)
+	screenWidth := GetWindow().GetWidth()
 
-	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Large)
-	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Medium)
-	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Small)
-	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Tiny)
-	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), fontSizes.Micro)
+	xlSize := CalculateFontSizeForResolution(fontSizesConfig.XLarge, screenWidth)
+	largeSize := CalculateFontSizeForResolution(fontSizesConfig.Large, screenWidth)
+	mediumSize := CalculateFontSizeForResolution(fontSizesConfig.Medium, screenWidth)
+	smallSize := CalculateFontSizeForResolution(fontSizesConfig.Small, screenWidth)
+	tinySize := CalculateFontSizeForResolution(fontSizesConfig.Tiny, screenWidth)
+	microSize := CalculateFontSizeForResolution(fontSizesConfig.Micro, screenWidth)
+
+	xlFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), xlSize)
+	largeFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), largeSize)
+	mediumFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), mediumSize)
+	smallFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), smallSize)
+	tinyFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), tinySize)
+	microFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), microSize)
+
+	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), largeSize)
+	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), mediumSize)
+	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), smallSize)
+	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), tinySize)
+	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), microSize)
 
 	fonts = fontsManager{
 		extraLargeFont: xlFont,

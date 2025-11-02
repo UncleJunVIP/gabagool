@@ -132,10 +132,15 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 	renderer := window.Renderer
 
 	if options.MaxVisibleItems <= 0 {
-		options.MaxVisibleItems = 9
+		// This will be set dynamically based on window size
+		options.MaxVisibleItems = 9 // fallback default
 	}
 
 	lc := newListController(options)
+
+	// Calculate and set MaxVisibleItems based on window size
+	lc.Options.MaxVisibleItems = int(lc.calculateMaxVisibleItems(window))
+
 	if options.SelectedIndex > 0 {
 		lc.scrollTo(options.SelectedIndex)
 	}
@@ -150,6 +155,17 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 				running = false
 			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent:
 				lc.handleInput(event, &running, &result)
+			case *sdl.WindowEvent:
+				// Handle window resize events
+				we := event.(*sdl.WindowEvent)
+				if we.Event == sdl.WINDOWEVENT_RESIZED {
+					newMaxItems := lc.calculateMaxVisibleItems(window)
+					lc.Options.MaxVisibleItems = int(newMaxItems)
+					// Recalculate visibility if selection is out of bounds
+					if lc.Options.SelectedIndex >= lc.Options.VisibleStartIndex+lc.Options.MaxVisibleItems {
+						lc.scrollTo(lc.Options.SelectedIndex)
+					}
+				}
 			}
 		}
 
@@ -655,8 +671,10 @@ func (lc *listController) imageIsDisplayed() bool {
 }
 
 func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, visibleItems []MenuItem, startY int32) {
-	const pillHeight = int32(60)
-	const pillPadding = int32(40)
+	scaleFactor := GetScaleFactor()
+
+	pillHeight := int32(float32(60) * scaleFactor)
+	pillPadding := int32(float32(40) * scaleFactor)
 
 	screenWidth, _, _ := renderer.GetOutputSize()
 	availableWidth := screenWidth - lc.Options.Margins.Left - lc.Options.Margins.Right
@@ -686,7 +704,7 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 				W: pillWidth,
 				H: pillHeight,
 			}
-			drawRoundedRect(renderer, &pillRect, 30, bgColor)
+			drawRoundedRect(renderer, &pillRect, int32(float32(30)*scaleFactor), bgColor)
 		}
 
 		// Render text (scrolling or static)
@@ -975,6 +993,44 @@ func (lc *listController) shouldScroll(font *ttf.Font, text string, maxWidth int
 	}
 	defer surface.Free()
 	return surface.W > maxWidth
+}
+
+func (lc *listController) calculateMaxVisibleItems(window *Window) int32 {
+	scaleFactor := GetScaleFactor()
+
+	pillHeight := int32(float32(60) * scaleFactor)
+
+	_, screenHeight, _ := window.Renderer.GetOutputSize()
+
+	var titleHeight int32 = 0
+	if lc.Options.Title != "" {
+		if lc.Options.SmallTitle {
+			titleHeight = int32(float32(50) * scaleFactor)
+		} else {
+			titleHeight = int32(float32(60) * scaleFactor)
+		}
+		titleHeight += lc.Options.TitleSpacing
+	}
+
+	footerHeight := int32(float32(50) * scaleFactor)
+
+	availableHeight := screenHeight - titleHeight - footerHeight - (lc.StartY * 2)
+
+	itemHeightWithSpacing := pillHeight + lc.Options.ItemSpacing
+	maxItems := availableHeight/itemHeightWithSpacing - 1
+
+	if maxItems < 1 {
+		maxItems = 1
+	}
+
+	return maxItems
+}
+
+func (lc *listController) getTitleFont() *ttf.Font {
+	if lc.Options.SmallTitle {
+		return fonts.largeFont
+	}
+	return fonts.extraLargeFont
 }
 
 func (lc *listController) measureText(font *ttf.Font, text string) int32 {

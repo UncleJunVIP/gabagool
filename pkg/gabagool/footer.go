@@ -25,18 +25,19 @@ func renderFooter(
 	if len(footerHelpItems) == 0 {
 		return
 	}
+	scaleFactor := GetScaleFactor()
 	window := GetWindow()
 	windowWidth, windowHeight := window.Window.GetSize()
-	y := windowHeight - bottomPadding - 50
-	outerPillHeight := int32(60)
+	y := windowHeight - bottomPadding - int32(float32(50)*scaleFactor)
+	outerPillHeight := int32(float32(60) * scaleFactor)
 
 	if !transparentBackground {
 		// Add a black background for the entire footer area
 		footerBackgroundRect := &sdl.Rect{
-			X: 0,                    // Start from left edge
-			Y: y - 10,               // Same Y as the pills
-			W: windowWidth - 15,     // Full window.GetWidth()
-			H: outerPillHeight + 50, // Same height as the pills
+			X: 0,                                                // Start from left edge
+			Y: y - 10,                                           // Same Y as the pills
+			W: windowWidth - 15,                                 // Full window.GetWidth()
+			H: outerPillHeight + int32(float32(50)*scaleFactor), // Same height as the pills
 		}
 
 		// set color to black and draw the footer background
@@ -44,7 +45,7 @@ func renderFooter(
 		renderer.FillRect(footerBackgroundRect)
 	}
 
-	innerPillMargin := int32(6)
+	innerPillMargin := int32(float32(6) * scaleFactor)
 	var leftItems []FooterHelpItem
 	var rightItems []FooterHelpItem
 	switch len(footerHelpItems) {
@@ -120,8 +121,6 @@ func calculateInnerPillWidth(buttonSurface *sdl.Surface, innerPillHeight int32) 
 	}
 }
 
-// ... existing code ...
-
 func renderGroupAsContinuousPill(
 	renderer *sdl.Renderer,
 	font *ttf.Font,
@@ -133,6 +132,7 @@ func renderGroupAsContinuousPill(
 	if len(items) == 0 {
 		return
 	}
+	scaleFactor := GetScaleFactor()
 	pillWidth := calculateContinuousPillWidth(font, items, outerPillHeight, innerPillMargin)
 	outerPillRect := &sdl.Rect{
 		X: startX,
@@ -141,9 +141,11 @@ func renderGroupAsContinuousPill(
 		H: outerPillHeight,
 	}
 
-	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2, core.GetTheme().PrimaryAccentColor)
+	// Keep the rounded corners proportional but not excessive
+	cornerRadius := outerPillHeight / 2
+	drawRoundedRect(renderer, outerPillRect, cornerRadius, core.GetTheme().PrimaryAccentColor)
 
-	currentX := startX + 10
+	currentX := startX + int32(float32(10)*scaleFactor)
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
 	for _, item := range items {
@@ -169,7 +171,8 @@ func renderGroupAsContinuousPill(
 				W: innerPillWidth,
 				H: innerPillHeight,
 			}
-			drawRoundedRect(renderer, innerPillRect, innerPillHeight/2, core.GetTheme().MainColor)
+			cornerRadiusInner := innerPillHeight / 2
+			drawRoundedRect(renderer, innerPillRect, cornerRadiusInner, core.GetTheme().MainColor)
 		}
 
 		buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
@@ -184,7 +187,7 @@ func renderGroupAsContinuousPill(
 			buttonTexture.Destroy()
 		}
 
-		currentX += innerPillWidth + 10
+		currentX += innerPillWidth + int32(float32(10)*scaleFactor)
 
 		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
 		if err == nil {
@@ -198,7 +201,7 @@ func renderGroupAsContinuousPill(
 			helpTexture.Destroy()
 		}
 
-		currentX += helpSurface.W + 30
+		currentX += helpSurface.W + int32(float32(30)*scaleFactor)
 		buttonSurface.Free()
 		helpSurface.Free()
 	}

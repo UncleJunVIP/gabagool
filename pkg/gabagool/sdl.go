@@ -30,6 +30,8 @@ func Init(title string, showBackground bool) {
 
 	window = initWindow(title, showBackground)
 
+	initFonts(GetConfig())
+
 	if !core.IsDevMode() {
 		window.initPowerButtonHandling()
 	}
