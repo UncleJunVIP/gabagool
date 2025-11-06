@@ -301,14 +301,13 @@ func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32
 		case TextAlignRight:
 			return s.window.GetWidth() - 20 - imageW
 		default:
-			return (s.window.GetHeight() - imageW) / 2
+			return (s.window.GetWidth() - imageW) / 2
 		}
 	}
 	return (s.window.GetWidth() - imageW) / 2
 }
 
 func (s *detailScreenState) isFinished() bool {
-	// Continue running until we get a definitive exit condition
 	return s.result.Cancelled || s.result.ActionTriggered || s.result.ConfirmTriggered
 }
 
