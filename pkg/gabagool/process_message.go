@@ -1,10 +1,12 @@
 package gabagool
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
+	"go.uber.org/atomic"
 )
 
 type ProcessMessageOptions struct {
@@ -12,7 +14,10 @@ type ProcessMessageOptions struct {
 	ImageWidth          int32
 	ImageHeight         int32
 	ShowThemeBackground bool
+	ShowProgressBar     bool
+	Progress            *atomic.Float64
 }
+
 type ProcessMessageReturn struct {
 	Success bool
 	Result  interface{}
@@ -20,24 +25,28 @@ type ProcessMessageReturn struct {
 }
 
 type processMessage struct {
-	window       *Window
-	showBG       bool
-	message      string
-	isProcessing bool
-	completeTime time.Time
-	imageTexture *sdl.Texture
-	imageWidth   int32
-	imageHeight  int32
+	window          *Window
+	showBG          bool
+	message         string
+	isProcessing    bool
+	completeTime    time.Time
+	imageTexture    *sdl.Texture
+	imageWidth      int32
+	imageHeight     int32
+	showProgressBar bool
+	progress        *atomic.Float64
 }
 
 func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessMessageReturn, error) {
 	processor := &processMessage{
-		window:       GetWindow(),
-		showBG:       options.ShowThemeBackground,
-		imageWidth:   options.ImageWidth,
-		imageHeight:  options.ImageHeight,
-		message:      message,
-		isProcessing: true,
+		window:          GetWindow(),
+		showBG:          options.ShowThemeBackground,
+		imageWidth:      options.ImageWidth,
+		imageHeight:     options.ImageHeight,
+		message:         message,
+		isProcessing:    true,
+		showProgressBar: options.ShowProgressBar,
+		progress:        options.Progress,
 	}
 
 	if options.Image != "" {
@@ -129,6 +138,10 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 			renderer.Clear()
 		}
 
+		// Render the process message with current progress
+		processor.render(renderer)
+		renderer.Present()
+
 		sdl.Delay(16)
 	}
 
@@ -174,4 +187,70 @@ func (p *processMessage) render(renderer *sdl.Renderer) {
 
 	maxWidth := p.window.GetWidth() * 3 / 4
 	renderMultilineText(renderer, p.message, font, maxWidth, p.window.GetWidth()/2, p.window.GetHeight()/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+
+	// Add progress bar if requested
+	if p.showProgressBar {
+		p.renderProgressBar(renderer)
+	}
+}
+
+func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
+	// Calculate progress bar dimensions
+	windowWidth := p.window.GetWidth()
+	windowHeight := p.window.GetHeight()
+
+	// Progress bar dimensions
+	barWidth := windowWidth * 3 / 4
+	if barWidth > 900 {
+		barWidth = 900
+	}
+	barHeight := int32(40)
+	barX := (windowWidth - barWidth) / 2
+	barY := (windowHeight - barHeight + (int32(fonts.smallFont.Height()) * 2)) / 2
+
+	// Progress bar background
+	renderer.SetDrawColor(50, 50, 50, 255)
+	progressBarBg := sdl.Rect{
+		X: barX,
+		Y: barY,
+		W: barWidth,
+		H: barHeight,
+	}
+	renderer.FillRect(&progressBarBg)
+
+	// Progress bar fill
+	progressWidth := int32(float64(barWidth) * p.progress.Load())
+
+	if progressWidth > 0 {
+		renderer.SetDrawColor(100, 150, 255, 255)
+		progressBarFill := sdl.Rect{
+			X: barX,
+			Y: barY,
+			W: progressWidth,
+			H: barHeight,
+		}
+		renderer.FillRect(&progressBarFill)
+	}
+
+	percentText := fmt.Sprintf("%.0f%%", p.progress.Load()*100)
+
+	percentSurface, err := fonts.smallFont.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if err == nil {
+		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
+		if err == nil {
+			// Center text inside progress bar
+			textX := barX + (barWidth-percentSurface.W)/2
+			textY := barY + (barHeight-percentSurface.H)/2
+
+			percentRect := &sdl.Rect{
+				X: textX,
+				Y: textY,
+				W: percentSurface.W,
+				H: percentSurface.H,
+			}
+			renderer.Copy(percentTexture, nil, percentRect)
+			percentTexture.Destroy()
+		}
+		percentSurface.Free()
+	}
 }

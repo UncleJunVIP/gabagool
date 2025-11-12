@@ -1,8 +1,6 @@
 package main
 
 import (
-	"log/slog"
-
 	gaba "github.com/UncleJunVIP/gabagool/pkg/gabagool"
 )
 
@@ -11,7 +9,6 @@ func main() {
 		WindowTitle:    "Input Tester",
 		ShowBackground: true,
 		IsCannoli:      true,
-		LogLevel:       slog.LevelDebug,
 		LogFilename:    "input_tester.log",
 	})
 

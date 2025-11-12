@@ -39,4 +39,5 @@ func SDLCleanup() {
 	ttf.Quit()
 	img.Quit()
 	sdl.Quit()
+	CloseLogger()
 }
