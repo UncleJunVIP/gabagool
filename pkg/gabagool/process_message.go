@@ -69,10 +69,6 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	if processor.showBG {
-		window.RenderBackground()
-	}
-
 	processor.render(renderer)
 	renderer.Present()
 
@@ -131,11 +127,11 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 			}
 		}
 
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+
 		if processor.showBG {
 			window.RenderBackground()
-		} else {
-			renderer.SetDrawColor(0, 0, 0, 255)
-			renderer.Clear()
 		}
 
 		// Render the process message with current progress
