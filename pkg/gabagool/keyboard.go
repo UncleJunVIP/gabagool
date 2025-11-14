@@ -47,6 +47,8 @@ type virtualKeyboard struct {
 	helpOverlay      *helpOverlay
 	ShowingHelp      bool
 	EnterPressed     bool
+	InputDelay       time.Duration
+	lastInputTime    time.Time
 }
 
 var defaultKeyboardHelpLines = []string{
@@ -93,6 +95,8 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 		LastCursorBlink:  time.Now(),
 		CursorBlinkRate:  500 * time.Millisecond,
 		ShowingHelp:      false,
+		InputDelay:       100 * time.Millisecond,
+		lastInputTime:    time.Now(),
 	}
 
 	kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
@@ -254,7 +258,7 @@ func Keyboard(initialText string) (types.Option[string], error) {
 	renderer := window.Renderer
 	font := fonts.mediumFont
 
-	kb := createKeyboard(window.Width, window.Height)
+	kb := createKeyboard(window.GetWidth(), window.GetHeight())
 	if initialText != "" {
 		kb.TextBuffer = initialText
 		kb.CursorPosition = len(initialText)
@@ -277,151 +281,127 @@ func Keyboard(initialText string) (types.Option[string], error) {
 }
 
 func (kb *virtualKeyboard) handleEvents() bool {
+	processor := GetInputProcessor()
+
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-		switch e := event.(type) {
+		switch event.(type) {
 		case *sdl.QuitEvent:
 			return true
 
-		case *sdl.KeyboardEvent:
-			if e.Type == sdl.KEYDOWN {
-				if kb.handleKeyInput(e.Keysym.Sym) {
-					return true
-				}
+		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
+			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+			if inputEvent == nil {
+				continue
 			}
 
-		case *sdl.ControllerButtonEvent:
-			if e.Type == sdl.CONTROLLERBUTTONDOWN {
-				if kb.handleButtonInput(Button(e.Button)) {
-					return true
-				}
+			if !inputEvent.Pressed {
+				continue
+			}
+
+			if kb.handleInputEvent(inputEvent) {
+				return true
 			}
 		}
 	}
 	return false
 }
 
-func (kb *virtualKeyboard) handleKeyInput(key sdl.Keycode) bool {
-	if key == sdl.K_h {
+func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
+	// Rate limit navigation to prevent too-fast input
+	if kb.isDirectionalButton(inputEvent.Button) {
+		if time.Since(kb.lastInputTime) < kb.InputDelay {
+			return false
+		}
+		kb.lastInputTime = time.Now()
+	}
+
+	button := inputEvent.Button
+
+	// Help toggle - always available
+	if button == InternalButtonMenu {
 		kb.toggleHelp()
 		return false
 	}
 
+	// If help is showing, handle help-specific input
 	if kb.ShowingHelp {
-		return kb.handleHelpInput(key)
+		return kb.handleHelpInputEvent(button)
 	}
 
-	switch key {
-	case sdl.K_UP, sdl.K_DOWN, sdl.K_LEFT, sdl.K_RIGHT:
-		kb.navigate(key)
-	case sdl.K_a:
-		kb.processSelection()
-	case sdl.K_b:
-		kb.backspace()
-	case sdl.K_LSHIFT, sdl.K_RSHIFT:
-		kb.toggleShift()
-	case sdl.K_q: // Using Q key as symbol toggle for keyboard input
-		kb.toggleSymbols()
-	case sdl.K_RETURN:
-		kb.EnterPressed = true
-		return true
-	case sdl.K_ESCAPE:
-		return true
-	}
-	return false
-}
-
-func (kb *virtualKeyboard) handleButtonInput(button Button) bool {
-	if button == ButtonMenu {
-		kb.toggleHelp()
-		return false
-	}
-
-	if kb.ShowingHelp {
-		return kb.handleHelpButton(button)
-	}
-
+	// Handle keyboard input
 	switch button {
-	case ButtonUp, ButtonDown, ButtonLeft, ButtonRight:
-		kb.navigateWithButton(button)
-	case ButtonA:
+	case InternalButtonUp:
+		kb.navigate(button)
+		return false
+	case InternalButtonDown:
+		kb.navigate(button)
+		return false
+	case InternalButtonLeft:
+		kb.navigate(button)
+		return false
+	case InternalButtonRight:
+		kb.navigate(button)
+		return false
+	case InternalButtonA:
 		kb.processSelection()
-	case ButtonB:
+		return false
+	case InternalButtonB:
 		kb.backspace()
-	case ButtonX:
+		return false
+	case InternalButtonX:
 		kb.insertSpace()
-	case ButtonSelect:
+		return false
+	case InternalButtonSelect:
 		kb.toggleShift()
-	case ButtonF1:
-		kb.toggleSymbols()
-	case ButtonL1:
-		kb.moveCursor(-1)
-	case ButtonR1:
-		kb.moveCursor(1)
-	case ButtonStart:
+		return false
+	case InternalButtonY:
+		return true // Exit without saving
+	case InternalButtonStart:
 		kb.EnterPressed = true
-		return true
-	case ButtonY:
-		return true
+		return true // Exit and save
+	case InternalButtonL1:
+		kb.moveCursor(-1)
+		return false
+	case InternalButtonR1:
+		kb.moveCursor(1)
+		return false
 	}
+
 	return false
 }
 
-func (kb *virtualKeyboard) handleHelpInput(key sdl.Keycode) bool {
-	switch key {
-	case sdl.K_UP:
-		kb.scrollHelpOverlay(-1)
-	case sdl.K_DOWN:
-		kb.scrollHelpOverlay(1)
-	default:
-		kb.ShowingHelp = false
-	}
-	return false
+func (kb *virtualKeyboard) isDirectionalButton(button InternalButton) bool {
+	return button == InternalButtonUp || button == InternalButtonDown ||
+		button == InternalButtonLeft || button == InternalButtonRight
 }
 
-func (kb *virtualKeyboard) handleHelpButton(button Button) bool {
+func (kb *virtualKeyboard) handleHelpInputEvent(button InternalButton) bool {
 	switch button {
-	case ButtonUp:
+	case InternalButtonUp:
 		kb.scrollHelpOverlay(-1)
-	case ButtonDown:
+		return false
+	case InternalButtonDown:
 		kb.scrollHelpOverlay(1)
+		return false
 	default:
 		kb.ShowingHelp = false
+		return false
 	}
-	return false
 }
 
-func (kb *virtualKeyboard) navigate(key sdl.Keycode) {
-	layout := createKeyLayout()
-	currentRow, currentCol := kb.findCurrentPosition(layout)
-
-	var newRow, newCol int
-	switch key {
-	case sdl.K_UP:
-		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
-	case sdl.K_DOWN:
-		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
-	case sdl.K_LEFT:
-		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
-	case sdl.K_RIGHT:
-		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
-	}
-
-	kb.setSelection(layout, newRow, newCol)
-}
-
-func (kb *virtualKeyboard) navigateWithButton(button Button) {
+func (kb *virtualKeyboard) navigate(button InternalButton) {
 	layout := createKeyLayout()
 	currentRow, currentCol := kb.findCurrentPosition(layout)
 
 	var newRow, newCol int
 	switch button {
-	case ButtonUp:
+	case InternalButtonUp:
 		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
-	case ButtonDown:
+	case InternalButtonDown:
 		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
-	case ButtonLeft:
+	case InternalButtonLeft:
 		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
-	case ButtonRight:
+	case InternalButtonRight:
 		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
 	}
 

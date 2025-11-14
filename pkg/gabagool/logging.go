@@ -24,7 +24,6 @@ func setLogFilename(filename string) {
 func GetLoggerInstance() *slog.Logger {
 	loggerOnce.Do(func() {
 		levelVar = &slog.LevelVar{}
-		levelVar.Set(slog.LevelDebug) // default level
 
 		if err := os.MkdirAll("logs", 0755); err != nil {
 			panic("Failed to create logs directory: " + err.Error())

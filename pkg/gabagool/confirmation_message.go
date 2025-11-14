@@ -14,8 +14,8 @@ type confirmationMessageSettings struct {
 	MessageText      string
 	MessageAlign     TextAlign
 	ButtonSpacing    int32
-	ConfirmKey       sdl.Keycode
-	ConfirmButton    Button
+	ConfirmButton    InternalButton
+	CancelButton     InternalButton
 	ImagePath        string
 	MaxImageHeight   int32
 	MaxImageWidth    int32
@@ -29,9 +29,10 @@ type confirmationMessageSettings struct {
 
 type MessageOptions struct {
 	ImagePath     string
-	ConfirmKey    sdl.Keycode
-	ConfirmButton Button
+	ConfirmButton InternalButton
+	CancelButton  InternalButton
 }
+
 type ConfirmationMessageReturn struct {
 	Cancelled bool
 }
@@ -42,8 +43,8 @@ func defaultMessageSettings(message string) confirmationMessageSettings {
 		MessageText:      message,
 		MessageAlign:     TextAlignCenter,
 		ButtonSpacing:    20,
-		ConfirmKey:       sdl.K_a,
-		ConfirmButton:    ButtonA,
+		ConfirmButton:    InternalButtonA,
+		CancelButton:     InternalButtonB,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		FooterTextColor:  sdl.Color{R: 180, G: 180, B: 180, A: 255},
@@ -61,16 +62,16 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 
 	if options.ImagePath != "" {
 		settings.ImagePath = options.ImagePath
-		settings.MaxImageHeight = int32(float64(window.Height) / 1.75)
-		settings.MaxImageWidth = int32(float64(window.Width) / 1.75)
+		settings.MaxImageWidth = int32(float64(window.GetWidth()) / 1.75)
+		settings.MaxImageHeight = int32(float64(window.GetHeight()) / 1.75)
 	}
 
-	if options.ConfirmButton != 0 {
+	if options.ConfirmButton != InternalButtonUnassigned {
 		settings.ConfirmButton = options.ConfirmButton
 	}
 
-	if options.ConfirmKey != 0 {
-		settings.ConfirmKey = options.ConfirmKey
+	if options.CancelButton != InternalButtonUnassigned {
+		settings.CancelButton = options.CancelButton
 	}
 
 	result := ConfirmationMessageReturn{Cancelled: true}
@@ -131,38 +132,31 @@ func loadAndPrepareImage(renderer *sdl.Renderer, settings confirmationMessageSet
 }
 
 func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, settings confirmationMessageSettings) bool {
+	processor := GetInputProcessor()
+
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-		switch e := event.(type) {
+		switch event.(type) {
 		case *sdl.QuitEvent:
 			result.Cancelled = true
 			return false
 
-		case *sdl.KeyboardEvent:
-			if e.Type != sdl.KEYDOWN || !isInputAllowed(*lastInputTime, settings.InputDelay) {
+		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
+			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+			if inputEvent == nil || !inputEvent.Pressed {
 				continue
 			}
-			*lastInputTime = time.Now()
 
-			switch e.Keysym.Sym {
-			case settings.ConfirmKey, sdl.K_RETURN:
-				result.Cancelled = false
-				return false
-			case sdl.K_b, sdl.K_ESCAPE:
-				result.Cancelled = true
-				return false
-			}
-
-		case *sdl.ControllerButtonEvent:
-			if e.Type != sdl.CONTROLLERBUTTONDOWN || !isInputAllowed(*lastInputTime, settings.InputDelay) {
+			if !isInputAllowed(*lastInputTime, settings.InputDelay) {
 				continue
 			}
+
 			*lastInputTime = time.Now()
 
-			switch Button(e.Button) {
-			case settings.ConfirmButton:
+			switch inputEvent.Button {
+			case settings.ConfirmButton, InternalButtonStart:
 				result.Cancelled = false
 				return false
-			case ButtonB:
+			case settings.CancelButton:
 				result.Cancelled = true
 				return false
 			}
@@ -183,24 +177,32 @@ func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMe
 		settings.BackgroundColor.A)
 	renderer.Clear()
 
+	// Calculate responsive max width based on screen size
+	windowWidth := window.GetWidth()
+	windowHeight := window.GetHeight()
+	responsiveMaxWidth := int32(float64(windowWidth) * 0.75) // Use 75% of screen width
+	if responsiveMaxWidth > 800 {
+		responsiveMaxWidth = 800 // Cap max width for very large screens
+	}
+
 	contentHeight := calculateContentHeight(settings, imageRect)
-	startY := (window.Height - contentHeight) / 2
+	startY := (windowHeight - contentHeight) / 2
 
 	if imageTexture != nil {
-		imageRect.X = (window.Width - imageRect.W) / 2
+		imageRect.X = (windowWidth - imageRect.W) / 2
 		imageRect.Y = startY
 		renderer.Copy(imageTexture, nil, &imageRect)
 		startY = imageRect.Y + imageRect.H + 30
 	}
 
 	if len(settings.MessageText) > 0 {
-		maxWidth := window.Width - (settings.Margins.Left + settings.Margins.Right)
+		centerX := windowWidth / 2
 		renderMultilineText(
 			renderer,
 			settings.MessageText,
 			fonts.smallFont,
-			maxWidth,
-			window.Width/2,
+			responsiveMaxWidth,
+			centerX,
 			startY,
 			settings.MessageTextColor)
 	}

@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -24,18 +25,19 @@ func renderFooter(
 	if len(footerHelpItems) == 0 {
 		return
 	}
+	scaleFactor := GetScaleFactor()
 	window := GetWindow()
 	windowWidth, windowHeight := window.Window.GetSize()
-	y := windowHeight - bottomPadding - 50
-	outerPillHeight := int32(60)
+	y := windowHeight - bottomPadding - int32(float32(50)*scaleFactor)
+	outerPillHeight := int32(float32(60) * scaleFactor)
 
 	if !transparentBackground {
 		// Add a black background for the entire footer area
 		footerBackgroundRect := &sdl.Rect{
-			X: 0,                    // Start from left edge
-			Y: y - 10,               // Same Y as the pills
-			W: windowWidth - 15,     // Full window width
-			H: outerPillHeight + 50, // Same height as the pills
+			X: 0,                                                // Start from left edge
+			Y: y - 10,                                           // Same Y as the pills
+			W: windowWidth - 15,                                 // Full window.GetWidth()
+			H: outerPillHeight + int32(float32(50)*scaleFactor), // Same height as the pills
 		}
 
 		// set color to black and draw the footer background
@@ -43,7 +45,7 @@ func renderFooter(
 		renderer.FillRect(footerBackgroundRect)
 	}
 
-	innerPillMargin := int32(6)
+	innerPillMargin := int32(float32(6) * scaleFactor)
 	var leftItems []FooterHelpItem
 	var rightItems []FooterHelpItem
 	switch len(footerHelpItems) {
@@ -82,16 +84,17 @@ func renderFooter(
 }
 
 func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerPillHeight, innerPillMargin int32) int32 {
-	var totalWidth int32 = 20
+	scaleFactor := GetScaleFactor()
+	var totalWidth int32 = int32(float32(10) * scaleFactor)
 
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
 	for i, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, GetTheme().MainColor)
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, core.GetTheme().MainColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, GetTheme().PrimaryAccentColor)
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, core.GetTheme().PrimaryAccentColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -107,7 +110,7 @@ func calculateContinuousPillWidth(font *ttf.Font, items []FooterHelpItem, outerP
 		buttonSurface.Free()
 		helpSurface.Free()
 	}
-	totalWidth += 15
+	totalWidth += int32(float32(10) * scaleFactor)
 	return totalWidth
 }
 
@@ -118,8 +121,6 @@ func calculateInnerPillWidth(buttonSurface *sdl.Surface, innerPillHeight int32) 
 		return buttonSurface.W + 20
 	}
 }
-
-// ... existing code ...
 
 func renderGroupAsContinuousPill(
 	renderer *sdl.Renderer,
@@ -132,6 +133,7 @@ func renderGroupAsContinuousPill(
 	if len(items) == 0 {
 		return
 	}
+	scaleFactor := GetScaleFactor()
 	pillWidth := calculateContinuousPillWidth(font, items, outerPillHeight, innerPillMargin)
 	outerPillRect := &sdl.Rect{
 		X: startX,
@@ -140,17 +142,26 @@ func renderGroupAsContinuousPill(
 		H: outerPillHeight,
 	}
 
-	drawRoundedRect(renderer, outerPillRect, outerPillHeight/2, GetTheme().PrimaryAccentColor)
+	// Keep the rounded corners proportional but not excessive
+	cornerRadius := outerPillHeight / 2
+	drawRoundedRect(renderer, outerPillRect, cornerRadius, core.GetTheme().PrimaryAccentColor)
 
-	currentX := startX + 10
+	currentX := startX + int32(float32(10)*scaleFactor)
 	innerPillHeight := outerPillHeight - (innerPillMargin * 2)
 
+	// Apply damping to padding for smaller screens
+	var paddingFactor float32 = 1.0
+	if scaleFactor < 1.0 {
+		paddingFactor = 0.5 + (scaleFactor * 0.5) // Reduces padding impact on small screens
+	}
+	rightPadding := int32(float32(30) * paddingFactor)
+
 	for _, item := range items {
-		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, GetTheme().SecondaryAccentColor)
+		buttonSurface, err := font.RenderUTF8Blended(item.ButtonName, core.GetTheme().SecondaryAccentColor)
 		if err != nil {
 			continue
 		}
-		helpSurface, err := font.RenderUTF8Blended(item.HelpText, GetTheme().HintInfoColor)
+		helpSurface, err := font.RenderUTF8Blended(item.HelpText, core.GetTheme().HintInfoColor)
 		if err != nil {
 			buttonSurface.Free()
 			continue
@@ -160,7 +171,7 @@ func renderGroupAsContinuousPill(
 		isCircle := innerPillWidth == innerPillHeight
 
 		if isCircle {
-			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2, GetTheme().MainColor)
+			drawCircleShape(renderer, currentX+innerPillHeight/2, y+innerPillMargin+innerPillHeight/2, innerPillHeight/2, core.GetTheme().MainColor)
 		} else {
 			innerPillRect := &sdl.Rect{
 				X: currentX,
@@ -168,7 +179,8 @@ func renderGroupAsContinuousPill(
 				W: innerPillWidth,
 				H: innerPillHeight,
 			}
-			drawRoundedRect(renderer, innerPillRect, innerPillHeight/2, GetTheme().MainColor)
+			cornerRadiusInner := innerPillHeight / 2
+			drawRoundedRect(renderer, innerPillRect, cornerRadiusInner, core.GetTheme().MainColor)
 		}
 
 		buttonTexture, err := renderer.CreateTextureFromSurface(buttonSurface)
@@ -183,7 +195,7 @@ func renderGroupAsContinuousPill(
 			buttonTexture.Destroy()
 		}
 
-		currentX += innerPillWidth + 10
+		currentX += innerPillWidth + int32(float32(10)*scaleFactor)
 
 		helpTexture, err := renderer.CreateTextureFromSurface(helpSurface)
 		if err == nil {
@@ -197,7 +209,7 @@ func renderGroupAsContinuousPill(
 			helpTexture.Destroy()
 		}
 
-		currentX += helpSurface.W + 30
+		currentX += helpSurface.W + rightPadding
 		buttonSurface.Free()
 		helpSurface.Free()
 	}

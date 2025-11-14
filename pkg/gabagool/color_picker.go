@@ -3,6 +3,7 @@ package gabagool
 import (
 	"math"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -24,9 +25,9 @@ type ColorPicker struct {
 // NewHexColorPicker creates a new grid-based color picker centered on screen
 func NewHexColorPicker(window *Window) *ColorPicker {
 	// Center on screen
-	x := window.Width / 2
-	y := window.Height / 2
-	size := int32(math.Min(float64(window.Width), float64(window.Height)) * 0.8) // 80% of screen
+	x := window.GetWidth() / 2
+	y := window.GetHeight() / 2
+	size := int32(math.Min(float64(window.GetWidth()), float64(window.GetHeight())) * 0.8) // 80% of screen
 
 	// Define grid dimensions
 	gridRows := int32(5)
@@ -120,10 +121,10 @@ func (h *ColorPicker) Draw(renderer *sdl.Renderer) {
 		H: bgRect.H + 4,
 	}
 	renderer.SetDrawColor(
-		GetTheme().PrimaryAccentColor.R,
-		GetTheme().PrimaryAccentColor.G,
-		GetTheme().PrimaryAccentColor.B,
-		GetTheme().PrimaryAccentColor.A,
+		core.GetTheme().PrimaryAccentColor.R,
+		core.GetTheme().PrimaryAccentColor.G,
+		core.GetTheme().PrimaryAccentColor.B,
+		core.GetTheme().PrimaryAccentColor.A,
 	)
 	renderer.DrawRect(&borderRect)
 

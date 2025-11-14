@@ -3,13 +3,13 @@ package gabagool
 import (
 	"os"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
 var window *Window
-var gameControllers []*sdl.GameController
 
 func Init(title string, showBackground bool) {
 	if err := sdl.Init(sdl.INIT_VIDEO | sdl.INIT_AUDIO |
@@ -22,31 +22,22 @@ func Init(title string, showBackground bool) {
 		os.Exit(1)
 	}
 
-	numJoysticks := sdl.NumJoysticks()
-
-	for i := 0; i < numJoysticks; i++ {
-		if sdl.IsGameController(i) {
-			controller := sdl.GameControllerOpen(i)
-			if controller != nil {
-				GetLoggerInstance().Info("Opened game controller", "controller", controller)
-				gameControllers = append(gameControllers, controller)
-			}
-		}
-	}
+	InitInputProcessor()
 
 	window = initWindow(title, showBackground)
 
-	if !IsDev {
+	initFonts(GetConfig())
+
+	if !core.IsDevMode() {
 		window.initPowerButtonHandling()
 	}
 }
 
 func SDLCleanup() {
 	window.closeWindow()
-	for _, controller := range gameControllers {
-		controller.Close()
-	}
+	CloseAllControllers()
 	ttf.Quit()
 	img.Quit()
 	sdl.Quit()
+	CloseLogger()
 }

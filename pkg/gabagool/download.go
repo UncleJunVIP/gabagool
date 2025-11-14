@@ -55,15 +55,23 @@ type downloadManager struct {
 	progressBarHeight int32
 	progressBarX      int32
 
-	headers map[string]string
+	scrollOffset int32
+
+	headers       map[string]string
+	lastInputTime time.Time
+	inputDelay    time.Duration
 }
 
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
 	window := GetWindow()
 
-	progressBarWidth := window.Width * 3 / 4
+	// Calculate responsive progress bar width
+	responsiveBarWidth := window.GetWidth() * 3 / 4
+	if responsiveBarWidth > 900 {
+		responsiveBarWidth = 900
+	}
 	progressBarHeight := int32(30)
-	progressBarX := (window.Width - progressBarWidth) / 2
+	progressBarX := (window.GetWidth() - responsiveBarWidth) / 2
 
 	return &downloadManager{
 		window:             window,
@@ -76,9 +84,12 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		isAllComplete:      false,
 		maxActiveJobs:      3,
 		headers:            headers,
-		progressBarWidth:   progressBarWidth,
+		progressBarWidth:   responsiveBarWidth,
 		progressBarHeight:  progressBarHeight,
 		progressBarX:       progressBarX,
+		scrollOffset:       0,
+		lastInputTime:      time.Now(),
+		inputDelay:         DefaultInputDelay,
 	}
 }
 
@@ -100,6 +111,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 	window := GetWindow()
 	renderer := window.Renderer
+	processor := GetInputProcessor()
 
 	// Initialize the download queue
 	for _, download := range downloads {
@@ -126,41 +138,36 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-			switch e := event.(type) {
+			switch event.(type) {
 			case *sdl.QuitEvent:
 				running = false
 				err = sdl.GetError()
 				downloadManager.cancelAllDownloads()
 				result.Cancelled = true
 
-			case *sdl.KeyboardEvent:
-				if e.Type == sdl.KEYDOWN {
-					result.LastPressedKey = e.Keysym.Sym
-
-					if downloadManager.isAllComplete {
-						running = false
-						continue
-					}
-
-					if e.Keysym.Sym == sdl.K_ESCAPE {
-						downloadManager.cancelAllDownloads()
-						result.Cancelled = true
-					}
+			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
+				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+				if inputEvent == nil || !inputEvent.Pressed {
+					continue
 				}
 
-			case *sdl.ControllerButtonEvent:
-				if e.Type == sdl.CONTROLLERBUTTONDOWN {
-					result.LastPressedBtn = e.Button
+				if !downloadManager.isInputAllowed() {
+					continue
+				}
+				downloadManager.lastInputTime = time.Now()
 
-					if downloadManager.isAllComplete {
-						running = false
-						continue
-					}
+				result.LastPressedKey = sdl.Keycode(inputEvent.RawCode)
+				result.LastPressedBtn = uint8(inputEvent.RawCode)
 
-					if Button(e.Button) == ButtonY {
-						downloadManager.cancelAllDownloads()
-						result.Cancelled = true
-					}
+				if downloadManager.isAllComplete {
+					running = false
+					continue
+				}
+
+				// Cancel on Y button
+				if inputEvent.Button == InternalButtonY {
+					downloadManager.cancelAllDownloads()
+					result.Cancelled = true
 				}
 			}
 		}
@@ -196,13 +203,16 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 	return result, err
 }
 
+func (dm *downloadManager) isInputAllowed() bool {
+	return time.Since(dm.lastInputTime) >= dm.inputDelay
+}
+
 func (dm *downloadManager) startNextDownloads() {
 	availableSlots := dm.maxActiveJobs - len(dm.activeJobs)
 	if availableSlots <= 0 {
 		return
 	}
 
-	// Start as many downloads as we have slots for
 	for i := 0; i < availableSlots && len(dm.downloadQueue) > 0; i++ {
 		job := dm.downloadQueue[0]
 		dm.downloadQueue = dm.downloadQueue[1:]
@@ -336,20 +346,18 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 }
 
 func truncateFilename(filename string, maxWidth int32, font *ttf.Font) string {
-	// Check if filename needs truncation
 	surface, _ := font.RenderUTF8Blended(filename, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 	if surface == nil {
-		return filename // If surface creation failed, return original
+		return filename
 	}
 	defer surface.Free()
 
 	if surface.W <= maxWidth {
-		return filename // No truncation needed
+		return filename
 	}
 
-	// Truncate with ellipsis
 	ellipsis := "..."
-	for len(filename) > 5 { // Keep at least 1 char + ellipsis
+	for len(filename) > 5 {
 		filename = filename[:len(filename)-1]
 		surface, _ := font.RenderUTF8Blended(filename+ellipsis, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if surface == nil {
@@ -370,24 +378,12 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.Clear()
 
 	font := fonts.smallFont
+	windowWidth := dm.window.GetWidth()
+	windowHeight := dm.window.GetHeight()
 
-	// Render title
-	titleText := "Download Manager"
-	titleSurface, err := fonts.mediumFont.RenderUTF8Blended(titleText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if err == nil {
-		titleTexture, err := renderer.CreateTextureFromSurface(titleSurface)
-		if err == nil {
-			titleRect := &sdl.Rect{
-				X: (dm.window.Width - titleSurface.W) / 2,
-				Y: 30,
-				W: titleSurface.W,
-				H: titleSurface.H,
-			}
-			renderer.Copy(titleTexture, nil, titleRect)
-			titleTexture.Destroy()
-		}
-		titleSurface.Free()
-	}
+	// No title, no footer - use full screen for content
+	contentAreaStart := int32(20)
+	contentAreaHeight := windowHeight - 20
 
 	if len(dm.activeJobs) == 0 && dm.isAllComplete {
 		var completeColor sdl.Color
@@ -417,9 +413,10 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		if err == nil {
 			completeTexture, err := renderer.CreateTextureFromSurface(completeSurface)
 			if err == nil {
+				centerY := (windowHeight - completeSurface.H) / 2
 				completeRect := &sdl.Rect{
-					X: (dm.window.Width - completeSurface.W) / 2,
-					Y: dm.window.Height/2 - completeSurface.H/2,
+					X: (windowWidth - completeSurface.W) / 2,
+					Y: centerY,
 					W: completeSurface.W,
 					H: completeSurface.H,
 				}
@@ -429,117 +426,42 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			completeSurface.Free()
 		}
 	} else {
-		// Render each active download
-		titlePadding := int32(90)
-		if titleSurface != nil {
-			titlePadding = titleSurface.H
+		// Measure text heights
+		maxFilenameSurface, _ := font.RenderUTF8Blended("Sample", sdl.Color{R: 255, G: 255, B: 255, A: 255})
+		filenameHeight := int32(0)
+		if maxFilenameSurface != nil {
+			filenameHeight = maxFilenameSurface.H
+			maxFilenameSurface.Free()
 		}
 
-		baseY := int32(150) + titlePadding
-		spacing := dm.progressBarHeight + 120 // Increased spacing between downloads (from 100 to 120)
+		spacingBetweenFilenameAndBar := int32(5)
+		spacingBetweenDownloads := int32(25)
 
-		if len(dm.downloads) == 1 {
-			baseY += dm.window.Height/5 + 45
-			spacing = 0
-		}
+		// More compact: filename + bar only (no separate percentage below)
+		singleDownloadHeight := filenameHeight + spacingBetweenFilenameAndBar + dm.progressBarHeight
 
-		for i, job := range dm.activeJobs {
-			y := baseY + int32(i)*spacing
+		if len(dm.activeJobs) > 0 {
+			// Check if we have no queued downloads and 1-3 active jobs
+			hasNoQueue := len(dm.downloadQueue) == 0
 
-			// Get display name with truncation
-			var displayText string
-			if job.download.DisplayName != "" {
-				displayText = job.download.DisplayName
+			if hasNoQueue && len(dm.activeJobs) <= 3 {
+				// Center 1-3 downloads vertically when no queue
+				footerHeight := int32(80)
+				availableHeight := contentAreaHeight - footerHeight
+
+				totalHeight := int32(len(dm.activeJobs))*singleDownloadHeight + int32(len(dm.activeJobs)-1)*spacingBetweenDownloads
+				startY := contentAreaStart + (availableHeight-totalHeight)/2
+				if startY < contentAreaStart {
+					startY = contentAreaStart + 10
+				}
+
+				for i, job := range dm.activeJobs {
+					itemY := startY + int32(i)*(singleDownloadHeight+spacingBetweenDownloads)
+					dm.renderDownloadItem(renderer, job, windowWidth, itemY, filenameHeight, spacingBetweenFilenameAndBar)
+				}
 			} else {
-				displayText = filepath.Base(job.download.Location)
-			}
-
-			// Truncate filename to fit on a single line
-			maxWidth := dm.window.Width * 3 / 4
-			displayText = truncateFilename(displayText, maxWidth, font) // Use filenameFont instead of font
-
-			// Render filename with smallFont
-			filenameSurface, err := font.RenderUTF8Blended(displayText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err == nil {
-				filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
-				if err == nil {
-					filenameRect := &sdl.Rect{
-						X: (dm.window.Width - filenameSurface.W) / 2,
-						Y: y - 50, // Increased vertical padding from 40 to 50
-						W: filenameSurface.W,
-						H: filenameSurface.H,
-					}
-					renderer.Copy(filenameTexture, nil, filenameRect)
-					filenameTexture.Destroy()
-				}
-				filenameSurface.Free()
-			}
-
-			// Render progress bar background
-			renderer.SetDrawColor(50, 50, 50, 255)
-			progressBarBg := sdl.Rect{
-				X: dm.progressBarX,
-				Y: y,
-				W: dm.progressBarWidth,
-				H: dm.progressBarHeight,
-			}
-			renderer.FillRect(&progressBarBg)
-
-			// Render progress bar fill
-			progressWidth := int32(float64(dm.progressBarWidth) * job.progress)
-			if progressWidth > 0 {
-				renderer.SetDrawColor(100, 150, 255, 255)
-				progressBarFill := sdl.Rect{
-					X: dm.progressBarX,
-					Y: y,
-					W: progressWidth,
-					H: dm.progressBarHeight,
-				}
-				renderer.FillRect(&progressBarFill)
-			}
-
-			// Render percentage text
-			percentText := fmt.Sprintf("%.1f%%", job.progress*100)
-			if job.totalSize > 0 {
-				downloadedMB := float64(job.downloadedSize) / 1048576.0
-				totalMB := float64(job.totalSize) / 1048576.0
-				percentText = fmt.Sprintf("%.1f%% (%.2f MB / %.2f MB)", job.progress*100, downloadedMB, totalMB)
-			}
-
-			percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-			if err == nil {
-				percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
-				if err == nil {
-					percentRect := &sdl.Rect{
-						X: (dm.window.Width - percentSurface.W) / 2,
-						Y: y + dm.progressBarHeight + 10,
-						W: percentSurface.W,
-						H: percentSurface.H,
-					}
-					renderer.Copy(percentTexture, nil, percentRect)
-					percentTexture.Destroy()
-				}
-				percentSurface.Free()
-			}
-		}
-
-		// Display queue info
-		if len(dm.downloadQueue) > 0 {
-			queueText := fmt.Sprintf("Downloads in queue: %d", len(dm.downloadQueue))
-			queueSurface, err := font.RenderUTF8Blended(queueText, sdl.Color{R: 180, G: 180, B: 180, A: 255})
-			if err == nil {
-				queueTexture, err := renderer.CreateTextureFromSurface(queueSurface)
-				if err == nil {
-					queueRect := &sdl.Rect{
-						X: (dm.window.Width - queueSurface.W) / 2,
-						Y: baseY + int32(len(dm.activeJobs))*spacing + 20,
-						W: queueSurface.W,
-						H: queueSurface.H,
-					}
-					renderer.Copy(queueTexture, nil, queueRect)
-					queueTexture.Destroy()
-				}
-				queueSurface.Free()
+				// Multiple downloads with queue - use the multi-download layout
+				dm.renderMultipleDownloads(renderer, windowWidth, contentAreaStart, contentAreaHeight, filenameHeight, spacingBetweenFilenameAndBar, spacingBetweenDownloads, singleDownloadHeight)
 			}
 		}
 	}
@@ -555,13 +477,165 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "Y", HelpText: helpText})
 	}
 
-	renderFooter(
-		renderer,
-		fonts.smallFont,
-		footerHelpItems,
-		20,
-		true,
-	)
+	renderFooter(renderer, fonts.smallFont, footerHelpItems, 20, true)
+}
+
+func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windowWidth int32, contentAreaStart int32, contentAreaHeight int32, filenameHeight int32, spacingBetweenFilenameAndBar int32, spacingBetweenDownloads int32, singleDownloadHeight int32) {
+	// Always show max 3 concurrent downloads
+	maxVisibleDownloads := 3
+
+	// Measure remaining text height if needed
+	remainingTextHeight := int32(0)
+	totalRemaining := len(dm.activeJobs) - maxVisibleDownloads + len(dm.downloadQueue)
+	if totalRemaining > 0 {
+		remainingSurface, _ := fonts.smallFont.RenderUTF8Blended("Sample", sdl.Color{R: 150, G: 150, B: 150, A: 255})
+		if remainingSurface != nil {
+			remainingTextHeight = remainingSurface.H + 15 // Text height + spacing
+			remainingSurface.Free()
+		}
+	}
+
+	// Calculate total height needed for visible downloads + remaining text
+	totalHeight := int32(maxVisibleDownloads)*singleDownloadHeight + int32(maxVisibleDownloads-1)*spacingBetweenDownloads + remainingTextHeight
+
+	// Reserve space for footer and center content
+	footerHeight := int32(80)
+	availableHeight := contentAreaHeight - footerHeight
+
+	// Center downloads vertically within available space
+	startY := contentAreaStart + (availableHeight-totalHeight)/2
+	if startY < contentAreaStart {
+		startY = contentAreaStart + 10 // Don't go above content area
+	}
+
+	// Render up to 3 active downloads
+	renderCount := 0
+	for _, job := range dm.activeJobs {
+		if renderCount >= maxVisibleDownloads {
+			break
+		}
+
+		itemY := startY + int32(renderCount)*(singleDownloadHeight+spacingBetweenDownloads)
+		dm.renderDownloadItem(renderer, job, windowWidth, itemY, filenameHeight, spacingBetweenFilenameAndBar)
+		renderCount++
+	}
+
+	// Show remaining downloads info
+	if totalRemaining > 0 {
+		remainingText := fmt.Sprintf("%d Additional Download%s Queued", totalRemaining, func() string {
+			if totalRemaining == 1 {
+				return ""
+			}
+			return "s"
+		}())
+
+		remainingSurface, err := fonts.smallFont.RenderUTF8Blended(remainingText, sdl.Color{R: 150, G: 150, B: 150, A: 255})
+		if err == nil {
+			remainingTexture, err := renderer.CreateTextureFromSurface(remainingSurface)
+			if err == nil {
+				remainingY := startY + int32(maxVisibleDownloads)*(singleDownloadHeight+spacingBetweenDownloads) + 10
+				remainingRect := &sdl.Rect{
+					X: (windowWidth - remainingSurface.W) / 2,
+					Y: remainingY,
+					W: remainingSurface.W,
+					H: remainingSurface.H,
+				}
+				renderer.Copy(remainingTexture, nil, remainingRect)
+				remainingTexture.Destroy()
+			}
+			remainingSurface.Free()
+		}
+	}
+}
+
+func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downloadJob, windowWidth int32, startY int32, filenameHeight int32, spacingBetweenFilenameAndBar int32) {
+	font := fonts.smallFont
+
+	// Get display name with truncation
+	var displayText string
+	if job.download.DisplayName != "" {
+		displayText = job.download.DisplayName
+	} else {
+		displayText = filepath.Base(job.download.Location)
+	}
+
+	// Truncate filename to fit responsively
+	maxWidth := windowWidth * 3 / 4
+	if maxWidth > 900 {
+		maxWidth = 900
+	}
+	displayText = truncateFilename(displayText, maxWidth, font)
+
+	// Render filename
+	filenameSurface, err := font.RenderUTF8Blended(displayText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if err == nil {
+		filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
+		if err == nil {
+			filenameRect := &sdl.Rect{
+				X: (windowWidth - filenameSurface.W) / 2,
+				Y: startY,
+				W: filenameSurface.W,
+				H: filenameSurface.H,
+			}
+			renderer.Copy(filenameTexture, nil, filenameRect)
+			filenameTexture.Destroy()
+		}
+		filenameSurface.Free()
+	}
+
+	// Calculate progress bar Y position
+	progressBarY := startY + filenameHeight + spacingBetweenFilenameAndBar
+
+	// Render progress bar background
+	renderer.SetDrawColor(50, 50, 50, 255)
+	progressBarBg := sdl.Rect{
+		X: dm.progressBarX,
+		Y: progressBarY,
+		W: dm.progressBarWidth,
+		H: dm.progressBarHeight,
+	}
+	renderer.FillRect(&progressBarBg)
+
+	// Render progress bar fill
+	progressWidth := int32(float64(dm.progressBarWidth) * job.progress)
+	if progressWidth > 0 {
+		renderer.SetDrawColor(100, 150, 255, 255)
+		progressBarFill := sdl.Rect{
+			X: dm.progressBarX,
+			Y: progressBarY,
+			W: progressWidth,
+			H: dm.progressBarHeight,
+		}
+		renderer.FillRect(&progressBarFill)
+	}
+
+	// Render percentage text INSIDE the progress bar
+	percentText := fmt.Sprintf("%.0f%%", job.progress*100)
+	if job.totalSize > 0 {
+		downloadedMB := float64(job.downloadedSize) / 1048576.0
+		totalMB := float64(job.totalSize) / 1048576.0
+		percentText = fmt.Sprintf("%.0f%% (%.1fMB/%.1fMB)", job.progress*100, downloadedMB, totalMB)
+	}
+
+	percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
+	if err == nil {
+		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
+		if err == nil {
+			// Center text inside progress bar
+			textX := dm.progressBarX + (dm.progressBarWidth-percentSurface.W)/2
+			textY := progressBarY + (dm.progressBarHeight-percentSurface.H)/2
+
+			percentRect := &sdl.Rect{
+				X: textX,
+				Y: textY,
+				W: percentSurface.W,
+				H: percentSurface.H,
+			}
+			renderer.Copy(percentTexture, nil, percentRect)
+			percentTexture.Destroy()
+		}
+		percentSurface.Free()
+	}
 }
 
 type progressReader struct {

@@ -12,34 +12,7 @@ type Configuration struct {
 		ShutdownCommand string        `json:"shutdown_command" yaml:"shutdown_command"`
 	} `json:"power_button" yaml:"power_button"`
 
-	ButtonMappings struct {
-		Up    int `json:"up" yaml:"up"`
-		Down  int `json:"down" yaml:"down"`
-		Left  int `json:"left" yaml:"left"`
-		Right int `json:"right" yaml:"right"`
-
-		A int `json:"a" yaml:"a"`
-		B int `json:"b" yaml:"b"`
-		X int `json:"x" yaml:"x"`
-		Y int `json:"y" yaml:"y"`
-
-		Start  int `json:"start" yaml:"start"`
-		Select int `json:"select" yaml:"select"`
-		Menu   int `json:"menu" yaml:"menu"`
-
-		L1 int `json:"l1" yaml:"l1"`
-		R1 int `json:"r1" yaml:"r1"`
-
-		F1 int `json:"f1" yaml:"f1"`
-		F2 int `json:"f2" yaml:"f2"`
-	} `json:"button_mappings" yaml:"button_mappings"`
-
 	UI struct {
-		Window struct {
-			Width  int32 `json:"width" yaml:"width"`
-			Height int32 `json:"height" yaml:"height"`
-		} `json:"window" yaml:"window"`
-
 		FontSizes struct {
 			XLarge int `json:"xlarge" yaml:"xlarge"`
 			Large  int `json:"large" yaml:"large"`
@@ -55,9 +28,7 @@ type Configuration struct {
 	} `json:"ui" yaml:"ui"`
 
 	Environment struct {
-		SettingsFileEnvVar   string `json:"settings_file_env" yaml:"settings_file_env"`
-		BackgroundPathEnvVar string `json:"background_path_env" yaml:"background_path_env"`
-		NextUIBackgroundPath string `json:"nextui_background_path" yaml:"nextui_background_path"`
+		SettingsFileEnvVar string `json:"settings_file_env" yaml:"settings_file_env"`
 	} `json:"environment" yaml:"environment"`
 
 	Theme struct {
@@ -82,45 +53,7 @@ var TempHardcodedConfig = Configuration{
 		ShutdownCommand: "/sbin/poweroff",
 	},
 
-	ButtonMappings: struct {
-		Up     int `json:"up" yaml:"up"`
-		Down   int `json:"down" yaml:"down"`
-		Left   int `json:"left" yaml:"left"`
-		Right  int `json:"right" yaml:"right"`
-		A      int `json:"a" yaml:"a"`
-		B      int `json:"b" yaml:"b"`
-		X      int `json:"x" yaml:"x"`
-		Y      int `json:"y" yaml:"y"`
-		Start  int `json:"start" yaml:"start"`
-		Select int `json:"select" yaml:"select"`
-		Menu   int `json:"menu" yaml:"menu"`
-		L1     int `json:"l1" yaml:"l1"`
-		R1     int `json:"r1" yaml:"r1"`
-		F1     int `json:"f1" yaml:"f1"`
-		F2     int `json:"f2" yaml:"f2"`
-	}{
-		Up:     11,
-		Down:   12,
-		Left:   13,
-		Right:  14,
-		A:      1,
-		B:      0,
-		X:      3,
-		Y:      2,
-		Start:  6,
-		Select: 4,
-		Menu:   5,
-		L1:     9,
-		R1:     10,
-		F1:     7,
-		F2:     8,
-	},
-
 	UI: struct {
-		Window struct {
-			Width  int32 `json:"width" yaml:"width"`
-			Height int32 `json:"height" yaml:"height"`
-		} `json:"window" yaml:"window"`
 		FontSizes struct {
 			XLarge int `json:"xlarge" yaml:"xlarge"`
 			Large  int `json:"large" yaml:"large"`
@@ -133,13 +66,6 @@ var TempHardcodedConfig = Configuration{
 		TitleSpacing   int32         `json:"title_spacing" yaml:"title_spacing"`
 		BackgroundPath string        `json:"background_path" yaml:"background_path"`
 	}{
-		Window: struct {
-			Width  int32 `json:"width" yaml:"width"`
-			Height int32 `json:"height" yaml:"height"`
-		}{
-			Width:  1024,
-			Height: 768,
-		},
 		FontSizes: struct {
 			XLarge int `json:"xlarge" yaml:"xlarge"`
 			Large  int `json:"large" yaml:"large"`
@@ -148,12 +74,12 @@ var TempHardcodedConfig = Configuration{
 			Tiny   int `json:"tiny" yaml:"tiny"`
 			Micro  int `json:"micro" yaml:"micro"`
 		}{
-			XLarge: 22 * 3, // Fix Scaling
-			Large:  18 * 3,
-			Medium: 16 * 3,
-			Small:  12 * 3,
-			Tiny:   8 * 3,
-			Micro:  6 * 3,
+			XLarge: 66,
+			Large:  54,
+			Medium: 48,
+			Small:  36,
+			Tiny:   24,
+			Micro:  18,
 		},
 		InputDelay:     20 * time.Millisecond,
 		TitleSpacing:   5,
@@ -161,13 +87,9 @@ var TempHardcodedConfig = Configuration{
 	},
 
 	Environment: struct {
-		SettingsFileEnvVar   string `json:"settings_file_env" yaml:"settings_file_env"`
-		BackgroundPathEnvVar string `json:"background_path_env" yaml:"background_path_env"`
-		NextUIBackgroundPath string `json:"nextui_background_path" yaml:"nextui_background_path"`
+		SettingsFileEnvVar string `json:"settings_file_env" yaml:"settings_file_env"`
 	}{
-		SettingsFileEnvVar:   "SETTINGS_FILE",
-		BackgroundPathEnvVar: "BACKGROUND_PATH",
-		NextUIBackgroundPath: "/mnt/SDCARD/bg.png",
+		SettingsFileEnvVar: "SETTINGS_FILE",
 	},
 
 	Theme: struct {

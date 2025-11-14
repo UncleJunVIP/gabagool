@@ -42,8 +42,7 @@ type DetailScreenOptions struct {
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
 	EnableAction        bool
-	ActionKey           sdl.Keycode
-	ActionButton        Button
+	ActionButton        InternalButton
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
@@ -51,11 +50,11 @@ type DetailScreenOptions struct {
 }
 
 type DetailScreenReturn struct {
-	LastPressedKey  sdl.Keycode
-	LastPressedBtn  uint8
-	Cancelled       bool
-	ActionTriggered bool
-	ConfirmTriggered	bool
+	LastPressedKey   sdl.Keycode
+	LastPressedBtn   uint8
+	Cancelled        bool
+	ActionTriggered  bool
+	ConfirmTriggered bool
 }
 
 type detailScreenState struct {
@@ -96,8 +95,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
-		ActionKey:        sdl.K_a,
-		ActionButton:     ButtonA,
+		ActionButton:     InternalButtonA,
 		ShowScrollbar:    true,
 		EnableAction:     false,
 	}
@@ -186,13 +184,13 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 
 func (s *detailScreenState) initializeImageDefaults() {
 	footerHeight := int32(30)
-	safeAreaHeight := s.window.Height - footerHeight
+	safeAreaHeight := s.window.GetHeight() - footerHeight
 
 	if s.options.MaxImageHeight == 0 {
 		s.options.MaxImageHeight = int32(float64(safeAreaHeight) / 2)
 	}
 	if s.options.MaxImageWidth == 0 {
-		s.options.MaxImageWidth = int32(float64(s.window.Width) / 2)
+		s.options.MaxImageWidth = int32(float64(s.window.GetWidth()) / 2)
 	}
 }
 
@@ -301,92 +299,73 @@ func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32
 		case TextAlignLeft:
 			return 20
 		case TextAlignRight:
-			return s.window.Width - 20 - imageW
+			return s.window.GetWidth() - 20 - imageW
 		default:
-			return (s.window.Width - imageW) / 2
+			return (s.window.GetWidth() - imageW) / 2
 		}
 	}
-	return (s.window.Width - imageW) / 2
+	return (s.window.GetWidth() - imageW) / 2
 }
 
 func (s *detailScreenState) isFinished() bool {
-	// Continue running until we get a definitive exit condition
 	return s.result.Cancelled || s.result.ActionTriggered || s.result.ConfirmTriggered
 }
 
 func (s *detailScreenState) handleEvents() {
+	processor := GetInputProcessor()
+
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
-		switch e := event.(type) {
+		switch event.(type) {
 		case *sdl.QuitEvent:
 			s.result.Cancelled = true
 			return
-		case *sdl.KeyboardEvent:
-			s.handleKeyboardEvent(e)
-		case *sdl.ControllerButtonEvent:
-			s.handleControllerEvent(e)
+		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
+			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
+			if inputEvent == nil {
+				continue
+			}
+
+			if inputEvent.Pressed {
+				s.handleInputEvent(inputEvent)
+			} else {
+				s.handleInputEventRelease(inputEvent)
+			}
 		}
 	}
 }
 
-func (s *detailScreenState) handleKeyboardEvent(e *sdl.KeyboardEvent) {
-	if e.Type == sdl.KEYDOWN {
-		s.result.LastPressedKey = e.Keysym.Sym
-		if !s.isInputAllowed() {
-			return
-		}
-		s.lastInputTime = time.Now()
+func (s *detailScreenState) handleInputEvent(inputEvent *InputEvent) {
+	if !s.isInputAllowed() {
+		return
+	}
+	s.lastInputTime = time.Now()
 
-		switch e.Keysym.Sym {
-		case sdl.K_UP:
-			s.startScrolling(true)
-		case sdl.K_DOWN:
-			s.startScrolling(false)
-		case sdl.K_LEFT, sdl.K_RIGHT:
-			s.handleSlideshowNavigation(e.Keysym.Sym == sdl.K_LEFT)
-		case sdl.K_b, sdl.K_ESCAPE:
-			s.result.Cancelled = true
-		case sdl.K_a, sdl.K_RETURN:
+	switch inputEvent.Button {
+	case InternalButtonUp:
+		s.startScrolling(true)
+	case InternalButtonDown:
+		s.startScrolling(false)
+	case InternalButtonLeft, InternalButtonRight:
+		s.handleSlideshowNavigation(inputEvent.Button == InternalButtonLeft)
+	case InternalButtonB:
+		s.result.Cancelled = true
+	case s.options.ActionButton, InternalButtonA, InternalButtonStart:
+		s.result.Cancelled = false
+		s.result.ConfirmTriggered = true
+	case InternalButtonX:
+		if s.options.EnableAction {
 			s.result.Cancelled = false
-			s.result.ConfirmTriggered = true
-		case sdl.K_x:
-			if s.options.EnableAction {
-				s.result.Cancelled = false
-				s.result.ActionTriggered = true
-			}
+			s.result.ActionTriggered = true
 		}
-	} else if e.Type == sdl.KEYUP {
-		s.stopScrolling(e.Keysym.Sym)
 	}
 }
 
-func (s *detailScreenState) handleControllerEvent(e *sdl.ControllerButtonEvent) {
-	if e.Type == sdl.CONTROLLERBUTTONDOWN {
-		s.result.LastPressedBtn = e.Button
-		if !s.isInputAllowed() {
-			return
-		}
-		s.lastInputTime = time.Now()
-
-		switch Button(e.Button) {
-		case ButtonUp:
-			s.startScrolling(true)
-		case ButtonDown:
-			s.startScrolling(false)
-		case ButtonLeft, ButtonRight:
-			s.handleSlideshowNavigation(Button(e.Button) == ButtonLeft)
-		case ButtonB:
-			s.result.Cancelled = true
-		case s.options.ActionButton:
-			s.result.Cancelled = false
-			s.result.ConfirmTriggered = true
-		case ButtonX:
-			if s.options.EnableAction {
-				s.result.Cancelled = false
-				s.result.ActionTriggered = true
-			}
-		}
-	} else if e.Type == sdl.CONTROLLERBUTTONUP {
-		s.stopScrollingButton(Button(e.Button))
+func (s *detailScreenState) handleInputEventRelease(inputEvent *InputEvent) {
+	switch inputEvent.Button {
+	case InternalButtonUp:
+		s.heldDirections.up = false
+	case InternalButtonDown:
+		s.heldDirections.down = false
 	}
 }
 
@@ -403,24 +382,6 @@ func (s *detailScreenState) startScrolling(up bool) {
 		s.targetScrollY = min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 	}
 	s.lastRepeatTime = time.Now()
-}
-
-func (s *detailScreenState) stopScrolling(key sdl.Keycode) {
-	switch key {
-	case sdl.K_UP:
-		s.heldDirections.up = false
-	case sdl.K_DOWN:
-		s.heldDirections.down = false
-	}
-}
-
-func (s *detailScreenState) stopScrollingButton(button Button) {
-	switch button {
-	case ButtonUp:
-		s.heldDirections.up = false
-	case ButtonDown:
-		s.heldDirections.down = false
-	}
 }
 
 func (s *detailScreenState) handleSlideshowNavigation(isLeft bool) {
@@ -471,7 +432,7 @@ func (s *detailScreenState) render() {
 
 	margins := uniformPadding(20)
 	footerHeight := int32(30)
-	safeAreaHeight := s.window.Height - footerHeight
+	safeAreaHeight := s.window.GetHeight() - footerHeight
 
 	currentY := s.renderTitle(margins)
 	currentY, totalContentHeight := s.renderSections(margins, currentY, safeAreaHeight)
@@ -507,13 +468,13 @@ func (s *detailScreenState) renderTitle(margins padding) int32 {
 	}
 
 	titleRect := sdl.Rect{
-		X: (s.window.Width - titleW) / 2,
+		X: (s.window.GetWidth() - titleW) / 2,
 		Y: margins.Top - s.scrollY,
 		W: titleW,
 		H: titleH,
 	}
 
-	if isRectVisible(titleRect, s.window.Height) {
+	if isRectVisible(titleRect, s.window.GetHeight()) {
 		s.renderer.Copy(s.titleTexture, nil, &titleRect)
 	}
 
@@ -522,7 +483,7 @@ func (s *detailScreenState) renderTitle(margins padding) int32 {
 
 func (s *detailScreenState) renderSections(margins padding, startY int32, safeAreaHeight int32) (int32, int32) {
 	currentY := startY
-	contentWidth := s.window.Width - (margins.Left + margins.Right)
+	contentWidth := s.window.GetWidth() - (margins.Left + margins.Right)
 
 	// Reset active slideshow at start of rendering
 	s.activeSlideshow = -1
@@ -616,7 +577,7 @@ func (s *detailScreenState) renderSlideshowIndicators(state slideshowState, curr
 	indicatorSpacing := int32(5)
 	totalIndicatorsWidth := (indicatorSize * int32(len(state.textures))) + (indicatorSpacing * int32(len(state.textures)-1))
 
-	indicatorX := (s.window.Width - totalIndicatorsWidth) / 2
+	indicatorX := (s.window.GetWidth() - totalIndicatorsWidth) / 2
 	indicatorY := currentY
 
 	for i := 0; i < len(state.textures); i++ {
@@ -750,7 +711,7 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 	// Background
 	s.renderer.SetDrawColor(50, 50, 50, 120)
 	s.renderer.FillRect(&sdl.Rect{
-		X: s.window.Width - scrollbarWidth - 5,
+		X: s.window.GetWidth() - scrollbarWidth - 5,
 		Y: 5,
 		W: scrollbarWidth,
 		H: safeAreaHeight - 10,
@@ -759,7 +720,7 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 	// Thumb
 	s.renderer.SetDrawColor(180, 180, 180, 200)
 	scrollbarRect := &sdl.Rect{
-		X: s.window.Width - scrollbarWidth - 5,
+		X: s.window.GetWidth() - scrollbarWidth - 5,
 		Y: 5 + scrollbarY,
 		W: scrollbarWidth,
 		H: scrollbarHeight,
