@@ -22,7 +22,7 @@ type Options struct {
 func InitSDL(options Options) {
 	setLogFilename(options.LogFilename)
 
-	if os.Getenv("ENVIRONMENT") == "DEV" {
+	if os.Getenv("ENVIRONMENT") == "DEV" || os.Getenv("INPUT_CAPTURE") != "" {
 		SetLogLevel(slog.LevelDebug)
 	} else {
 		SetLogLevel(slog.LevelError)
