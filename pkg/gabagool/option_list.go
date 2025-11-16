@@ -435,7 +435,7 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 						DisplayName:    enteredText,
 						Value:          enteredText,
 						Type:           OptionTypeKeyboard,
-						KeyboardPrompt: option.KeyboardPrompt,
+						KeyboardPrompt: enteredText,
 						Masked:         option.Masked,
 					}
 				}
