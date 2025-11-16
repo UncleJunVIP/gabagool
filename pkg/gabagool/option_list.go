@@ -2,6 +2,7 @@ package gabagool
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
@@ -35,6 +36,7 @@ type Option struct {
 	Value          interface{}
 	Type           OptionType
 	KeyboardPrompt string
+	Masked         bool
 	OnUpdate       func(newValue interface{})
 }
 
@@ -49,6 +51,14 @@ type ItemWithOptions struct {
 	colorPicker    *ColorPicker // New field to store the color picker instance
 }
 
+func (iow *ItemWithOptions) Value() interface{} {
+	if iow.Options[iow.SelectedOption].Value == nil {
+		return ""
+	}
+
+	return fmt.Sprintf("%s", iow.Options[iow.SelectedOption].Value)
+}
+
 // OptionsListReturn represents the return value of the OptionsList function.
 // Items is the entire list of menu items that were selected.
 // SelectedIndex is the index of the selected item.
@@ -60,7 +70,6 @@ type OptionsListReturn struct {
 	SelectedItem  *ItemWithOptions
 	Canceled      bool
 }
-
 type optionsListSettings struct {
 	Margins         padding
 	ItemSpacing     int32
@@ -203,10 +212,12 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	var err error
 
 	for running {
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
-
-		window.RenderBackground()
+		if window.Background != nil {
+			window.RenderBackground()
+		} else {
+			renderer.SetDrawColor(0, 0, 0, 255)
+			renderer.Clear()
+		}
 
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
@@ -228,9 +239,8 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 			}
 		}
 
-		window.RenderBackground()
-
 		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
 
 		// If showing color picker, draw it; otherwise draw the options list
 		if optionsListController.showingColorPicker &&
@@ -418,9 +428,6 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 			switch option.Type {
 			case OptionTypeKeyboard:
 				prompt := option.KeyboardPrompt
-				if prompt == "" {
-					prompt = "Enter value"
-				}
 				keyboardResult, err := Keyboard(prompt)
 				if err == nil && keyboardResult.IsSome() {
 					enteredText := keyboardResult.Unwrap()
@@ -429,6 +436,7 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 						Value:          enteredText,
 						Type:           OptionTypeKeyboard,
 						KeyboardPrompt: option.KeyboardPrompt,
+						Masked:         option.Masked,
 					}
 				}
 			case OptionTypeColorPicker:
@@ -685,9 +693,12 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 			selectedOption := item.Options[item.SelectedOption]
 
 			if selectedOption.Type == OptionTypeKeyboard {
-				indicatorText := selectedOption.DisplayName
-				if indicatorText == "" {
-					indicatorText = "[Press A to input]"
+				var indicatorText string
+
+				if selectedOption.Masked {
+					indicatorText = strings.Repeat("*", len(selectedOption.DisplayName))
+				} else {
+					indicatorText = selectedOption.DisplayName
 				}
 
 				optionSurface, _ := font.RenderUTF8Blended(indicatorText, textColor)
@@ -730,7 +741,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 					if color, ok := selectedOption.Value.(sdl.Color); ok {
 						indicatorText = fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
 					} else {
-						indicatorText = "[Press A to select]"
+						indicatorText = ""
 					}
 				}
 

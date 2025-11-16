@@ -344,7 +344,7 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
 		return false
 	case InternalButtonA:
 		kb.processSelection()
-		return false
+		return kb.EnterPressed
 	case InternalButtonB:
 		kb.backspace()
 		return false
@@ -622,7 +622,13 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.Clear()
 
 	window := GetWindow()
-	window.RenderBackground()
+
+	if window.Background != nil {
+		window.RenderBackground()
+	} else {
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+	}
 
 	if !kb.ShowingHelp {
 		kb.renderTextInput(renderer, font)
