@@ -124,13 +124,6 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 			}
 		}
 
-		if processor.showBG && window.Background != nil {
-			window.RenderBackground()
-		} else {
-			renderer.SetDrawColor(0, 0, 0, 255)
-			renderer.Clear()
-		}
-
 		// Render the process message with current progress
 		processor.render(renderer)
 		renderer.Present()
@@ -153,8 +146,12 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 
 func (p *processMessage) render(renderer *sdl.Renderer) {
 
-	renderer.SetDrawColor(0, 0, 0, 255)
-	renderer.Clear()
+	if p.showBG && window.Background != nil {
+		window.RenderBackground()
+	} else {
+		renderer.SetDrawColor(0, 0, 0, 255)
+		renderer.Clear()
+	}
 
 	if p.imageTexture != nil {
 		width := p.imageWidth

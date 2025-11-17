@@ -212,13 +212,6 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	var err error
 
 	for running {
-		if window.Background != nil {
-			window.RenderBackground()
-		} else {
-			renderer.SetDrawColor(0, 0, 0, 255)
-			renderer.Clear()
-		}
-
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			switch event.(type) {
 			case *sdl.QuitEvent:
@@ -239,8 +232,12 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 			}
 		}
 
-		renderer.SetDrawColor(0, 0, 0, 255)
-		renderer.Clear()
+		if window.Background != nil {
+			window.RenderBackground()
+		} else {
+			renderer.SetDrawColor(0, 0, 0, 255)
+			renderer.Clear()
+		}
 
 		// If showing color picker, draw it; otherwise draw the options list
 		if optionsListController.showingColorPicker &&
