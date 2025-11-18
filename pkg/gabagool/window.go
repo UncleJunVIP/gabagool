@@ -35,27 +35,19 @@ func initWindow(title string, displayBackground bool) *Window {
 func initWindowWithSize(title string, width, height int32, displayBackground bool) *Window {
 	x, y := int32(0), int32(0)
 
-	//if core.IsDevMode() {
-	//	width = width - 400
-	//	height = height - 400
-	//}
-
 	if core.IsDevMode() {
 		width = 1024
 		height = 768
 	}
 
-	//if core.IsDevMode() {
-	//	width = 1280
-	//	height = 720
-	//}
+	var windowFlags uint32
+	windowFlags = sdl.WINDOW_SHOWN
 
-	//if core.IsDevMode() {
-	//	width = 640
-	//	height = 480
-	//}
+	if core.IsDevMode() {
+		windowFlags = windowFlags | sdl.WINDOW_BORDERLESS
+	}
 
-	window, err := sdl.CreateWindow(title, x, y, width, height, sdl.WINDOW_SHOWN)
+	window, err := sdl.CreateWindow(title, x, y, width, height, windowFlags)
 	if err != nil {
 		panic(err)
 	}
