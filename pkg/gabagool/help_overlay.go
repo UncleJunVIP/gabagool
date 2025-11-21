@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -217,13 +218,13 @@ func (h *helpOverlay) handleInput(event interface{}) bool {
 	button := inputEvent.Button
 
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		h.scroll(-1)
 		return true
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		h.scroll(1)
 		return true
-	case internal.VirtualButtonMenu, internal.VirtualButtonB:
+	case constants.VirtualButtonMenu, constants.VirtualButtonB:
 		return false // Signal to close help
 	default:
 		return false

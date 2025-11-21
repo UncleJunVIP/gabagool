@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -18,9 +19,9 @@ type TextScrollData struct {
 	LastDirectionChange *time.Time
 }
 
-func RenderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...TextAlign) {
+func RenderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, maxWidth int32, x, startY int32, color sdl.Color, alignment ...constants.TextAlign) {
 
-	textAlign := TextAlignCenter
+	textAlign := constants.TextAlignCenter
 	if len(alignment) > 0 {
 		textAlign = alignment[0]
 	}
@@ -73,7 +74,7 @@ func RenderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 	totalHeight := lineHeight * int32(len(lines))
 
 	var currentY int32
-	if textAlign == TextAlignCenter {
+	if textAlign == constants.TextAlignCenter {
 
 		currentY = startY - totalHeight/2
 	} else {
@@ -101,7 +102,7 @@ func RenderMultilineText(renderer *sdl.Renderer, text string, font *ttf.Font, ma
 				H: surface.H,
 			}
 
-			if textAlign == TextAlignCenter {
+			if textAlign == constants.TextAlignCenter {
 				rect.X = x - surface.W/2
 			} else {
 				rect.X = x
@@ -123,7 +124,7 @@ func RenderMultilineTextWithCache(
 	maxWidth int32,
 	x, y int32,
 	color sdl.Color,
-	align TextAlign,
+	align constants.TextAlign,
 	cache *TextureCache) {
 
 	if text == "" {
@@ -169,9 +170,9 @@ func RenderMultilineTextWithCache(
 
 					var lineX int32
 					switch align {
-					case TextAlignCenter:
+					case constants.TextAlignCenter:
 						lineX = x + (maxWidth-lineW)/2
-					case TextAlignRight:
+					case constants.TextAlignRight:
 						lineX = x + maxWidth - lineW
 					default:
 						lineX = x
@@ -226,9 +227,9 @@ func RenderMultilineTextWithCache(
 
 				var lineX int32
 				switch align {
-				case TextAlignCenter:
+				case constants.TextAlignCenter:
 					lineX = x + (maxWidth-lineW)/2
-				case TextAlignRight:
+				case constants.TextAlignRight:
 					lineX = x + maxWidth - lineW
 				default:
 					lineX = x

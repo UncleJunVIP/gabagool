@@ -3,6 +3,7 @@ package gabagool
 import (
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
@@ -13,10 +14,10 @@ import (
 type confirmationMessageSettings struct {
 	Margins          internal.Padding
 	MessageText      string
-	MessageAlign     internal.TextAlign
+	MessageAlign     constants.TextAlign
 	ButtonSpacing    int32
-	ConfirmButton    internal.VirtualButton
-	CancelButton     internal.VirtualButton
+	ConfirmButton    constants.VirtualButton
+	CancelButton     constants.VirtualButton
 	ImagePath        string
 	MaxImageHeight   int32
 	MaxImageWidth    int32
@@ -30,8 +31,8 @@ type confirmationMessageSettings struct {
 
 type MessageOptions struct {
 	ImagePath     string
-	ConfirmButton internal.VirtualButton
-	CancelButton  internal.VirtualButton
+	ConfirmButton constants.VirtualButton
+	CancelButton  constants.VirtualButton
 }
 
 type ConfirmationMessageReturn struct {
@@ -42,14 +43,14 @@ func defaultMessageSettings(message string) confirmationMessageSettings {
 	return confirmationMessageSettings{
 		Margins:          internal.UniformPadding(20),
 		MessageText:      message,
-		MessageAlign:     internal.TextAlignCenter,
+		MessageAlign:     constants.TextAlignCenter,
 		ButtonSpacing:    20,
-		ConfirmButton:    internal.VirtualButtonA,
-		CancelButton:     internal.VirtualButtonB,
+		ConfirmButton:    constants.VirtualButtonA,
+		CancelButton:     constants.VirtualButtonB,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		FooterTextColor:  sdl.Color{R: 180, G: 180, B: 180, A: 255},
-		InputDelay:       internal.DefaultInputDelay,
+		InputDelay:       constants.DefaultInputDelay,
 		FooterHelpItems:  []FooterHelpItem{},
 	}
 }
@@ -67,11 +68,11 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		settings.MaxImageHeight = int32(float64(window.GetHeight()) / 1.75)
 	}
 
-	if options.ConfirmButton != internal.VirtualButtonUnassigned {
+	if options.ConfirmButton != constants.VirtualButtonUnassigned {
 		settings.ConfirmButton = options.ConfirmButton
 	}
 
-	if options.CancelButton != internal.VirtualButtonUnassigned {
+	if options.CancelButton != constants.VirtualButtonUnassigned {
 		settings.CancelButton = options.CancelButton
 	}
 
@@ -154,7 +155,7 @@ func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, s
 			*lastInputTime = time.Now()
 
 			switch inputEvent.Button {
-			case settings.ConfirmButton, internal.VirtualButtonStart:
+			case settings.ConfirmButton, constants.VirtualButtonStart:
 				result.Cancelled = false
 				return false
 			case settings.CancelButton:
@@ -206,7 +207,7 @@ func renderFrame(renderer *sdl.Renderer, window *internal.Window, settings confi
 			centerX,
 			startY,
 			settings.MessageTextColor,
-			internal.TextAlignCenter)
+			constants.TextAlignCenter)
 	}
 
 	renderFooter(

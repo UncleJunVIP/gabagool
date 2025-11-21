@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/ttf"
 
@@ -43,7 +44,7 @@ type DetailScreenOptions struct {
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
 	EnableAction        bool
-	ActionButton        internal.VirtualButton
+	ActionButton        constants.VirtualButton
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
@@ -96,7 +97,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
-		ActionButton:     internal.VirtualButtonA,
+		ActionButton:     constants.VirtualButtonA,
 		ShowScrollbar:    true,
 		EnableAction:     false,
 	}
@@ -128,7 +129,7 @@ func NewDescriptionSection(title string, description string) Section {
 	}
 }
 
-func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, alignment internal.TextAlign) Section {
+func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, alignment constants.TextAlign) Section {
 	return Section{
 		Type:       SectionTypeImage,
 		Title:      title,
@@ -167,7 +168,7 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		scrollSpeed:           85,
 		scrollAnimationSpeed:  0.15,
 		lastInputTime:         time.Now(),
-		inputDelay:            internal.DefaultInputDelay,
+		inputDelay:            constants.DefaultInputDelay,
 		slideshowStates:       make(map[int]slideshowState),
 		textureCache:          internal.NewTextureCache(),
 		metadataLabelTextures: make(map[int][]*sdl.Texture),
@@ -295,11 +296,11 @@ func (s *detailScreenState) calculateScaledDimensions(originalW, originalH, maxW
 
 func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32 {
 	if section.Type == SectionTypeImage {
-		alignment := internal.TextAlign(section.Alignment)
+		alignment := constants.TextAlign(section.Alignment)
 		switch alignment {
-		case internal.TextAlignLeft:
+		case constants.TextAlignLeft:
 			return 20
-		case internal.TextAlignRight:
+		case constants.TextAlignRight:
 			return s.window.GetWidth() - 20 - imageW
 		default:
 			return (s.window.GetWidth() - imageW) / 2
@@ -342,18 +343,18 @@ func (s *detailScreenState) handleInputEvent(inputEvent *internal.Event) {
 	s.lastInputTime = time.Now()
 
 	switch inputEvent.Button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		s.startScrolling(true)
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		s.startScrolling(false)
-	case internal.VirtualButtonLeft, internal.VirtualButtonRight:
-		s.handleSlideshowNavigation(inputEvent.Button == internal.VirtualButtonLeft)
-	case internal.VirtualButtonB:
+	case constants.VirtualButtonLeft, constants.VirtualButtonRight:
+		s.handleSlideshowNavigation(inputEvent.Button == constants.VirtualButtonLeft)
+	case constants.VirtualButtonB:
 		s.result.Cancelled = true
-	case s.options.ActionButton, internal.VirtualButtonA, internal.VirtualButtonStart:
+	case s.options.ActionButton, constants.VirtualButtonA, constants.VirtualButtonStart:
 		s.result.Cancelled = false
 		s.result.ConfirmTriggered = true
-	case internal.VirtualButtonX:
+	case constants.VirtualButtonX:
 		if s.options.EnableAction {
 			s.result.Cancelled = false
 			s.result.ActionTriggered = true
@@ -363,9 +364,9 @@ func (s *detailScreenState) handleInputEvent(inputEvent *internal.Event) {
 
 func (s *detailScreenState) handleInputEventRelease(inputEvent *internal.Event) {
 	switch inputEvent.Button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		s.heldDirections.up = false
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		s.heldDirections.down = false
 	}
 }
@@ -460,12 +461,12 @@ func (s *detailScreenState) clearScreen() {
 
 func (s *detailScreenState) renderTitle(margins internal.Padding) int32 {
 	if s.titleTexture == nil {
-		return margins.Top + internal.DefaultTitleSpacing - s.scrollY
+		return margins.Top + constants.DefaultTitleSpacing - s.scrollY
 	}
 
 	_, _, titleW, titleH, err := s.titleTexture.Query()
 	if err != nil {
-		return margins.Top + internal.DefaultTitleSpacing - s.scrollY
+		return margins.Top + constants.DefaultTitleSpacing - s.scrollY
 	}
 
 	titleRect := sdl.Rect{
@@ -479,7 +480,7 @@ func (s *detailScreenState) renderTitle(margins internal.Padding) int32 {
 		s.renderer.Copy(s.titleTexture, nil, &titleRect)
 	}
 
-	return margins.Top + titleH + internal.DefaultTitleSpacing - s.scrollY
+	return margins.Top + titleH + constants.DefaultTitleSpacing - s.scrollY
 }
 
 func (s *detailScreenState) renderSections(margins internal.Padding, startY int32, safeAreaHeight int32) (int32, int32) {
@@ -662,7 +663,7 @@ func (s *detailScreenState) renderMetadataItem(labelTexture *sdl.Texture, item M
 				valueX,
 				currentY,
 				s.options.MetadataColor,
-				internal.TextAlignLeft,
+				constants.TextAlignLeft,
 				s.textureCache)
 		}
 
@@ -687,7 +688,7 @@ func (s *detailScreenState) renderDescription(section Section, margins internal.
 			margins.Left,
 			currentY,
 			s.options.DescriptionColor,
-			internal.TextAlignLeft,
+			constants.TextAlignLeft,
 			s.textureCache)
 	}
 

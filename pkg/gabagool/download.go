@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/ttf"
 
@@ -90,7 +91,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		progressBarX:       progressBarX,
 		scrollOffset:       0,
 		lastInputTime:      time.Now(),
-		inputDelay:         internal.DefaultInputDelay,
+		inputDelay:         constants.DefaultInputDelay,
 	}
 }
 
@@ -166,7 +167,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				}
 
 				// Cancel on Y button
-				if inputEvent.Button == internal.VirtualButtonY {
+				if inputEvent.Button == constants.VirtualButtonY {
 					downloadManager.cancelAllDownloads()
 					result.Cancelled = true
 				}

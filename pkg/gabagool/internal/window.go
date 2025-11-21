@@ -4,6 +4,7 @@ import (
 	"os"
 	"sync"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -33,7 +34,7 @@ func initWindow(title string, displayBackground bool) *Window {
 func initWindowWithSize(title string, width, height int32, displayBackground bool) *Window {
 	x, y := int32(0), int32(0)
 
-	if IsDevMode() {
+	if constants.IsDevMode() {
 		width = 1024
 		height = 768
 	}
@@ -41,7 +42,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	var windowFlags uint32
 	windowFlags = sdl.WINDOW_SHOWN
 
-	if IsDevMode() {
+	if constants.IsDevMode() {
 		windowFlags = windowFlags | sdl.WINDOW_BORDERLESS
 	}
 
@@ -93,7 +94,7 @@ func (window *Window) loadBackground() {
 }
 
 func (window *Window) closeWindow() {
-	if !IsDevMode() {
+	if !constants.IsDevMode() {
 		window.PowerButtonWG.Done()
 	}
 

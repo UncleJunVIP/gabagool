@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
@@ -34,7 +35,7 @@ type ListOptions struct {
 	Margins         internal.Padding
 	ItemSpacing     int32
 	SmallTitle      bool
-	TitleAlign      internal.TextAlign
+	TitleAlign      constants.TextAlign
 	TitleSpacing    int32
 	FooterText      string
 	FooterTextColor sdl.Color
@@ -44,8 +45,8 @@ type ListOptions struct {
 	ScrollPauseTime int
 
 	InputDelay        time.Duration
-	MultiSelectButton internal.VirtualButton
-	ReorderButton     internal.VirtualButton
+	MultiSelectButton constants.VirtualButton
+	ReorderButton     constants.VirtualButton
 
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
@@ -61,14 +62,14 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		SelectedIndex:     0,
 		MaxVisibleItems:   9,
 		Margins:           internal.UniformPadding(20),
-		TitleAlign:        internal.TextAlignLeft,
-		TitleSpacing:      internal.DefaultTitleSpacing,
+		TitleAlign:        constants.TextAlignLeft,
+		TitleSpacing:      constants.DefaultTitleSpacing,
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		ScrollSpeed:       4.0,
 		ScrollPauseTime:   1250,
-		InputDelay:        internal.DefaultInputDelay,
-		MultiSelectButton: internal.VirtualButtonSelect, // New default
-		ReorderButton:     internal.VirtualButtonSelect, // New default
+		InputDelay:        constants.DefaultInputDelay,
+		MultiSelectButton: constants.VirtualButtonSelect, // New default
+		ReorderButton:     constants.VirtualButtonSelect, // New default
 		EmptyMessage:      "No items available",
 		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	}
@@ -217,37 +218,37 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 	lc.handleActionButtons(inputEvent.Button, running, result)
 }
 
-func (lc *listController) handleHelpInput(button internal.VirtualButton) {
+func (lc *listController) handleHelpInput(button constants.VirtualButton) {
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		if lc.helpOverlay != nil {
 			lc.helpOverlay.scroll(-1)
 		}
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		if lc.helpOverlay != nil {
 			lc.helpOverlay.scroll(1)
 		}
-	case internal.VirtualButtonMenu:
+	case constants.VirtualButtonMenu:
 		lc.ShowingHelp = false
 	default:
 		lc.ShowingHelp = false
 	}
 }
 
-func (lc *listController) isDirectionalInput(button internal.VirtualButton) bool {
-	return button == internal.VirtualButtonUp || button == internal.VirtualButtonDown ||
-		button == internal.VirtualButtonLeft || button == internal.VirtualButtonRight
+func (lc *listController) isDirectionalInput(button constants.VirtualButton) bool {
+	return button == constants.VirtualButtonUp || button == constants.VirtualButtonDown ||
+		button == constants.VirtualButtonLeft || button == constants.VirtualButtonRight
 }
 
-func (lc *listController) updateHeldDirections(button internal.VirtualButton, pressed bool) {
+func (lc *listController) updateHeldDirections(button constants.VirtualButton, pressed bool) {
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		lc.heldDirections.up = pressed
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		lc.heldDirections.down = pressed
-	case internal.VirtualButtonLeft:
+	case constants.VirtualButtonLeft:
 		lc.heldDirections.left = pressed
-	case internal.VirtualButtonRight:
+	case constants.VirtualButtonRight:
 		lc.heldDirections.right = pressed
 	default:
 	}
@@ -257,20 +258,20 @@ func (lc *listController) updateHeldDirections(button internal.VirtualButton, pr
 	}
 }
 
-func (lc *listController) handleNavigation(button internal.VirtualButton) bool {
+func (lc *listController) handleNavigation(button constants.VirtualButton) bool {
 	if len(lc.Options.Items) == 0 {
 		return false
 	}
 
 	direction := ""
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		direction = "up"
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		direction = "down"
-	case internal.VirtualButtonLeft:
+	case constants.VirtualButtonLeft:
 		direction = "left"
-	case internal.VirtualButtonRight:
+	case constants.VirtualButtonRight:
 		direction = "right"
 	default:
 	}
@@ -282,13 +283,13 @@ func (lc *listController) handleNavigation(button internal.VirtualButton) bool {
 	return false
 }
 
-func (lc *listController) handleActionButtons(button internal.VirtualButton, running *bool, result *ListReturn) {
-	if len(lc.Options.Items) == 0 && button != internal.VirtualButtonB && button != internal.VirtualButtonMenu {
+func (lc *listController) handleActionButtons(button constants.VirtualButton, running *bool, result *ListReturn) {
+	if len(lc.Options.Items) == 0 && button != constants.VirtualButtonB && button != constants.VirtualButtonMenu {
 		return
 	}
 
 	// Primary action (A button)
-	if button == internal.VirtualButtonA {
+	if button == constants.VirtualButtonA {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleSelection(lc.Options.SelectedIndex)
 		} else if len(lc.Options.Items) > 0 {
@@ -298,7 +299,7 @@ func (lc *listController) handleActionButtons(button internal.VirtualButton, run
 	}
 
 	// Back button
-	if button == internal.VirtualButtonB {
+	if button == constants.VirtualButtonB {
 		if !lc.Options.DisableBackButton {
 			*running = false
 			result.SelectedIndex = -1
@@ -306,7 +307,7 @@ func (lc *listController) handleActionButtons(button internal.VirtualButton, run
 	}
 
 	// Action button (X)
-	if button == internal.VirtualButtonX {
+	if button == constants.VirtualButtonX {
 		if lc.Options.EnableAction {
 			*running = false
 			result.ActionTriggered = true
@@ -326,14 +327,14 @@ func (lc *listController) handleActionButtons(button internal.VirtualButton, run
 	}
 
 	// Help
-	if button == internal.VirtualButtonMenu {
+	if button == constants.VirtualButtonMenu {
 		if lc.Options.EnableHelp {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 	}
 
 	// Multi-select confirmation (Start)
-	if button == internal.VirtualButtonStart {
+	if button == constants.VirtualButtonStart {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
@@ -877,7 +878,7 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 	renderer.Copy(texture, nil, &destRect)
 }
 
-func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align internal.TextAlign, startY, marginLeft int32) int32 {
+func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align constants.TextAlign, startY, marginLeft int32) int32 {
 	surface, _ := font.RenderUTF8Blended(title, internal.GetTheme().ListTextColor)
 	if surface == nil {
 		return startY + 40
@@ -898,9 +899,9 @@ func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *tt
 	} else {
 		var titleX int32
 		switch align {
-		case internal.TextAlignCenter:
+		case constants.TextAlignCenter:
 			titleX = (screenWidth - surface.W) / 2
-		case internal.TextAlignRight:
+		case constants.TextAlignRight:
 			titleX = screenWidth - surface.W - marginLeft
 		default:
 			titleX = marginLeft

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
@@ -75,7 +76,7 @@ type optionsListSettings struct {
 	ItemSpacing     int32
 	InputDelay      time.Duration
 	Title           string
-	TitleAlign      internal.TextAlign
+	TitleAlign      constants.TextAlign
 	TitleSpacing    int32
 	ScrollSpeed     float32
 	ScrollPauseTime int
@@ -107,10 +108,10 @@ func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
 		Margins:         internal.UniformPadding(20),
 		ItemSpacing:     60,
-		InputDelay:      internal.DefaultInputDelay,
+		InputDelay:      constants.DefaultInputDelay,
 		Title:           title,
-		TitleAlign:      internal.TextAlignLeft,
-		TitleSpacing:    internal.DefaultTitleSpacing,
+		TitleAlign:      constants.TextAlignLeft,
+		TitleSpacing:    constants.DefaultTitleSpacing,
 		ScrollSpeed:     150.0,
 		ScrollPauseTime: 25,
 		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
@@ -304,9 +305,9 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 	}
 
 	switch inputEvent.Button {
-	case internal.VirtualButtonB:
+	case constants.VirtualButtonB:
 		olc.hideColorPicker()
-	case internal.VirtualButtonA:
+	case constants.VirtualButtonA:
 		selectedColor := item.colorPicker.GetSelectedColor()
 		for j := range item.Options {
 			if item.Options[j].Type == OptionTypeColorPicker {
@@ -320,17 +321,17 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 			}
 		}
 		olc.hideColorPicker()
-	case internal.VirtualButtonLeft, internal.VirtualButtonRight, internal.VirtualButtonUp, internal.VirtualButtonDown:
+	case constants.VirtualButtonLeft, constants.VirtualButtonRight, constants.VirtualButtonUp, constants.VirtualButtonDown:
 		// Convert internal button to keycode for color picker
 		var keycode sdl.Keycode
 		switch inputEvent.Button {
-		case internal.VirtualButtonLeft:
+		case constants.VirtualButtonLeft:
 			keycode = sdl.K_LEFT
-		case internal.VirtualButtonRight:
+		case constants.VirtualButtonRight:
 			keycode = sdl.K_RIGHT
-		case internal.VirtualButtonUp:
+		case constants.VirtualButtonUp:
 			keycode = sdl.K_UP
-		case internal.VirtualButtonDown:
+		case constants.VirtualButtonDown:
 			keycode = sdl.K_DOWN
 		}
 		item.colorPicker.handleKeyPress(keycode)
@@ -356,11 +357,11 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 	}
 
 	switch inputEvent.Button {
-	case internal.VirtualButtonMenu:
+	case constants.VirtualButtonMenu:
 		olc.toggleHelp()
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonB:
+	case constants.VirtualButtonB:
 		if olc.ShowingHelp {
 			olc.ShowingHelp = false
 		} else {
@@ -370,7 +371,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonA:
+	case constants.VirtualButtonA:
 		if olc.ShowingHelp {
 			olc.ShowingHelp = false
 		} else {
@@ -378,7 +379,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonStart:
+	case constants.VirtualButtonStart:
 		if !olc.ShowingHelp && olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 			*running = false
 			result.SelectedIndex = olc.SelectedIndex
@@ -387,19 +388,19 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonLeft:
+	case constants.VirtualButtonLeft:
 		if !olc.ShowingHelp {
 			olc.cycleOptionLeft()
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonRight:
+	case constants.VirtualButtonRight:
 		if !olc.ShowingHelp {
 			olc.cycleOptionRight()
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		if olc.ShowingHelp {
 			olc.scrollHelpOverlay(-1)
 		} else {
@@ -407,7 +408,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 		}
 		olc.lastInputTime = time.Now()
 
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		if olc.ShowingHelp {
 			olc.scrollHelpOverlay(1)
 		} else {
@@ -624,11 +625,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 				var titleX int32
 				switch olc.Settings.TitleAlign {
-				case internal.TextAlignLeft:
+				case constants.TextAlignLeft:
 					titleX = olc.Settings.Margins.Left
-				case internal.TextAlignCenter:
+				case constants.TextAlignCenter:
 					titleX = (window.GetWidth() - titleSurface.W) / 2
-				case internal.TextAlignRight:
+				case constants.TextAlignRight:
 					titleX = window.GetWidth() - olc.Settings.Margins.Right - titleSurface.W
 				}
 

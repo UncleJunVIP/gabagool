@@ -5,13 +5,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
 type buttonConfig struct {
-	internalButton internal.VirtualButton
+	internalButton constants.VirtualButton
 	displayName    string
 }
 
@@ -21,7 +22,7 @@ type inputLoggerController struct {
 	font              *ttf.Font
 	textColor         sdl.Color
 	currentButtonIdx  int
-	mappedButtons     map[internal.VirtualButton]int
+	mappedButtons     map[constants.VirtualButton]int
 	currentSource     internal.Source
 	mutex             sync.Mutex
 	buttonSequence    []buttonConfig
@@ -36,26 +37,26 @@ func newInputLogger() *inputLoggerController {
 		lastButtonName:    "",
 		font:              internal.Fonts.LargeFont,
 		textColor:         sdl.Color{R: 200, G: 100, B: 255, A: 255},
-		mappedButtons:     make(map[internal.VirtualButton]int),
+		mappedButtons:     make(map[constants.VirtualButton]int),
 		currentButtonIdx:  0,
 		debounceDelay:     1000 * time.Millisecond, // Wait 1000 ms before accepting the next input
 		waitingForRelease: false,
 		buttonSequence: []buttonConfig{
-			{internal.VirtualButtonA, "A Button"},
-			{internal.VirtualButtonB, "B Button"},
-			{internal.VirtualButtonX, "X Button"},
-			{internal.VirtualButtonY, "Y Button"},
-			{internal.VirtualButtonUp, "D-Pad Up"},
-			{internal.VirtualButtonDown, "D-Pad Down"},
-			{internal.VirtualButtonLeft, "D-Pad Left"},
-			{internal.VirtualButtonRight, "D-Pad Right"},
-			{internal.VirtualButtonStart, "Start"},
-			{internal.VirtualButtonSelect, "Select"},
-			{internal.VirtualButtonL1, "L1"},
-			{internal.VirtualButtonL2, "L2"},
-			{internal.VirtualButtonR1, "R1"},
-			{internal.VirtualButtonR2, "R2"},
-			{internal.VirtualButtonMenu, "Menu"},
+			{constants.VirtualButtonA, "A Button"},
+			{constants.VirtualButtonB, "B Button"},
+			{constants.VirtualButtonX, "X Button"},
+			{constants.VirtualButtonY, "Y Button"},
+			{constants.VirtualButtonUp, "D-Pad Up"},
+			{constants.VirtualButtonDown, "D-Pad Down"},
+			{constants.VirtualButtonLeft, "D-Pad Left"},
+			{constants.VirtualButtonRight, "D-Pad Right"},
+			{constants.VirtualButtonStart, "Start"},
+			{constants.VirtualButtonSelect, "Select"},
+			{constants.VirtualButtonL1, "L1"},
+			{constants.VirtualButtonL2, "L2"},
+			{constants.VirtualButtonR1, "R1"},
+			{constants.VirtualButtonR2, "R2"},
+			{constants.VirtualButtonMenu, "Menu"},
 			//{InternalButtonF1, "F1"},
 			//{InternalButtonF2, "F2"},
 			//{InternalButtonVolumeUp, "Volume Up"},
@@ -282,12 +283,12 @@ func (il *inputLoggerController) buildMapping() *internal.InternalInputMapping {
 	defer il.mutex.Unlock()
 
 	mapping := &internal.InternalInputMapping{
-		KeyboardMap:         make(map[sdl.Keycode]internal.VirtualButton),
-		ControllerButtonMap: make(map[sdl.GameControllerButton]internal.VirtualButton),
-		ControllerHatMap:    make(map[uint8]internal.VirtualButton),
+		KeyboardMap:         make(map[sdl.Keycode]constants.VirtualButton),
+		ControllerButtonMap: make(map[sdl.GameControllerButton]constants.VirtualButton),
+		ControllerHatMap:    make(map[uint8]constants.VirtualButton),
 		JoystickAxisMap:     make(map[uint8]internal.JoystickAxisMapping),
-		JoystickButtonMap:   make(map[uint8]internal.VirtualButton),
-		JoystickHatMap:      make(map[uint8]internal.VirtualButton),
+		JoystickButtonMap:   make(map[uint8]constants.VirtualButton),
+		JoystickHatMap:      make(map[uint8]constants.VirtualButton),
 	}
 
 	// Populate the mapping based on the current source and mapped buttons

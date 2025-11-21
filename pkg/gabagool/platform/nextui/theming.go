@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -26,7 +27,7 @@ func InitNextUITheme() internal.Theme {
 	var nv *NextVal
 	var err error
 
-	if internal.IsDevMode() {
+	if constants.IsDevMode() {
 		nv, err = InitStaticNextVal(os.Getenv("NEXTVAL_PATH"))
 	} else {
 		nv, err = loadNextVal()
@@ -48,8 +49,8 @@ func InitNextUITheme() internal.Theme {
 		FontPath:              nv.FontPath,
 	}
 
-	if internal.IsDevMode() {
-		theme.BackgroundImagePath = os.Getenv(internal.BackgroundPathEnvVar)
+	if constants.IsDevMode() {
+		theme.BackgroundImagePath = os.Getenv(constants.BackgroundPathEnvVar)
 	} else {
 		theme.BackgroundImagePath = "/mnt/SDCARD/bg.png"
 	}

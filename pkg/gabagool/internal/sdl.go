@@ -3,6 +3,7 @@ package internal
 import (
 	"os"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -27,7 +28,7 @@ func Init(title string, showBackground bool) {
 
 	initFonts(GetConfig())
 
-	if !IsDevMode() {
+	if !constants.IsDevMode() {
 		window.initPowerButtonHandling()
 	}
 }

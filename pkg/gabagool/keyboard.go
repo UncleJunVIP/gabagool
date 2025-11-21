@@ -3,6 +3,7 @@ package gabagool
 import (
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
 	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
@@ -319,7 +320,7 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *internal.Event) bool {
 	button := inputEvent.Button
 
 	// Help toggle - always available
-	if button == internal.VirtualButtonMenu {
+	if button == constants.VirtualButtonMenu {
 		kb.toggleHelp()
 		return false
 	}
@@ -331,39 +332,39 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *internal.Event) bool {
 
 	// Handle keyboard input
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		kb.navigate(button)
 		return false
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		kb.navigate(button)
 		return false
-	case internal.VirtualButtonLeft:
+	case constants.VirtualButtonLeft:
 		kb.navigate(button)
 		return false
-	case internal.VirtualButtonRight:
+	case constants.VirtualButtonRight:
 		kb.navigate(button)
 		return false
-	case internal.VirtualButtonA:
+	case constants.VirtualButtonA:
 		kb.processSelection()
 		return kb.EnterPressed
-	case internal.VirtualButtonB:
+	case constants.VirtualButtonB:
 		kb.backspace()
 		return false
-	case internal.VirtualButtonX:
+	case constants.VirtualButtonX:
 		kb.insertSpace()
 		return false
-	case internal.VirtualButtonSelect:
+	case constants.VirtualButtonSelect:
 		kb.toggleShift()
 		return false
-	case internal.VirtualButtonY:
+	case constants.VirtualButtonY:
 		return true // Exit without saving
-	case internal.VirtualButtonStart:
+	case constants.VirtualButtonStart:
 		kb.EnterPressed = true
 		return true // Exit and save
-	case internal.VirtualButtonL1:
+	case constants.VirtualButtonL1:
 		kb.moveCursor(-1)
 		return false
-	case internal.VirtualButtonR1:
+	case constants.VirtualButtonR1:
 		kb.moveCursor(1)
 		return false
 	}
@@ -371,17 +372,17 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *internal.Event) bool {
 	return false
 }
 
-func (kb *virtualKeyboard) isDirectionalButton(button internal.VirtualButton) bool {
-	return button == internal.VirtualButtonUp || button == internal.VirtualButtonDown ||
-		button == internal.VirtualButtonLeft || button == internal.VirtualButtonRight
+func (kb *virtualKeyboard) isDirectionalButton(button constants.VirtualButton) bool {
+	return button == constants.VirtualButtonUp || button == constants.VirtualButtonDown ||
+		button == constants.VirtualButtonLeft || button == constants.VirtualButtonRight
 }
 
-func (kb *virtualKeyboard) handleHelpInputEvent(button internal.VirtualButton) bool {
+func (kb *virtualKeyboard) handleHelpInputEvent(button constants.VirtualButton) bool {
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		kb.scrollHelpOverlay(-1)
 		return false
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		kb.scrollHelpOverlay(1)
 		return false
 	default:
@@ -390,19 +391,19 @@ func (kb *virtualKeyboard) handleHelpInputEvent(button internal.VirtualButton) b
 	}
 }
 
-func (kb *virtualKeyboard) navigate(button internal.VirtualButton) {
+func (kb *virtualKeyboard) navigate(button constants.VirtualButton) {
 	layout := createKeyLayout()
 	currentRow, currentCol := kb.findCurrentPosition(layout)
 
 	var newRow, newCol int
 	switch button {
-	case internal.VirtualButtonUp:
+	case constants.VirtualButtonUp:
 		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
-	case internal.VirtualButtonDown:
+	case constants.VirtualButtonDown:
 		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
-	case internal.VirtualButtonLeft:
+	case constants.VirtualButtonLeft:
 		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
-	case internal.VirtualButtonRight:
+	case constants.VirtualButtonRight:
 		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
 	}
 

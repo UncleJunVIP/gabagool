@@ -17,9 +17,9 @@ type Options struct {
 	LogFilename          string
 }
 
-// InitSDL initializes SDL and the UI
+// Init initializes SDL and the UI
 // Must be called before any other UI functions!
-func InitSDL(options Options) {
+func Init(options Options) {
 	internal.SetFilename(options.LogFilename)
 
 	if os.Getenv("ENVIRONMENT") == "DEV" || os.Getenv("INPUT_CAPTURE") != "" {
@@ -50,14 +50,18 @@ func InitSDL(options Options) {
 	}
 }
 
-// CloseSDL Tidies up SDL and the UI
+// Close Tidies up SDL and the UI
 // Must be called after all UI functions!
-func CloseSDL() {
+func Close() {
 	internal.SDLCleanup()
 }
 
 func GetLogger() *slog.Logger {
 	return internal.GetLogger()
+}
+
+func SetLogLevel(level slog.Level) {
+	internal.SetLogLevel(level)
 }
 
 func SetRawLogLevel(level string) {
