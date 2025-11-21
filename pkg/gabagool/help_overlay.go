@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
@@ -23,7 +24,7 @@ type helpOverlay struct {
 }
 
 func newHelpOverlay(title string, lines []string) *helpOverlay {
-	window := GetWindow()
+	window := internal.GetWindow()
 	width, height := window.Window.GetSize()
 
 	if title == "" {
@@ -206,7 +207,7 @@ func (h *helpOverlay) scroll(direction int) {
 
 // Help overlay input handling
 func (h *helpOverlay) handleInput(event interface{}) bool {
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
 
 	if inputEvent == nil || !inputEvent.Pressed {
@@ -216,13 +217,13 @@ func (h *helpOverlay) handleInput(event interface{}) bool {
 	button := inputEvent.Button
 
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		h.scroll(-1)
 		return true
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		h.scroll(1)
 		return true
-	case InternalButtonMenu, InternalButtonB:
+	case internal.VirtualButtonMenu, internal.VirtualButtonB:
 		return false // Signal to close help
 	default:
 		return false

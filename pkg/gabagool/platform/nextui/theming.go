@@ -3,42 +3,41 @@ package nextui
 import (
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
 	"strings"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-var defaultTheme = core.Theme{
-	MainColor:             core.HexToColor(0xFFFFFF),
-	PrimaryAccentColor:    core.HexToColor(0x9B2257),
-	SecondaryAccentColor:  core.HexToColor(0x1E2329),
-	HintInfoColor:         core.HexToColor(0xFFFFFF),
-	ListTextColor:         core.HexToColor(0xFFFFFF),
-	ListTextSelectedColor: core.HexToColor(0x000000),
-	BGColor:               core.HexToColor(0x000000),
+var defaultTheme = internal.Theme{
+	MainColor:             internal.HexToColor(0xFFFFFF),
+	PrimaryAccentColor:    internal.HexToColor(0x9B2257),
+	SecondaryAccentColor:  internal.HexToColor(0x1E2329),
+	HintInfoColor:         internal.HexToColor(0xFFFFFF),
+	ListTextColor:         internal.HexToColor(0xFFFFFF),
+	ListTextSelectedColor: internal.HexToColor(0x000000),
+	BGColor:               internal.HexToColor(0x000000),
 }
 
-func InitNextUITheme() core.Theme {
+func InitNextUITheme() internal.Theme {
 	var nv *NextVal
 	var err error
 
-	if core.IsDevMode() {
+	if internal.IsDevMode() {
 		nv, err = InitStaticNextVal(os.Getenv("NEXTVAL_PATH"))
 	} else {
 		nv, err = loadNextVal()
 	}
 
 	if err != nil {
-		slog.Error("Error loading theme. using default NextUI styling...", "error", err)
+		internal.GetLogger().Error("Error loading theme. using default NextUI styling...", "error", err)
 		return defaultTheme
 	}
 
-	theme := core.Theme{
+	theme := internal.Theme{
 		MainColor:             parseHexColor(nv.Color1),
 		PrimaryAccentColor:    parseHexColor(nv.Color2),
 		SecondaryAccentColor:  parseHexColor(nv.Color3),
@@ -49,8 +48,8 @@ func InitNextUITheme() core.Theme {
 		FontPath:              nv.FontPath,
 	}
 
-	if core.IsDevMode() {
-		theme.BackgroundImagePath = os.Getenv(core.BackgroundPathEnvVar)
+	if internal.IsDevMode() {
+		theme.BackgroundImagePath = os.Getenv(internal.BackgroundPathEnvVar)
 	} else {
 		theme.BackgroundImagePath = "/mnt/SDCARD/bg.png"
 	}
@@ -79,7 +78,7 @@ func loadNextVal() (*NextVal, error) {
 	cmd := exec.Command(execPath)
 	output, err := cmd.Output()
 	if err != nil {
-		slog.Error("Error executing command!", "error", err)
+		internal.GetLogger().Error("Error executing command!", "error", err)
 		return nil, err
 	}
 
@@ -88,7 +87,7 @@ func loadNextVal() (*NextVal, error) {
 	var nextval NextVal
 	err = json.Unmarshal([]byte(jsonStr), &nextval)
 	if err != nil {
-		slog.Error("Error parsing JSON", "error", err)
+		internal.GetLogger().Error("Error parsing JSON", "error", err)
 		return nil, err
 	}
 
@@ -108,5 +107,5 @@ func parseHexColor(hexStr string) sdl.Color {
 		}
 	}
 
-	return core.HexToColor(uint32(hex))
+	return internal.HexToColor(uint32(hex))
 }

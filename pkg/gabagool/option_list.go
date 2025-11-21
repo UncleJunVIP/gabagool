@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -71,11 +71,11 @@ type OptionsListReturn struct {
 	Canceled      bool
 }
 type optionsListSettings struct {
-	Margins         padding
+	Margins         internal.Padding
 	ItemSpacing     int32
 	InputDelay      time.Duration
 	Title           string
-	TitleAlign      TextAlign
+	TitleAlign      internal.TextAlign
 	TitleSpacing    int32
 	ScrollSpeed     float32
 	ScrollPauseTime int
@@ -98,19 +98,19 @@ type optionsListController struct {
 	helpOverlay *helpOverlay
 	ShowingHelp bool
 
-	itemScrollData       map[int]*textScrollData
+	itemScrollData       map[int]*internal.TextScrollData
 	showingColorPicker   bool
 	activeColorPickerIdx int
 }
 
 func defaultOptionsListSettings(title string) optionsListSettings {
 	return optionsListSettings{
-		Margins:         uniformPadding(20),
+		Margins:         internal.UniformPadding(20),
 		ItemSpacing:     60,
-		InputDelay:      DefaultInputDelay,
+		InputDelay:      internal.DefaultInputDelay,
 		Title:           title,
-		TitleAlign:      TextAlignLeft,
-		TitleSpacing:    DefaultTitleSpacing,
+		TitleAlign:      internal.TextAlignLeft,
+		TitleSpacing:    internal.DefaultTitleSpacing,
 		ScrollSpeed:     150.0,
 		ScrollPauseTime: 25,
 		FooterTextColor: sdl.Color{R: 180, G: 180, B: 180, A: 255},
@@ -136,13 +136,13 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 	for i := range items {
 		for j, opt := range items[i].Options {
 			if opt.Type == OptionTypeColorPicker {
-				// Initialize with default color if not already set
+				// Initialize with default color if not already Set
 				if opt.Value == nil {
 					items[i].Options[j].Value = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 				}
 
 				// Create the color picker
-				window := GetWindow()
+				window := internal.GetWindow()
 				items[i].colorPicker = NewHexColorPicker(window)
 
 				// Initialize with current color value if it's an sdl.Color
@@ -185,7 +185,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 		Settings:             defaultOptionsListSettings(title),
 		StartY:               20,
 		lastInputTime:        time.Now(),
-		itemScrollData:       make(map[int]*textScrollData),
+		itemScrollData:       make(map[int]*internal.TextScrollData),
 		showingColorPicker:   false,
 		activeColorPickerIdx: -1,
 	}
@@ -194,9 +194,9 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 // OptionsList presents a list of options to the user.
 // This blocks until a selection is made or the user cancels.
 func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
-	window := GetWindow()
+	window := internal.GetWindow()
 	renderer := window.Renderer
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	optionsListController := newOptionsListController(title, items)
 
@@ -263,8 +263,8 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	return option.Some(result), nil
 }
 
-func (olc *optionsListController) calculateMaxVisibleItems(window *Window) int32 {
-	scaleFactor := GetScaleFactor()
+func (olc *optionsListController) calculateMaxVisibleItems(window *internal.Window) int32 {
+	scaleFactor := internal.GetScaleFactor()
 
 	itemSpacing := int32(float32(60) * scaleFactor)
 
@@ -289,7 +289,7 @@ func (olc *optionsListController) calculateMaxVisibleItems(window *Window) int32
 	return maxItems
 }
 
-func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent) {
+func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Event) {
 	if !inputEvent.Pressed {
 		return
 	}
@@ -304,9 +304,9 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent)
 	}
 
 	switch inputEvent.Button {
-	case InternalButtonB:
+	case internal.VirtualButtonB:
 		olc.hideColorPicker()
-	case InternalButtonA:
+	case internal.VirtualButtonA:
 		selectedColor := item.colorPicker.GetSelectedColor()
 		for j := range item.Options {
 			if item.Options[j].Type == OptionTypeColorPicker {
@@ -320,17 +320,17 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent)
 			}
 		}
 		olc.hideColorPicker()
-	case InternalButtonLeft, InternalButtonRight, InternalButtonUp, InternalButtonDown:
+	case internal.VirtualButtonLeft, internal.VirtualButtonRight, internal.VirtualButtonUp, internal.VirtualButtonDown:
 		// Convert internal button to keycode for color picker
 		var keycode sdl.Keycode
 		switch inputEvent.Button {
-		case InternalButtonLeft:
+		case internal.VirtualButtonLeft:
 			keycode = sdl.K_LEFT
-		case InternalButtonRight:
+		case internal.VirtualButtonRight:
 			keycode = sdl.K_RIGHT
-		case InternalButtonUp:
+		case internal.VirtualButtonUp:
 			keycode = sdl.K_UP
-		case InternalButtonDown:
+		case internal.VirtualButtonDown:
 			keycode = sdl.K_DOWN
 		}
 		item.colorPicker.handleKeyPress(keycode)
@@ -345,7 +345,7 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *InputEvent)
 	}
 }
 
-func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, running *bool, result *OptionsListReturn) {
+func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event, running *bool, result *OptionsListReturn) {
 	if !inputEvent.Pressed {
 		return
 	}
@@ -356,11 +356,11 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, run
 	}
 
 	switch inputEvent.Button {
-	case InternalButtonMenu:
+	case internal.VirtualButtonMenu:
 		olc.toggleHelp()
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonB:
+	case internal.VirtualButtonB:
 		if olc.ShowingHelp {
 			olc.ShowingHelp = false
 		} else {
@@ -370,7 +370,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, run
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonA:
+	case internal.VirtualButtonA:
 		if olc.ShowingHelp {
 			olc.ShowingHelp = false
 		} else {
@@ -378,7 +378,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, run
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonStart:
+	case internal.VirtualButtonStart:
 		if !olc.ShowingHelp && olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 			*running = false
 			result.SelectedIndex = olc.SelectedIndex
@@ -387,19 +387,19 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, run
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonLeft:
+	case internal.VirtualButtonLeft:
 		if !olc.ShowingHelp {
 			olc.cycleOptionLeft()
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonRight:
+	case internal.VirtualButtonRight:
 		if !olc.ShowingHelp {
 			olc.cycleOptionRight()
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		if olc.ShowingHelp {
 			olc.scrollHelpOverlay(-1)
 		} else {
@@ -407,7 +407,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *InputEvent, run
 		}
 		olc.lastInputTime = time.Now()
 
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		if olc.ShowingHelp {
 			olc.scrollHelpOverlay(1)
 		} else {
@@ -421,10 +421,10 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 	if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 		item := &olc.Items[olc.SelectedIndex]
 		if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
-			option := item.Options[item.SelectedOption]
-			switch option.Type {
+			o := item.Options[item.SelectedOption]
+			switch o.Type {
 			case OptionTypeKeyboard:
-				prompt := option.KeyboardPrompt
+				prompt := o.KeyboardPrompt
 				keyboardResult, err := Keyboard(prompt)
 				if err == nil && keyboardResult.IsSome() {
 					enteredText := keyboardResult.Unwrap()
@@ -433,7 +433,7 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 						Value:          enteredText,
 						Type:           OptionTypeKeyboard,
 						KeyboardPrompt: enteredText,
-						Masked:         option.Masked,
+						Masked:         o.Masked,
 					}
 				}
 			case OptionTypeColorPicker:
@@ -601,14 +601,14 @@ func (olc *optionsListController) scrollHelpOverlay(direction int) {
 
 func (olc *optionsListController) render(renderer *sdl.Renderer) {
 	if olc.ShowingHelp && olc.helpOverlay != nil {
-		olc.helpOverlay.render(renderer, fonts.smallFont)
+		olc.helpOverlay.render(renderer, internal.Fonts.SmallFont)
 		return
 	}
 
-	scaleFactor := GetScaleFactor()
-	window := GetWindow()
-	titleFont := fonts.largeSymbolFont
-	font := fonts.smallFont
+	scaleFactor := internal.GetScaleFactor()
+	window := internal.GetWindow()
+	titleFont := internal.Fonts.LargeSymbolFont
+	font := internal.Fonts.SmallFont
 
 	itemSpacing := int32(float32(60) * scaleFactor)
 	selectionRectHeight := int32(float32(60) * scaleFactor)
@@ -624,11 +624,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 				var titleX int32
 				switch olc.Settings.TitleAlign {
-				case TextAlignLeft:
+				case internal.TextAlignLeft:
 					titleX = olc.Settings.Margins.Left
-				case TextAlignCenter:
+				case internal.TextAlignCenter:
 					titleX = (window.GetWidth() - titleSurface.W) / 2
-				case TextAlignRight:
+				case internal.TextAlignRight:
 					titleX = window.GetWidth() - olc.Settings.Margins.Right - titleSurface.W
 				}
 
@@ -651,12 +651,12 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 		itemIndex := i + olc.VisibleStartIndex
 		item := olc.Items[itemIndex]
 
-		textColor := core.GetTheme().ListTextColor
+		textColor := internal.GetTheme().ListTextColor
 		bgColor := sdl.Color{R: 0, G: 0, B: 0, A: 0}
 
 		if item.Item.Selected {
-			textColor = core.GetTheme().ListTextSelectedColor
-			bgColor = core.GetTheme().MainColor
+			textColor = internal.GetTheme().ListTextSelectedColor
+			bgColor = internal.GetTheme().MainColor
 		}
 
 		itemY := olc.StartY + (int32(i) * itemSpacing)
@@ -668,7 +668,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 				W: window.GetWidth() - olc.Settings.Margins.Left - olc.Settings.Margins.Right + 20,
 				H: selectionRectHeight,
 			}
-			drawRoundedRect(renderer, selectionRect, cornerRadius, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
+			internal.DrawRoundedRect(renderer, selectionRect, cornerRadius, sdl.Color{R: bgColor.R, G: bgColor.G, B: bgColor.B, A: bgColor.A})
 		}
 
 		itemSurface, _ := font.RenderUTF8Blended(item.Item.Text, textColor)
@@ -819,7 +819,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 
 	renderFooter(
 		renderer,
-		fonts.smallFont,
+		internal.Fonts.SmallFont,
 		olc.Settings.FooterHelpItems,
 		olc.Settings.Margins.Bottom,
 		true,

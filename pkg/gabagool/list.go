@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/img"
@@ -31,10 +31,10 @@ type ListOptions struct {
 	HelpTitle string
 	HelpText  []string
 
-	Margins         padding
+	Margins         internal.Padding
 	ItemSpacing     int32
 	SmallTitle      bool
-	TitleAlign      TextAlign
+	TitleAlign      internal.TextAlign
 	TitleSpacing    int32
 	FooterText      string
 	FooterTextColor sdl.Color
@@ -44,8 +44,8 @@ type ListOptions struct {
 	ScrollPauseTime int
 
 	InputDelay        time.Duration
-	MultiSelectButton InternalButton
-	ReorderButton     InternalButton
+	MultiSelectButton internal.VirtualButton
+	ReorderButton     internal.VirtualButton
 
 	EmptyMessage      string
 	EmptyMessageColor sdl.Color
@@ -60,15 +60,15 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		Items:             items,
 		SelectedIndex:     0,
 		MaxVisibleItems:   9,
-		Margins:           uniformPadding(20),
-		TitleAlign:        TextAlignLeft,
-		TitleSpacing:      DefaultTitleSpacing,
+		Margins:           internal.UniformPadding(20),
+		TitleAlign:        internal.TextAlignLeft,
+		TitleSpacing:      internal.DefaultTitleSpacing,
 		FooterTextColor:   sdl.Color{R: 180, G: 180, B: 180, A: 255},
 		ScrollSpeed:       4.0,
 		ScrollPauseTime:   1250,
-		InputDelay:        DefaultInputDelay,
-		MultiSelectButton: InternalButtonSelect, // New default
-		ReorderButton:     InternalButtonSelect, // New default
+		InputDelay:        internal.DefaultInputDelay,
+		MultiSelectButton: internal.VirtualButtonSelect, // New default
+		ReorderButton:     internal.VirtualButtonSelect, // New default
 		EmptyMessage:      "No items available",
 		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	}
@@ -84,8 +84,8 @@ type listController struct {
 	lastInputTime time.Time
 
 	helpOverlay     *helpOverlay
-	itemScrollData  map[int]*textScrollData
-	titleScrollData *textScrollData
+	itemScrollData  map[int]*internal.TextScrollData
+	titleScrollData *internal.TextScrollData
 
 	heldDirections struct {
 		up, down, left, right bool
@@ -119,8 +119,8 @@ func newListController(options ListOptions) *listController {
 		StartY:          20,
 		lastInputTime:   time.Now(),
 		helpOverlay:     helpOverlay,
-		itemScrollData:  make(map[int]*textScrollData),
-		titleScrollData: &textScrollData{},
+		itemScrollData:  make(map[int]*internal.TextScrollData),
+		titleScrollData: &internal.TextScrollData{},
 		lastRepeatTime:  time.Now(),
 		repeatDelay:     150 * time.Millisecond,
 		repeatInterval:  20 * time.Millisecond,
@@ -128,17 +128,17 @@ func newListController(options ListOptions) *listController {
 }
 
 func List(options ListOptions) (types.Option[ListReturn], error) {
-	window := GetWindow()
+	window := internal.GetWindow()
 	renderer := window.Renderer
 
 	if options.MaxVisibleItems <= 0 {
-		// This will be set dynamically based on window size
+		// This will be Set dynamically based on window size
 		options.MaxVisibleItems = 9 // fallback default
 	}
 
 	lc := newListController(options)
 
-	// Calculate and set MaxVisibleItems based on window size
+	// Calculate and Set MaxVisibleItems based on window size
 	lc.Options.MaxVisibleItems = int(lc.calculateMaxVisibleItems(window))
 
 	if options.SelectedIndex > 0 {
@@ -185,7 +185,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 }
 
 func (lc *listController) handleInput(event interface{}, running *bool, result *ListReturn) {
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	// Process raw SDL event through the input processor
 	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -217,38 +217,39 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 	lc.handleActionButtons(inputEvent.Button, running, result)
 }
 
-func (lc *listController) handleHelpInput(button InternalButton) {
+func (lc *listController) handleHelpInput(button internal.VirtualButton) {
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		if lc.helpOverlay != nil {
 			lc.helpOverlay.scroll(-1)
 		}
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		if lc.helpOverlay != nil {
 			lc.helpOverlay.scroll(1)
 		}
-	case InternalButtonMenu:
+	case internal.VirtualButtonMenu:
 		lc.ShowingHelp = false
 	default:
 		lc.ShowingHelp = false
 	}
 }
 
-func (lc *listController) isDirectionalInput(button InternalButton) bool {
-	return button == InternalButtonUp || button == InternalButtonDown ||
-		button == InternalButtonLeft || button == InternalButtonRight
+func (lc *listController) isDirectionalInput(button internal.VirtualButton) bool {
+	return button == internal.VirtualButtonUp || button == internal.VirtualButtonDown ||
+		button == internal.VirtualButtonLeft || button == internal.VirtualButtonRight
 }
 
-func (lc *listController) updateHeldDirections(button InternalButton, pressed bool) {
+func (lc *listController) updateHeldDirections(button internal.VirtualButton, pressed bool) {
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		lc.heldDirections.up = pressed
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		lc.heldDirections.down = pressed
-	case InternalButtonLeft:
+	case internal.VirtualButtonLeft:
 		lc.heldDirections.left = pressed
-	case InternalButtonRight:
+	case internal.VirtualButtonRight:
 		lc.heldDirections.right = pressed
+	default:
 	}
 
 	if pressed && len(lc.Options.Items) > 0 {
@@ -256,21 +257,22 @@ func (lc *listController) updateHeldDirections(button InternalButton, pressed bo
 	}
 }
 
-func (lc *listController) handleNavigation(button InternalButton) bool {
+func (lc *listController) handleNavigation(button internal.VirtualButton) bool {
 	if len(lc.Options.Items) == 0 {
 		return false
 	}
 
 	direction := ""
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		direction = "up"
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		direction = "down"
-	case InternalButtonLeft:
+	case internal.VirtualButtonLeft:
 		direction = "left"
-	case InternalButtonRight:
+	case internal.VirtualButtonRight:
 		direction = "right"
+	default:
 	}
 
 	if direction != "" {
@@ -280,13 +282,13 @@ func (lc *listController) handleNavigation(button InternalButton) bool {
 	return false
 }
 
-func (lc *listController) handleActionButtons(button InternalButton, running *bool, result *ListReturn) {
-	if len(lc.Options.Items) == 0 && button != InternalButtonB && button != InternalButtonMenu {
+func (lc *listController) handleActionButtons(button internal.VirtualButton, running *bool, result *ListReturn) {
+	if len(lc.Options.Items) == 0 && button != internal.VirtualButtonB && button != internal.VirtualButtonMenu {
 		return
 	}
 
 	// Primary action (A button)
-	if button == InternalButtonA {
+	if button == internal.VirtualButtonA {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleSelection(lc.Options.SelectedIndex)
 		} else if len(lc.Options.Items) > 0 {
@@ -296,7 +298,7 @@ func (lc *listController) handleActionButtons(button InternalButton, running *bo
 	}
 
 	// Back button
-	if button == InternalButtonB {
+	if button == internal.VirtualButtonB {
 		if !lc.Options.DisableBackButton {
 			*running = false
 			result.SelectedIndex = -1
@@ -304,7 +306,7 @@ func (lc *listController) handleActionButtons(button InternalButton, running *bo
 	}
 
 	// Action button (X)
-	if button == InternalButtonX {
+	if button == internal.VirtualButtonX {
 		if lc.Options.EnableAction {
 			*running = false
 			result.ActionTriggered = true
@@ -324,14 +326,14 @@ func (lc *listController) handleActionButtons(button InternalButton, running *bo
 	}
 
 	// Help
-	if button == InternalButtonMenu {
+	if button == internal.VirtualButtonMenu {
 		if lc.Options.EnableHelp {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 	}
 
 	// Multi-select confirmation (Start)
-	if button == InternalButtonStart {
+	if button == internal.VirtualButtonStart {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			*running = false
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
@@ -445,7 +447,7 @@ func (lc *listController) moveItem(delta int) {
 	// Handle multi-step moves for page jumps
 	steps := delta
 	if delta > 1 || delta < -1 {
-		steps = delta / abs(delta) // Get direction
+		steps = delta / internal.Abs(delta) // Get direction
 		targetIndex := lc.Options.SelectedIndex + delta
 		targetIndex = max(0, min(targetIndex, len(lc.Options.Items)-1))
 
@@ -588,7 +590,7 @@ func (lc *listController) handleDirectionalRepeats() {
 	}
 }
 
-func (lc *listController) render(window *Window) {
+func (lc *listController) render(window *internal.Window) {
 	lc.updateScrolling()
 
 	// Update focus states
@@ -614,11 +616,11 @@ func (lc *listController) render(window *Window) {
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
 		lc.helpOverlay.ShowingHelp = true
-		lc.helpOverlay.render(window.Renderer, fonts.smallFont)
+		lc.helpOverlay.render(window.Renderer, internal.Fonts.SmallFont)
 	}
 }
 
-func (lc *listController) renderContent(window *Window, visibleItems []MenuItem) {
+func (lc *listController) renderContent(window *internal.Window, visibleItems []MenuItem) {
 	renderer := window.Renderer
 
 	itemStartY := lc.StartY
@@ -637,18 +639,18 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 
 	// Render title
 	if lc.Options.Title != "" {
-		titleFont := fonts.extraLargeFont
+		titleFont := internal.Fonts.ExtraLargeFont
 		if lc.Options.SmallTitle {
-			titleFont = fonts.largeFont
+			titleFont = internal.Fonts.LargeFont
 		}
 		itemStartY = lc.renderScrollableTitle(renderer, titleFont, lc.Options.Title, lc.Options.TitleAlign, lc.StartY, lc.Options.Margins.Left+10) + lc.Options.TitleSpacing
 	}
 
 	// Render items or empty message
 	if len(lc.Options.Items) == 0 {
-		lc.renderEmptyMessage(renderer, fonts.mediumFont, itemStartY)
+		lc.renderEmptyMessage(renderer, internal.Fonts.MediumFont, itemStartY)
 	} else {
-		lc.renderItems(renderer, fonts.smallFont, visibleItems, itemStartY)
+		lc.renderItems(renderer, internal.Fonts.SmallFont, visibleItems, itemStartY)
 	}
 
 	// Render selected item image
@@ -657,7 +659,7 @@ func (lc *listController) renderContent(window *Window, visibleItems []MenuItem)
 	}
 
 	// Render footer
-	renderFooter(renderer, fonts.smallFont, lc.Options.FooterHelpItems, lc.Options.Margins.Bottom, true)
+	renderFooter(renderer, internal.Fonts.SmallFont, lc.Options.FooterHelpItems, lc.Options.Margins.Bottom, true)
 }
 
 func (lc *listController) imageIsDisplayed() bool {
@@ -671,7 +673,7 @@ func (lc *listController) imageIsDisplayed() bool {
 }
 
 func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, visibleItems []MenuItem, startY int32) {
-	scaleFactor := GetScaleFactor()
+	scaleFactor := internal.GetScaleFactor()
 
 	pillHeight := int32(float32(60) * scaleFactor)
 	pillPadding := int32(float32(40) * scaleFactor)
@@ -696,7 +698,7 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 		// Render background pill
 		if item.Selected || item.Focused {
 			_, bgColor := lc.getItemColors(item)
-			pillWidth := min32(maxPillWidth, lc.measureText(font, itemText)+pillPadding)
+			pillWidth := internal.Min32(maxPillWidth, lc.measureText(font, itemText)+pillPadding)
 
 			pillRect := sdl.Rect{
 				X: lc.Options.Margins.Left,
@@ -704,7 +706,7 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 				W: pillWidth,
 				H: pillHeight,
 			}
-			drawRoundedRect(renderer, &pillRect, int32(float32(30)*scaleFactor), bgColor)
+			internal.DrawRoundedRect(renderer, &pillRect, int32(float32(30)*scaleFactor), bgColor)
 		}
 
 		// Render text (scrolling or static)
@@ -724,7 +726,7 @@ func (lc *listController) renderItemText(renderer *sdl.Renderer, font *ttf.Font,
 }
 
 func (lc *listController) renderStaticText(renderer *sdl.Renderer, font *ttf.Font, text string, color sdl.Color, itemY, pillHeight int32) {
-	scaleFactor := GetScaleFactor()
+	scaleFactor := internal.GetScaleFactor()
 
 	surface, _ := font.RenderUTF8Blended(text, color)
 	if surface == nil {
@@ -750,7 +752,7 @@ func (lc *listController) renderStaticText(renderer *sdl.Renderer, font *ttf.Fon
 }
 
 func (lc *listController) renderScrollingText(renderer *sdl.Renderer, font *ttf.Font, text string, color sdl.Color, globalIndex int, itemY, pillHeight, maxWidth int32) {
-	scaleFactor := GetScaleFactor()
+	scaleFactor := internal.GetScaleFactor()
 	scrollData := lc.getOrCreateScrollData(globalIndex, text, font, maxWidth)
 
 	surface, _ := font.RenderUTF8Blended(text, color)
@@ -766,9 +768,9 @@ func (lc *listController) renderScrollingText(renderer *sdl.Renderer, font *ttf.
 	defer texture.Destroy()
 
 	clipRect := &sdl.Rect{
-		X: scrollData.scrollOffset,
+		X: scrollData.ScrollOffset,
 		Y: 0,
-		W: min32(maxWidth, surface.W-scrollData.scrollOffset),
+		W: internal.Min32(maxWidth, surface.W-scrollData.ScrollOffset),
 		H: surface.H,
 	}
 
@@ -820,7 +822,7 @@ func (lc *listController) renderEmptyMessage(renderer *sdl.Renderer, font *ttf.F
 	}
 }
 
-func (lc *listController) renderSelectedItemBackground(window *Window, imageFilename string) {
+func (lc *listController) renderSelectedItemBackground(window *internal.Window, imageFilename string) {
 	bgTexture, err := img.LoadTexture(window.Renderer, imageFilename)
 	if err != nil {
 		return
@@ -875,8 +877,8 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 	renderer.Copy(texture, nil, &destRect)
 }
 
-func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align TextAlign, startY, marginLeft int32) int32 {
-	surface, _ := font.RenderUTF8Blended(title, core.GetTheme().ListTextColor)
+func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *ttf.Font, title string, align internal.TextAlign, startY, marginLeft int32) int32 {
+	surface, _ := font.RenderUTF8Blended(title, internal.GetTheme().ListTextColor)
 	if surface == nil {
 		return startY + 40
 	}
@@ -896,9 +898,9 @@ func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *tt
 	} else {
 		var titleX int32
 		switch align {
-		case TextAlignCenter:
+		case internal.TextAlignCenter:
 			titleX = (screenWidth - surface.W) / 2
-		case TextAlignRight:
+		case internal.TextAlignRight:
 			titleX = screenWidth - surface.W - marginLeft
 		default:
 			titleX = marginLeft
@@ -912,18 +914,18 @@ func (lc *listController) renderScrollableTitle(renderer *sdl.Renderer, font *tt
 }
 
 func (lc *listController) renderScrollingTitle(renderer *sdl.Renderer, texture *sdl.Texture, textHeight, maxWidth, titleX, titleY int32) {
-	if !lc.titleScrollData.needsScrolling {
+	if !lc.titleScrollData.NeedsScrolling {
 		_, _, fullWidth, _, _ := texture.Query()
-		lc.titleScrollData.needsScrolling = true
-		lc.titleScrollData.textWidth = fullWidth
-		lc.titleScrollData.containerWidth = maxWidth
-		lc.titleScrollData.direction = 1
+		lc.titleScrollData.NeedsScrolling = true
+		lc.titleScrollData.TextWidth = fullWidth
+		lc.titleScrollData.ContainerWidth = maxWidth
+		lc.titleScrollData.Direction = 1
 	}
 
 	clipRect := &sdl.Rect{
-		X: max32(0, lc.titleScrollData.scrollOffset),
+		X: internal.Max32(0, lc.titleScrollData.ScrollOffset),
 		Y: 0,
-		W: min32(maxWidth, lc.titleScrollData.textWidth-lc.titleScrollData.scrollOffset),
+		W: internal.Min32(maxWidth, lc.titleScrollData.TextWidth-lc.titleScrollData.ScrollOffset),
 		H: textHeight,
 	}
 
@@ -934,57 +936,57 @@ func (lc *listController) renderScrollingTitle(renderer *sdl.Renderer, texture *
 func (lc *listController) updateScrolling() {
 	currentTime := time.Now()
 
-	if lc.titleScrollData.needsScrolling {
+	if lc.titleScrollData.NeedsScrolling {
 		lc.updateScrollData(lc.titleScrollData, currentTime)
 	}
 
 	for idx := lc.Options.VisibleStartIndex; idx < min(lc.Options.VisibleStartIndex+lc.Options.MaxVisibleItems, len(lc.Options.Items)); idx++ {
-		if scrollData, exists := lc.itemScrollData[idx]; exists && scrollData.needsScrolling {
+		if scrollData, exists := lc.itemScrollData[idx]; exists && scrollData.NeedsScrolling {
 			lc.updateScrollData(scrollData, currentTime)
 		}
 	}
 }
 
-func (lc *listController) updateScrollData(data *textScrollData, currentTime time.Time) {
-	if data.lastDirectionChange != nil && currentTime.Sub(*data.lastDirectionChange) < time.Duration(lc.Options.ScrollPauseTime)*time.Millisecond {
+func (lc *listController) updateScrollData(data *internal.TextScrollData, currentTime time.Time) {
+	if data.LastDirectionChange != nil && currentTime.Sub(*data.LastDirectionChange) < time.Duration(lc.Options.ScrollPauseTime)*time.Millisecond {
 		return
 	}
 
 	scrollIncrement := int32(lc.Options.ScrollSpeed)
-	data.scrollOffset += int32(data.direction) * scrollIncrement
+	data.ScrollOffset += int32(data.Direction) * scrollIncrement
 
-	maxOffset := data.textWidth - data.containerWidth
-	if data.scrollOffset <= 0 {
-		data.scrollOffset = 0
-		if data.direction < 0 {
-			data.direction = 1
+	maxOffset := data.TextWidth - data.ContainerWidth
+	if data.ScrollOffset <= 0 {
+		data.ScrollOffset = 0
+		if data.Direction < 0 {
+			data.Direction = 1
 			now := currentTime
-			data.lastDirectionChange = &now
+			data.LastDirectionChange = &now
 		}
-	} else if data.scrollOffset >= maxOffset {
-		data.scrollOffset = maxOffset
-		if data.direction > 0 {
-			data.direction = -1
+	} else if data.ScrollOffset >= maxOffset {
+		data.ScrollOffset = maxOffset
+		if data.Direction > 0 {
+			data.Direction = -1
 			now := currentTime
-			data.lastDirectionChange = &now
+			data.LastDirectionChange = &now
 		}
 	}
 }
 
-func (lc *listController) getOrCreateScrollData(index int, text string, font *ttf.Font, maxWidth int32) *textScrollData {
+func (lc *listController) getOrCreateScrollData(index int, text string, font *ttf.Font, maxWidth int32) *internal.TextScrollData {
 	data, exists := lc.itemScrollData[index]
 	if !exists {
 		surface, _ := font.RenderUTF8Blended(text, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		if surface == nil {
-			return &textScrollData{}
+			return &internal.TextScrollData{}
 		}
 		defer surface.Free()
 
-		data = &textScrollData{
-			needsScrolling: surface.W > maxWidth,
-			textWidth:      surface.W,
-			containerWidth: maxWidth,
-			direction:      1,
+		data = &internal.TextScrollData{
+			NeedsScrolling: surface.W > maxWidth,
+			TextWidth:      surface.W,
+			ContainerWidth: maxWidth,
+			Direction:      1,
 		}
 		lc.itemScrollData[index] = data
 	}
@@ -1000,8 +1002,8 @@ func (lc *listController) shouldScroll(font *ttf.Font, text string, maxWidth int
 	return surface.W > maxWidth
 }
 
-func (lc *listController) calculateMaxVisibleItems(window *Window) int32 {
-	scaleFactor := GetScaleFactor()
+func (lc *listController) calculateMaxVisibleItems(window *internal.Window) int32 {
+	scaleFactor := internal.GetScaleFactor()
 
 	pillHeight := int32(float32(60) * scaleFactor)
 
@@ -1033,9 +1035,9 @@ func (lc *listController) calculateMaxVisibleItems(window *Window) int32 {
 
 func (lc *listController) getTitleFont() *ttf.Font {
 	if lc.Options.SmallTitle {
-		return fonts.largeFont
+		return internal.Fonts.LargeFont
 	}
-	return fonts.extraLargeFont
+	return internal.Fonts.ExtraLargeFont
 }
 
 func (lc *listController) measureText(font *ttf.Font, text string) int32 {
@@ -1076,18 +1078,18 @@ func (lc *listController) formatItemText(item MenuItem, multiSelect bool) string
 
 func (lc *listController) getItemColors(item MenuItem) (textColor, bgColor sdl.Color) {
 	if item.Focused && item.Selected {
-		return core.GetTheme().ListTextSelectedColor, core.GetTheme().MainColor
+		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 	} else if item.Focused {
-		return core.GetTheme().ListTextSelectedColor, core.GetTheme().MainColor
+		return internal.GetTheme().ListTextSelectedColor, internal.GetTheme().MainColor
 	} else if item.Selected {
-		return core.GetTheme().ListTextColor, sdl.Color{R: 255, G: 0, B: 0, A: 0}
+		return internal.GetTheme().ListTextColor, sdl.Color{R: 255, G: 0, B: 0, A: 0}
 	}
-	return core.GetTheme().ListTextColor, sdl.Color{}
+	return internal.GetTheme().ListTextColor, sdl.Color{}
 }
 
 func (lc *listController) getTextColor(focused bool) sdl.Color {
 	if focused {
-		return core.GetTheme().ListTextSelectedColor
+		return internal.GetTheme().ListTextSelectedColor
 	}
-	return core.GetTheme().ListTextColor
+	return internal.GetTheme().ListTextColor
 }

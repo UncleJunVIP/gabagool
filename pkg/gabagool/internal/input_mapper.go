@@ -1,4 +1,4 @@
-package gabagool
+package internal
 
 import (
 	"encoding/json"
@@ -8,71 +8,71 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-const InputMappingPathEnvVar = "INPUT_MAPPING_PATH"
+const MappingPathEnvVar = "INPUT_MAPPING_PATH"
 
-type InternalButton int
-
-const (
-	InternalButtonUnassigned InternalButton = iota
-	InternalButtonUp
-	InternalButtonDown
-	InternalButtonLeft
-	InternalButtonRight
-	InternalButtonA
-	InternalButtonB
-	InternalButtonX
-	InternalButtonY
-	InternalButtonL1
-	InternalButtonL2
-	InternalButtonR1
-	InternalButtonR2
-	InternalButtonStart
-	InternalButtonSelect
-	InternalButtonMenu
-	InternalButtonF1
-	InternalButtonF2
-	InternalButtonVolumeUp
-	InternalButtonVolumeDown
-	InternalButtonPower
-)
-
-type InputSource int
+type VirtualButton int
 
 const (
-	InputSourceKeyboard InputSource = iota
-	InputSourceController
-	InputSourceJoystick
-	InputSourceHatSwitch
+	VirtualButtonUnassigned VirtualButton = iota
+	VirtualButtonUp
+	VirtualButtonDown
+	VirtualButtonLeft
+	VirtualButtonRight
+	VirtualButtonA
+	VirtualButtonB
+	VirtualButtonX
+	VirtualButtonY
+	VirtualButtonL1
+	VirtualButtonL2
+	VirtualButtonR1
+	VirtualButtonR2
+	VirtualButtonStart
+	VirtualButtonSelect
+	VirtualButtonMenu
+	VirtualButtonF1
+	VirtualButtonF2
+	VirtualButtonVolumeUp
+	VirtualButtonVolumeDown
+	VirtualButtonPower
 )
 
-type InputEvent struct {
-	Button  InternalButton
+type Source int
+
+const (
+	SourceKeyboard Source = iota
+	SourceController
+	SourceJoystick
+	SourceHatSwitch
+)
+
+type Event struct {
+	Button  VirtualButton
 	Pressed bool
-	Source  InputSource
+	Source  Source
 	RawCode int
 }
 
 type JoystickAxisMapping struct {
-	PositiveButton InternalButton
-	NegativeButton InternalButton
+	PositiveButton VirtualButton
+	NegativeButton VirtualButton
 	Threshold      int16
 }
 
 type InternalInputMapping struct {
-	KeyboardMap map[sdl.Keycode]InternalButton
+	KeyboardMap map[sdl.Keycode]VirtualButton
 
-	ControllerButtonMap map[sdl.GameControllerButton]InternalButton
+	ControllerButtonMap map[sdl.GameControllerButton]VirtualButton
 
-	ControllerHatMap map[uint8]InternalButton
+	ControllerHatMap map[uint8]VirtualButton
 
 	JoystickAxisMap map[uint8]JoystickAxisMapping
 
-	JoystickButtonMap map[uint8]InternalButton
+	JoystickButtonMap map[uint8]VirtualButton
 
-	JoystickHatMap map[uint8]InternalButton
+	JoystickHatMap map[uint8]VirtualButton
 }
 
-type InputMapping struct {
+type Mapping struct {
 	KeyboardMap map[int]int `json:"keyboard_map"`
 
 	ControllerButtonMap map[int]int `json:"controller_button_map"`
@@ -92,31 +92,31 @@ type InputMapping struct {
 
 func DefaultInputMapping() *InternalInputMapping {
 	return &InternalInputMapping{
-		KeyboardMap: map[sdl.Keycode]InternalButton{
-			sdl.K_UP:     InternalButtonUp,
-			sdl.K_DOWN:   InternalButtonDown,
-			sdl.K_LEFT:   InternalButtonLeft,
-			sdl.K_RIGHT:  InternalButtonRight,
-			sdl.K_a:      InternalButtonA,
-			sdl.K_b:      InternalButtonB,
-			sdl.K_x:      InternalButtonX,
-			sdl.K_y:      InternalButtonY,
-			sdl.K_RETURN: InternalButtonStart,
-			sdl.K_SPACE:  InternalButtonSelect,
-			sdl.K_h:      InternalButtonMenu,
+		KeyboardMap: map[sdl.Keycode]VirtualButton{
+			sdl.K_UP:     VirtualButtonUp,
+			sdl.K_DOWN:   VirtualButtonDown,
+			sdl.K_LEFT:   VirtualButtonLeft,
+			sdl.K_RIGHT:  VirtualButtonRight,
+			sdl.K_a:      VirtualButtonA,
+			sdl.K_b:      VirtualButtonB,
+			sdl.K_x:      VirtualButtonX,
+			sdl.K_y:      VirtualButtonY,
+			sdl.K_RETURN: VirtualButtonStart,
+			sdl.K_SPACE:  VirtualButtonSelect,
+			sdl.K_h:      VirtualButtonMenu,
 		},
-		ControllerButtonMap: map[sdl.GameControllerButton]InternalButton{
-			sdl.CONTROLLER_BUTTON_DPAD_UP:    InternalButtonUp,
-			sdl.CONTROLLER_BUTTON_DPAD_DOWN:  InternalButtonDown,
-			sdl.CONTROLLER_BUTTON_DPAD_LEFT:  InternalButtonLeft,
-			sdl.CONTROLLER_BUTTON_DPAD_RIGHT: InternalButtonRight,
-			sdl.CONTROLLER_BUTTON_A:          InternalButtonB,
-			sdl.CONTROLLER_BUTTON_B:          InternalButtonA,
-			sdl.CONTROLLER_BUTTON_X:          InternalButtonY,
-			sdl.CONTROLLER_BUTTON_Y:          InternalButtonX,
-			sdl.CONTROLLER_BUTTON_START:      InternalButtonStart,
-			sdl.CONTROLLER_BUTTON_BACK:       InternalButtonSelect,
-			sdl.CONTROLLER_BUTTON_GUIDE:      InternalButtonMenu,
+		ControllerButtonMap: map[sdl.GameControllerButton]VirtualButton{
+			sdl.CONTROLLER_BUTTON_DPAD_UP:    VirtualButtonUp,
+			sdl.CONTROLLER_BUTTON_DPAD_DOWN:  VirtualButtonDown,
+			sdl.CONTROLLER_BUTTON_DPAD_LEFT:  VirtualButtonLeft,
+			sdl.CONTROLLER_BUTTON_DPAD_RIGHT: VirtualButtonRight,
+			sdl.CONTROLLER_BUTTON_A:          VirtualButtonB,
+			sdl.CONTROLLER_BUTTON_B:          VirtualButtonA,
+			sdl.CONTROLLER_BUTTON_X:          VirtualButtonY,
+			sdl.CONTROLLER_BUTTON_Y:          VirtualButtonX,
+			sdl.CONTROLLER_BUTTON_START:      VirtualButtonStart,
+			sdl.CONTROLLER_BUTTON_BACK:       VirtualButtonSelect,
+			sdl.CONTROLLER_BUTTON_GUIDE:      VirtualButtonMenu,
 		},
 	}
 }
@@ -124,15 +124,14 @@ func DefaultInputMapping() *InternalInputMapping {
 // GetInputMapping returns the input mapping from the environment variable if set,
 // otherwise returns the default mapping
 func GetInputMapping() *InternalInputMapping {
-	mappingPath := os.Getenv(InputMappingPathEnvVar)
+	logger := GetLogger()
+	mappingPath := os.Getenv(MappingPathEnvVar)
 	if mappingPath != "" {
 		mapping, err := LoadInputMappingFromJSON(mappingPath)
 		if err == nil {
-			logger := GetLoggerInstance()
 			logger.Info("Loaded custom input mapping from environment variable", "path", mappingPath)
 			return mapping
 		}
-		logger := GetLoggerInstance()
 		logger.Warn("Failed to load custom input mapping, using default", "path", mappingPath, "error", err)
 	}
 	return DefaultInputMapping()
@@ -144,58 +143,58 @@ func LoadInputMappingFromJSON(filePath string) (*InternalInputMapping, error) {
 		return nil, fmt.Errorf("failed to read JSON file: %w", err)
 	}
 
-	var serializableMapping InputMapping
+	var serializableMapping Mapping
 	err = json.Unmarshal(data, &serializableMapping)
 	if err != nil {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
 	mapping := &InternalInputMapping{
-		KeyboardMap:         make(map[sdl.Keycode]InternalButton),
-		ControllerButtonMap: make(map[sdl.GameControllerButton]InternalButton),
-		ControllerHatMap:    make(map[uint8]InternalButton),
+		KeyboardMap:         make(map[sdl.Keycode]VirtualButton),
+		ControllerButtonMap: make(map[sdl.GameControllerButton]VirtualButton),
+		ControllerHatMap:    make(map[uint8]VirtualButton),
 		JoystickAxisMap:     make(map[uint8]JoystickAxisMapping),
-		JoystickButtonMap:   make(map[uint8]InternalButton),
-		JoystickHatMap:      make(map[uint8]InternalButton),
+		JoystickButtonMap:   make(map[uint8]VirtualButton),
+		JoystickHatMap:      make(map[uint8]VirtualButton),
 	}
 
 	if serializableMapping.KeyboardMap != nil {
 		for keyCode, button := range serializableMapping.KeyboardMap {
-			mapping.KeyboardMap[sdl.Keycode(keyCode)] = InternalButton(button)
+			mapping.KeyboardMap[sdl.Keycode(keyCode)] = VirtualButton(button)
 		}
 	}
 
 	if serializableMapping.ControllerButtonMap != nil {
-		for button, internalButton := range serializableMapping.ControllerButtonMap {
-			mapping.ControllerButtonMap[sdl.GameControllerButton(button)] = InternalButton(internalButton)
+		for button, vb := range serializableMapping.ControllerButtonMap {
+			mapping.ControllerButtonMap[sdl.GameControllerButton(button)] = VirtualButton(vb)
 		}
 	}
 
 	if serializableMapping.ControllerHatMap != nil {
 		for hat, button := range serializableMapping.ControllerHatMap {
-			mapping.ControllerHatMap[uint8(hat)] = InternalButton(button)
+			mapping.ControllerHatMap[uint8(hat)] = VirtualButton(button)
 		}
 	}
 
 	if serializableMapping.JoystickAxisMap != nil {
 		for axis, axisMapping := range serializableMapping.JoystickAxisMap {
 			mapping.JoystickAxisMap[uint8(axis)] = JoystickAxisMapping{
-				PositiveButton: InternalButton(axisMapping.PositiveButton),
-				NegativeButton: InternalButton(axisMapping.NegativeButton),
+				PositiveButton: VirtualButton(axisMapping.PositiveButton),
+				NegativeButton: VirtualButton(axisMapping.NegativeButton),
 				Threshold:      axisMapping.Threshold,
 			}
 		}
 	}
 
 	if serializableMapping.JoystickButtonMap != nil {
-		for button, internalButton := range serializableMapping.JoystickButtonMap {
-			mapping.JoystickButtonMap[uint8(button)] = InternalButton(internalButton)
+		for button, vb := range serializableMapping.JoystickButtonMap {
+			mapping.JoystickButtonMap[uint8(button)] = VirtualButton(vb)
 		}
 	}
 
 	if serializableMapping.JoystickHatMap != nil {
 		for hat, button := range serializableMapping.JoystickHatMap {
-			mapping.JoystickHatMap[uint8(hat)] = InternalButton(button)
+			mapping.JoystickHatMap[uint8(hat)] = VirtualButton(button)
 		}
 	}
 
@@ -203,7 +202,7 @@ func LoadInputMappingFromJSON(filePath string) (*InternalInputMapping, error) {
 }
 
 func (im *InternalInputMapping) SaveToJSON(filePath string) error {
-	serializableMapping := &InputMapping{
+	serializableMapping := &Mapping{
 		KeyboardMap:         make(map[int]int),
 		ControllerButtonMap: make(map[int]int),
 		ControllerHatMap:    make(map[int]int),
@@ -220,8 +219,8 @@ func (im *InternalInputMapping) SaveToJSON(filePath string) error {
 		serializableMapping.KeyboardMap[int(keyCode)] = int(button)
 	}
 
-	for button, internalButton := range im.ControllerButtonMap {
-		serializableMapping.ControllerButtonMap[int(button)] = int(internalButton)
+	for button, VirtualButton := range im.ControllerButtonMap {
+		serializableMapping.ControllerButtonMap[int(button)] = int(VirtualButton)
 	}
 
 	for hat, button := range im.ControllerHatMap {
@@ -240,8 +239,8 @@ func (im *InternalInputMapping) SaveToJSON(filePath string) error {
 		}
 	}
 
-	for button, internalButton := range im.JoystickButtonMap {
-		serializableMapping.JoystickButtonMap[int(button)] = int(internalButton)
+	for button, VirtualButton := range im.JoystickButtonMap {
+		serializableMapping.JoystickButtonMap[int(button)] = int(VirtualButton)
 	}
 
 	for hat, button := range im.JoystickHatMap {

@@ -3,6 +3,7 @@ package gabagool
 import (
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/sdl"
@@ -254,9 +255,9 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 }
 
 func Keyboard(initialText string) (types.Option[string], error) {
-	window := GetWindow()
+	window := internal.GetWindow()
 	renderer := window.Renderer
-	font := fonts.mediumFont
+	font := internal.Fonts.MediumFont
 
 	kb := createKeyboard(window.GetWidth(), window.GetHeight())
 	if initialText != "" {
@@ -281,7 +282,7 @@ func Keyboard(initialText string) (types.Option[string], error) {
 }
 
 func (kb *virtualKeyboard) handleEvents() bool {
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
@@ -306,7 +307,7 @@ func (kb *virtualKeyboard) handleEvents() bool {
 	return false
 }
 
-func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
+func (kb *virtualKeyboard) handleInputEvent(inputEvent *internal.Event) bool {
 	// Rate limit navigation to prevent too-fast input
 	if kb.isDirectionalButton(inputEvent.Button) {
 		if time.Since(kb.lastInputTime) < kb.InputDelay {
@@ -318,7 +319,7 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
 	button := inputEvent.Button
 
 	// Help toggle - always available
-	if button == InternalButtonMenu {
+	if button == internal.VirtualButtonMenu {
 		kb.toggleHelp()
 		return false
 	}
@@ -330,39 +331,39 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
 
 	// Handle keyboard input
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		kb.navigate(button)
 		return false
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		kb.navigate(button)
 		return false
-	case InternalButtonLeft:
+	case internal.VirtualButtonLeft:
 		kb.navigate(button)
 		return false
-	case InternalButtonRight:
+	case internal.VirtualButtonRight:
 		kb.navigate(button)
 		return false
-	case InternalButtonA:
+	case internal.VirtualButtonA:
 		kb.processSelection()
 		return kb.EnterPressed
-	case InternalButtonB:
+	case internal.VirtualButtonB:
 		kb.backspace()
 		return false
-	case InternalButtonX:
+	case internal.VirtualButtonX:
 		kb.insertSpace()
 		return false
-	case InternalButtonSelect:
+	case internal.VirtualButtonSelect:
 		kb.toggleShift()
 		return false
-	case InternalButtonY:
+	case internal.VirtualButtonY:
 		return true // Exit without saving
-	case InternalButtonStart:
+	case internal.VirtualButtonStart:
 		kb.EnterPressed = true
 		return true // Exit and save
-	case InternalButtonL1:
+	case internal.VirtualButtonL1:
 		kb.moveCursor(-1)
 		return false
-	case InternalButtonR1:
+	case internal.VirtualButtonR1:
 		kb.moveCursor(1)
 		return false
 	}
@@ -370,17 +371,17 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *InputEvent) bool {
 	return false
 }
 
-func (kb *virtualKeyboard) isDirectionalButton(button InternalButton) bool {
-	return button == InternalButtonUp || button == InternalButtonDown ||
-		button == InternalButtonLeft || button == InternalButtonRight
+func (kb *virtualKeyboard) isDirectionalButton(button internal.VirtualButton) bool {
+	return button == internal.VirtualButtonUp || button == internal.VirtualButtonDown ||
+		button == internal.VirtualButtonLeft || button == internal.VirtualButtonRight
 }
 
-func (kb *virtualKeyboard) handleHelpInputEvent(button InternalButton) bool {
+func (kb *virtualKeyboard) handleHelpInputEvent(button internal.VirtualButton) bool {
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		kb.scrollHelpOverlay(-1)
 		return false
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		kb.scrollHelpOverlay(1)
 		return false
 	default:
@@ -389,19 +390,19 @@ func (kb *virtualKeyboard) handleHelpInputEvent(button InternalButton) bool {
 	}
 }
 
-func (kb *virtualKeyboard) navigate(button InternalButton) {
+func (kb *virtualKeyboard) navigate(button internal.VirtualButton) {
 	layout := createKeyLayout()
 	currentRow, currentCol := kb.findCurrentPosition(layout)
 
 	var newRow, newCol int
 	switch button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		newRow, newCol = kb.moveUp(layout, currentRow, currentCol)
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		newRow, newCol = kb.moveDown(layout, currentRow, currentCol)
-	case InternalButtonLeft:
+	case internal.VirtualButtonLeft:
 		newRow, newCol = kb.moveLeft(layout, currentRow, currentCol)
-	case InternalButtonRight:
+	case internal.VirtualButtonRight:
 		newRow, newCol = kb.moveRight(layout, currentRow, currentCol)
 	}
 
@@ -621,7 +622,7 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	window := GetWindow()
+	window := internal.GetWindow()
 
 	if window.Background != nil {
 		window.RenderBackground()
@@ -638,7 +639,7 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 	}
 
 	if kb.ShowingHelp && kb.helpOverlay != nil {
-		kb.helpOverlay.render(renderer, fonts.smallFont)
+		kb.helpOverlay.render(renderer, internal.Fonts.SmallFont)
 	}
 
 	renderer.Present()
@@ -822,7 +823,7 @@ func (kb *virtualKeyboard) renderSpecialKey(renderer *sdl.Renderer, rect sdl.Rec
 	renderer.DrawRect(&rect)
 
 	textColor := sdl.Color{R: 255, G: 255, B: 255, A: 255}
-	textSurface, err := fonts.largeSymbolFont.RenderUTF8Blended(symbol, textColor)
+	textSurface, err := internal.Fonts.LargeSymbolFont.RenderUTF8Blended(symbol, textColor)
 	if err != nil {
 		return
 	}
@@ -870,7 +871,7 @@ func (kb *virtualKeyboard) renderSpaceKey(renderer *sdl.Renderer) {
 func (kb *virtualKeyboard) renderFooter(renderer *sdl.Renderer) {
 	renderFooter(
 		renderer,
-		fonts.smallFont,
+		internal.Fonts.SmallFont,
 		[]FooterHelpItem{
 			{ButtonName: "Menu", HelpText: "Help"},
 		},

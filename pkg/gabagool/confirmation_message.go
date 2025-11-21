@@ -3,6 +3,7 @@ package gabagool
 import (
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/patrickhuber/go-types"
 	"github.com/patrickhuber/go-types/option"
 	"github.com/veandco/go-sdl2/img"
@@ -10,12 +11,12 @@ import (
 )
 
 type confirmationMessageSettings struct {
-	Margins          padding
+	Margins          internal.Padding
 	MessageText      string
-	MessageAlign     TextAlign
+	MessageAlign     internal.TextAlign
 	ButtonSpacing    int32
-	ConfirmButton    InternalButton
-	CancelButton     InternalButton
+	ConfirmButton    internal.VirtualButton
+	CancelButton     internal.VirtualButton
 	ImagePath        string
 	MaxImageHeight   int32
 	MaxImageWidth    int32
@@ -29,8 +30,8 @@ type confirmationMessageSettings struct {
 
 type MessageOptions struct {
 	ImagePath     string
-	ConfirmButton InternalButton
-	CancelButton  InternalButton
+	ConfirmButton internal.VirtualButton
+	CancelButton  internal.VirtualButton
 }
 
 type ConfirmationMessageReturn struct {
@@ -39,22 +40,22 @@ type ConfirmationMessageReturn struct {
 
 func defaultMessageSettings(message string) confirmationMessageSettings {
 	return confirmationMessageSettings{
-		Margins:          uniformPadding(20),
+		Margins:          internal.UniformPadding(20),
 		MessageText:      message,
-		MessageAlign:     TextAlignCenter,
+		MessageAlign:     internal.TextAlignCenter,
 		ButtonSpacing:    20,
-		ConfirmButton:    InternalButtonA,
-		CancelButton:     InternalButtonB,
+		ConfirmButton:    internal.VirtualButtonA,
+		CancelButton:     internal.VirtualButtonB,
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
 		MessageTextColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 		FooterTextColor:  sdl.Color{R: 180, G: 180, B: 180, A: 255},
-		InputDelay:       DefaultInputDelay,
+		InputDelay:       internal.DefaultInputDelay,
 		FooterHelpItems:  []FooterHelpItem{},
 	}
 }
 
 func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[ConfirmationMessageReturn], error) {
-	window := GetWindow()
+	window := internal.GetWindow()
 	renderer := window.Renderer
 
 	settings := defaultMessageSettings(message)
@@ -66,11 +67,11 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		settings.MaxImageHeight = int32(float64(window.GetHeight()) / 1.75)
 	}
 
-	if options.ConfirmButton != InternalButtonUnassigned {
+	if options.ConfirmButton != internal.VirtualButtonUnassigned {
 		settings.ConfirmButton = options.ConfirmButton
 	}
 
-	if options.CancelButton != InternalButtonUnassigned {
+	if options.CancelButton != internal.VirtualButtonUnassigned {
 		settings.CancelButton = options.CancelButton
 	}
 
@@ -132,7 +133,7 @@ func loadAndPrepareImage(renderer *sdl.Renderer, settings confirmationMessageSet
 }
 
 func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, settings confirmationMessageSettings) bool {
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
@@ -153,7 +154,7 @@ func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, s
 			*lastInputTime = time.Now()
 
 			switch inputEvent.Button {
-			case settings.ConfirmButton, InternalButtonStart:
+			case settings.ConfirmButton, internal.VirtualButtonStart:
 				result.Cancelled = false
 				return false
 			case settings.CancelButton:
@@ -169,7 +170,7 @@ func isInputAllowed(lastInputTime time.Time, inputDelay time.Duration) bool {
 	return time.Since(lastInputTime) >= inputDelay
 }
 
-func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMessageSettings, imageTexture *sdl.Texture, imageRect sdl.Rect) {
+func renderFrame(renderer *sdl.Renderer, window *internal.Window, settings confirmationMessageSettings, imageTexture *sdl.Texture, imageRect sdl.Rect) {
 	renderer.SetDrawColor(
 		settings.BackgroundColor.R,
 		settings.BackgroundColor.G,
@@ -197,19 +198,20 @@ func renderFrame(renderer *sdl.Renderer, window *Window, settings confirmationMe
 
 	if len(settings.MessageText) > 0 {
 		centerX := windowWidth / 2
-		renderMultilineText(
+		internal.RenderMultilineText(
 			renderer,
 			settings.MessageText,
-			fonts.smallFont,
+			internal.Fonts.SmallFont,
 			responsiveMaxWidth,
 			centerX,
 			startY,
-			settings.MessageTextColor)
+			settings.MessageTextColor,
+			internal.TextAlignCenter)
 	}
 
 	renderFooter(
 		renderer,
-		fonts.smallFont,
+		internal.Fonts.SmallFont,
 		settings.FooterHelpItems,
 		settings.Margins.Bottom,
 		false,

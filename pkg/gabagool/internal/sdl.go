@@ -1,9 +1,8 @@
-package gabagool
+package internal
 
 import (
 	"os"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -28,7 +27,7 @@ func Init(title string, showBackground bool) {
 
 	initFonts(GetConfig())
 
-	if !core.IsDevMode() {
+	if !IsDevMode() {
 		window.initPowerButtonHandling()
 	}
 }
@@ -36,6 +35,7 @@ func Init(title string, showBackground bool) {
 func SDLCleanup() {
 	window.closeWindow()
 	CloseAllControllers()
+	closeFonts()
 	ttf.Quit()
 	img.Quit()
 	sdl.Quit()

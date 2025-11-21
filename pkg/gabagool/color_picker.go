@@ -3,7 +3,7 @@ package gabagool
 import (
 	"math"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -23,7 +23,7 @@ type ColorPicker struct {
 }
 
 // NewHexColorPicker creates a new grid-based color picker centered on screen
-func NewHexColorPicker(window *Window) *ColorPicker {
+func NewHexColorPicker(window *internal.Window) *ColorPicker {
 	// Center on screen
 	x := window.GetWidth() / 2
 	y := window.GetHeight() / 2
@@ -121,10 +121,10 @@ func (h *ColorPicker) Draw(renderer *sdl.Renderer) {
 		H: bgRect.H + 4,
 	}
 	renderer.SetDrawColor(
-		core.GetTheme().PrimaryAccentColor.R,
-		core.GetTheme().PrimaryAccentColor.G,
-		core.GetTheme().PrimaryAccentColor.B,
-		core.GetTheme().PrimaryAccentColor.A,
+		internal.GetTheme().PrimaryAccentColor.R,
+		internal.GetTheme().PrimaryAccentColor.G,
+		internal.GetTheme().PrimaryAccentColor.B,
+		internal.GetTheme().PrimaryAccentColor.A,
 	)
 	renderer.DrawRect(&borderRect)
 
@@ -268,7 +268,7 @@ func (h *ColorPicker) GetSelectedColor() sdl.Color {
 	return sdl.Color{R: 255, G: 255, B: 255, A: 255}
 }
 
-// SetColors allows custom colors to be set for the picker
+// SetColors allows custom colors to be Set for the picker
 func (h *ColorPicker) SetColors(colors []sdl.Color) {
 	h.Colors = colors
 	if h.SelectedIndex >= len(h.Colors) {

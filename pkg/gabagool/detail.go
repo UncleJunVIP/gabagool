@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/ttf"
 
 	"github.com/patrickhuber/go-types"
@@ -42,7 +43,7 @@ type DetailScreenOptions struct {
 	DescriptionColor    sdl.Color
 	BackgroundColor     sdl.Color
 	EnableAction        bool
-	ActionButton        InternalButton
+	ActionButton        internal.VirtualButton
 	MaxImageHeight      int32
 	MaxImageWidth       int32
 	ShowScrollbar       bool
@@ -58,7 +59,7 @@ type DetailScreenReturn struct {
 }
 
 type detailScreenState struct {
-	window                *Window
+	window                *internal.Window
 	renderer              *sdl.Renderer
 	options               DetailScreenOptions
 	footerHelpItems       []FooterHelpItem
@@ -70,7 +71,7 @@ type detailScreenState struct {
 	lastInputTime         time.Time
 	inputDelay            time.Duration
 	slideshowStates       map[int]slideshowState
-	textureCache          *textureCache
+	textureCache          *internal.TextureCache
 	titleTexture          *sdl.Texture
 	sectionTitleTextures  []*sdl.Texture
 	metadataLabelTextures map[int][]*sdl.Texture
@@ -95,7 +96,7 @@ func DefaultInfoScreenOptions() DetailScreenOptions {
 		MetadataColor:    sdl.Color{R: 220, G: 220, B: 220, A: 255},
 		DescriptionColor: sdl.Color{R: 200, G: 200, B: 200, A: 255},
 		BackgroundColor:  sdl.Color{R: 0, G: 0, B: 0, A: 255},
-		ActionButton:     InternalButtonA,
+		ActionButton:     internal.VirtualButtonA,
 		ShowScrollbar:    true,
 		EnableAction:     false,
 	}
@@ -127,7 +128,7 @@ func NewDescriptionSection(title string, description string) Section {
 	}
 }
 
-func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, alignment TextAlign) Section {
+func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, alignment internal.TextAlign) Section {
 	return Section{
 		Type:       SectionTypeImage,
 		Title:      title,
@@ -157,7 +158,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 }
 
 func initializeDetailScreenState(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) *detailScreenState {
-	window := GetWindow()
+	window := internal.GetWindow()
 	state := &detailScreenState{
 		window:                window,
 		renderer:              window.Renderer,
@@ -166,9 +167,9 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		scrollSpeed:           85,
 		scrollAnimationSpeed:  0.15,
 		lastInputTime:         time.Now(),
-		inputDelay:            DefaultInputDelay,
+		inputDelay:            internal.DefaultInputDelay,
 		slideshowStates:       make(map[int]slideshowState),
-		textureCache:          newTextureCache(),
+		textureCache:          internal.NewTextureCache(),
 		metadataLabelTextures: make(map[int][]*sdl.Texture),
 		repeatDelay:           time.Millisecond * 100,
 		repeatInterval:        time.Millisecond * 100,
@@ -195,18 +196,18 @@ func (s *detailScreenState) initializeImageDefaults() {
 }
 
 func (s *detailScreenState) loadTextures(title string) {
-	s.titleTexture = renderText(s.renderer, title, fonts.largeFont, s.options.TitleColor)
+	s.titleTexture = renderText(s.renderer, title, internal.Fonts.LargeFont, s.options.TitleColor)
 	s.sectionTitleTextures = make([]*sdl.Texture, len(s.options.Sections))
 
 	for i, section := range s.options.Sections {
 		if section.Title != "" {
-			s.sectionTitleTextures[i] = renderText(s.renderer, section.Title, fonts.mediumFont, s.options.TitleColor)
+			s.sectionTitleTextures[i] = renderText(s.renderer, section.Title, internal.Fonts.MediumFont, s.options.TitleColor)
 		}
 
 		if section.Type == SectionTypeInfo {
 			labelTextures := make([]*sdl.Texture, len(section.Metadata))
 			for j, item := range section.Metadata {
-				labelTextures[j] = renderText(s.renderer, item.Label+":", fonts.smallFont, s.options.MetadataColor)
+				labelTextures[j] = renderText(s.renderer, item.Label+":", internal.Fonts.SmallFont, s.options.MetadataColor)
 			}
 			s.metadataLabelTextures[i] = labelTextures
 		}
@@ -259,7 +260,7 @@ func (s *detailScreenState) createSlideshowState(section Section) slideshowState
 
 func (s *detailScreenState) loadAndScaleImage(imagePath string, maxWidth, maxHeight int32, section Section) (*sdl.Texture, sdl.Rect) {
 	image, err := img.Load(imagePath)
-	if err != nil {
+	if err != nil || image == nil {
 		return nil, sdl.Rect{}
 	}
 	defer image.Free()
@@ -294,11 +295,11 @@ func (s *detailScreenState) calculateScaledDimensions(originalW, originalH, maxW
 
 func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32 {
 	if section.Type == SectionTypeImage {
-		alignment := TextAlign(section.Alignment)
+		alignment := internal.TextAlign(section.Alignment)
 		switch alignment {
-		case TextAlignLeft:
+		case internal.TextAlignLeft:
 			return 20
-		case TextAlignRight:
+		case internal.TextAlignRight:
 			return s.window.GetWidth() - 20 - imageW
 		default:
 			return (s.window.GetWidth() - imageW) / 2
@@ -312,7 +313,7 @@ func (s *detailScreenState) isFinished() bool {
 }
 
 func (s *detailScreenState) handleEvents() {
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
@@ -334,25 +335,25 @@ func (s *detailScreenState) handleEvents() {
 	}
 }
 
-func (s *detailScreenState) handleInputEvent(inputEvent *InputEvent) {
+func (s *detailScreenState) handleInputEvent(inputEvent *internal.Event) {
 	if !s.isInputAllowed() {
 		return
 	}
 	s.lastInputTime = time.Now()
 
 	switch inputEvent.Button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		s.startScrolling(true)
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		s.startScrolling(false)
-	case InternalButtonLeft, InternalButtonRight:
-		s.handleSlideshowNavigation(inputEvent.Button == InternalButtonLeft)
-	case InternalButtonB:
+	case internal.VirtualButtonLeft, internal.VirtualButtonRight:
+		s.handleSlideshowNavigation(inputEvent.Button == internal.VirtualButtonLeft)
+	case internal.VirtualButtonB:
 		s.result.Cancelled = true
-	case s.options.ActionButton, InternalButtonA, InternalButtonStart:
+	case s.options.ActionButton, internal.VirtualButtonA, internal.VirtualButtonStart:
 		s.result.Cancelled = false
 		s.result.ConfirmTriggered = true
-	case InternalButtonX:
+	case internal.VirtualButtonX:
 		if s.options.EnableAction {
 			s.result.Cancelled = false
 			s.result.ActionTriggered = true
@@ -360,11 +361,11 @@ func (s *detailScreenState) handleInputEvent(inputEvent *InputEvent) {
 	}
 }
 
-func (s *detailScreenState) handleInputEventRelease(inputEvent *InputEvent) {
+func (s *detailScreenState) handleInputEventRelease(inputEvent *internal.Event) {
 	switch inputEvent.Button {
-	case InternalButtonUp:
+	case internal.VirtualButtonUp:
 		s.heldDirections.up = false
-	case InternalButtonDown:
+	case internal.VirtualButtonDown:
 		s.heldDirections.down = false
 	}
 }
@@ -376,10 +377,10 @@ func (s *detailScreenState) isInputAllowed() bool {
 func (s *detailScreenState) startScrolling(up bool) {
 	if up {
 		s.heldDirections.up = true
-		s.targetScrollY = max32(0, s.targetScrollY-s.scrollSpeed)
+		s.targetScrollY = internal.Max32(0, s.targetScrollY-s.scrollSpeed)
 	} else {
 		s.heldDirections.down = true
-		s.targetScrollY = min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
+		s.targetScrollY = internal.Min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 	}
 	s.lastRepeatTime = time.Now()
 }
@@ -419,10 +420,10 @@ func (s *detailScreenState) handleDirectionalRepeats() {
 	}
 
 	if s.heldDirections.up {
-		s.targetScrollY = max32(0, s.targetScrollY-s.scrollSpeed)
+		s.targetScrollY = internal.Max32(0, s.targetScrollY-s.scrollSpeed)
 		s.lastRepeatTime = now
 	} else if s.heldDirections.down {
-		s.targetScrollY = min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
+		s.targetScrollY = internal.Min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 		s.lastRepeatTime = now
 	}
 }
@@ -430,7 +431,7 @@ func (s *detailScreenState) handleDirectionalRepeats() {
 func (s *detailScreenState) render() {
 	s.clearScreen()
 
-	margins := uniformPadding(20)
+	margins := internal.UniformPadding(20)
 	footerHeight := int32(30)
 	safeAreaHeight := s.window.GetHeight() - footerHeight
 
@@ -457,14 +458,14 @@ func (s *detailScreenState) clearScreen() {
 	}
 }
 
-func (s *detailScreenState) renderTitle(margins padding) int32 {
+func (s *detailScreenState) renderTitle(margins internal.Padding) int32 {
 	if s.titleTexture == nil {
-		return margins.Top + DefaultTitleSpacing - s.scrollY
+		return margins.Top + internal.DefaultTitleSpacing - s.scrollY
 	}
 
 	_, _, titleW, titleH, err := s.titleTexture.Query()
 	if err != nil {
-		return margins.Top + DefaultTitleSpacing - s.scrollY
+		return margins.Top + internal.DefaultTitleSpacing - s.scrollY
 	}
 
 	titleRect := sdl.Rect{
@@ -478,10 +479,10 @@ func (s *detailScreenState) renderTitle(margins padding) int32 {
 		s.renderer.Copy(s.titleTexture, nil, &titleRect)
 	}
 
-	return margins.Top + titleH + DefaultTitleSpacing - s.scrollY
+	return margins.Top + titleH + internal.DefaultTitleSpacing - s.scrollY
 }
 
-func (s *detailScreenState) renderSections(margins padding, startY int32, safeAreaHeight int32) (int32, int32) {
+func (s *detailScreenState) renderSections(margins internal.Padding, startY int32, safeAreaHeight int32) (int32, int32) {
 	currentY := startY
 	contentWidth := s.window.GetWidth() - (margins.Left + margins.Right)
 
@@ -501,7 +502,7 @@ func (s *detailScreenState) renderSections(margins padding, startY int32, safeAr
 	return currentY, currentY + s.scrollY + margins.Bottom
 }
 
-func (s *detailScreenState) renderSectionTitle(sectionIndex int, margins padding, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderSectionTitle(sectionIndex int, margins internal.Padding, currentY int32, safeAreaHeight int32) int32 {
 	if sectionIndex >= len(s.sectionTitleTextures) || s.sectionTitleTextures[sectionIndex] == nil {
 		return currentY
 	}
@@ -526,7 +527,7 @@ func (s *detailScreenState) renderSectionTitle(sectionIndex int, margins padding
 	return currentY + titleH + 15
 }
 
-func (s *detailScreenState) renderSectionDivider(margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderSectionDivider(margins internal.Padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
 	if isLineVisible(currentY, safeAreaHeight) {
 		s.renderer.SetDrawColor(80, 80, 80, 255)
 		s.renderer.DrawLine(margins.Left, currentY, margins.Left+contentWidth, currentY)
@@ -534,7 +535,7 @@ func (s *detailScreenState) renderSectionDivider(margins padding, contentWidth, 
 	return currentY + 15
 }
 
-func (s *detailScreenState) renderSectionContent(sectionIndex int, section Section, margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderSectionContent(sectionIndex int, section Section, margins internal.Padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
 	switch section.Type {
 	case SectionTypeSlideshow:
 		return s.renderSlideshow(sectionIndex, currentY, safeAreaHeight)
@@ -617,7 +618,7 @@ func (s *detailScreenState) renderImage(sectionIndex int, currentY int32, safeAr
 	return currentY + imageRect.H + 15
 }
 
-func (s *detailScreenState) renderInfo(sectionIndex int, section Section, margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderInfo(sectionIndex int, section Section, margins internal.Padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
 	labelTextures, ok := s.metadataLabelTextures[sectionIndex]
 	if !ok {
 		return currentY
@@ -634,7 +635,7 @@ func (s *detailScreenState) renderInfo(sectionIndex int, section Section, margin
 	return currentY + 5
 }
 
-func (s *detailScreenState) renderMetadataItem(labelTexture *sdl.Texture, item MetadataItem, margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderMetadataItem(labelTexture *sdl.Texture, item MetadataItem, margins internal.Padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
 	_, _, labelWidth, labelHeight, _ := labelTexture.Query()
 	labelRect := sdl.Rect{
 		X: margins.Left,
@@ -650,51 +651,51 @@ func (s *detailScreenState) renderMetadataItem(labelTexture *sdl.Texture, item M
 	if item.Value != "" {
 		valueX := margins.Left + labelWidth + 10
 		maxValueWidth := contentWidth - labelWidth - 10
-		valueHeight := calculateMultilineTextHeight(item.Value, fonts.smallFont, maxValueWidth)
+		valueHeight := calculateMultilineTextHeight(item.Value, internal.Fonts.SmallFont, maxValueWidth)
 
 		if valueHeight > 0 && isRectVisible(sdl.Rect{X: valueX, Y: currentY, W: maxValueWidth, H: valueHeight}, safeAreaHeight) {
-			renderMultilineTextOptimized(
+			internal.RenderMultilineTextWithCache(
 				s.renderer,
 				item.Value,
-				fonts.smallFont,
+				internal.Fonts.SmallFont,
 				maxValueWidth,
 				valueX,
 				currentY,
 				s.options.MetadataColor,
-				TextAlignLeft,
+				internal.TextAlignLeft,
 				s.textureCache)
 		}
 
-		return currentY + max32(labelHeight, valueHeight) + 10
+		return currentY + internal.Max32(labelHeight, valueHeight) + 10
 	}
 
 	return currentY + labelHeight + 10
 }
 
-func (s *detailScreenState) renderDescription(section Section, margins padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
+func (s *detailScreenState) renderDescription(section Section, margins internal.Padding, contentWidth, currentY int32, safeAreaHeight int32) int32 {
 	if section.Description == "" {
 		return currentY
 	}
 
-	descHeight := calculateMultilineTextHeight(section.Description, fonts.smallFont, contentWidth)
+	descHeight := calculateMultilineTextHeight(section.Description, internal.Fonts.SmallFont, contentWidth)
 	if descHeight > 0 && isRectVisible(sdl.Rect{X: margins.Left, Y: currentY, W: contentWidth, H: descHeight}, safeAreaHeight) {
-		renderMultilineTextOptimized(
+		internal.RenderMultilineTextWithCache(
 			s.renderer,
 			section.Description,
-			fonts.smallFont,
+			internal.Fonts.SmallFont,
 			contentWidth,
 			margins.Left,
 			currentY,
 			s.options.DescriptionColor,
-			TextAlignLeft,
+			internal.TextAlignLeft,
 			s.textureCache)
 	}
 
 	return currentY + descHeight + 15
 }
 
-func (s *detailScreenState) updateScrollLimits(totalContentHeight int32, safeAreaHeight int32, margins padding) {
-	s.maxScrollY = max32(0, totalContentHeight-safeAreaHeight+margins.Bottom)
+func (s *detailScreenState) updateScrollLimits(totalContentHeight int32, safeAreaHeight int32, margins internal.Padding) {
+	s.maxScrollY = internal.Max32(0, totalContentHeight-safeAreaHeight+margins.Bottom)
 }
 
 func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
@@ -704,7 +705,7 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 
 	scrollbarWidth := int32(10)
 	scrollbarHeight := int32(float64(safeAreaHeight) * float64(safeAreaHeight) / float64(s.maxScrollY+safeAreaHeight))
-	scrollbarHeight = max32(scrollbarHeight, 30)
+	scrollbarHeight = internal.Max32(scrollbarHeight, 30)
 
 	scrollbarY := int32(float64(s.scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(s.maxScrollY))
 
@@ -725,14 +726,14 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 		W: scrollbarWidth,
 		H: scrollbarHeight,
 	}
-	drawRoundedRect(s.renderer, scrollbarRect, 4, sdl.Color{R: 100, G: 100, B: 100, A: 200})
+	internal.DrawRoundedRect(s.renderer, scrollbarRect, 4, sdl.Color{R: 100, G: 100, B: 100, A: 200})
 }
 
-func (s *detailScreenState) renderFooter(margins padding) {
+func (s *detailScreenState) renderFooter(margins internal.Padding) {
 	if len(s.footerHelpItems) > 0 {
 		renderFooter(
 			s.renderer,
-			fonts.smallFont,
+			internal.Fonts.SmallFont,
 			s.footerHelpItems,
 			margins.Bottom,
 			false,
@@ -741,7 +742,7 @@ func (s *detailScreenState) renderFooter(margins padding) {
 }
 
 func (s *detailScreenState) delay() {
-	if abs32(s.scrollY-s.targetScrollY) > 3 {
+	if internal.Abs32(s.scrollY-s.targetScrollY) > 3 {
 		sdl.Delay(8)
 	} else {
 		sdl.Delay(16)
@@ -749,7 +750,7 @@ func (s *detailScreenState) delay() {
 }
 
 func (s *detailScreenState) cleanup() {
-	s.textureCache.destroy()
+	s.textureCache.Destroy()
 
 	if s.titleTexture != nil {
 		s.titleTexture.Destroy()
@@ -793,146 +794,6 @@ func renderText(renderer *sdl.Renderer, text string, font *ttf.Font, color sdl.C
 	}
 
 	return texture
-}
-
-func renderMultilineTextOptimized(
-	renderer *sdl.Renderer,
-	text string,
-	font *ttf.Font,
-	maxWidth int32,
-	x, y int32,
-	color sdl.Color,
-	align TextAlign,
-	cache *textureCache) {
-
-	if text == "" {
-		return
-	}
-
-	_, fontHeight, err := font.SizeUTF8("Aj")
-	if err != nil {
-		fontHeight = 20
-	}
-
-	lineSpacing := int32(float32(fontHeight) * 0.3)
-	lineY := y
-
-	lines := strings.Split(text, "\n")
-	for _, line := range lines {
-		if line == "" {
-			lineY += int32(fontHeight) + lineSpacing
-			continue
-		}
-
-		remainingText := line
-		for len(remainingText) > 0 {
-			width, _, err := font.SizeUTF8(remainingText)
-			if err != nil || int32(width) <= maxWidth {
-				cacheKey := "line_" + remainingText + "_" + string(color.R) + string(color.G) + string(color.B)
-				lineTexture := cache.get(cacheKey)
-
-				if lineTexture == nil {
-					lineSurface, err := font.RenderUTF8Blended(remainingText, color)
-					if err == nil {
-						lineTexture, err = renderer.CreateTextureFromSurface(lineSurface)
-						lineSurface.Free()
-
-						if err == nil {
-							cache.set(cacheKey, lineTexture)
-						}
-					}
-				}
-
-				if lineTexture != nil {
-					_, _, lineW, lineH, _ := lineTexture.Query()
-
-					var lineX int32
-					switch align {
-					case TextAlignCenter:
-						lineX = x + (maxWidth-lineW)/2
-					case TextAlignRight:
-						lineX = x + maxWidth - lineW
-					default:
-						lineX = x
-					}
-
-					lineRect := &sdl.Rect{
-						X: lineX,
-						Y: lineY,
-						W: lineW,
-						H: lineH,
-					}
-
-					renderer.Copy(lineTexture, nil, lineRect)
-				}
-
-				lineY += int32(fontHeight) + lineSpacing
-				break
-			}
-
-			charsPerLine := int(float32(len(remainingText)) * float32(maxWidth) / float32(width))
-			if charsPerLine <= 0 {
-				charsPerLine = 1
-			}
-
-			if charsPerLine < len(remainingText) {
-				for i := charsPerLine; i > 0; i-- {
-					if i < len(remainingText) && remainingText[i] == ' ' {
-						charsPerLine = i
-						break
-					}
-				}
-			}
-
-			lineText := remainingText[:min(charsPerLine, len(remainingText))]
-			cacheKey := "line_" + lineText + "_" + string(color.R) + string(color.G) + string(color.B)
-			lineTexture := cache.get(cacheKey)
-
-			if lineTexture == nil {
-				lineSurface, err := font.RenderUTF8Blended(lineText, color)
-				if err == nil {
-					lineTexture, err = renderer.CreateTextureFromSurface(lineSurface)
-					lineSurface.Free()
-
-					if err == nil {
-						cache.set(cacheKey, lineTexture)
-					}
-				}
-			}
-
-			if lineTexture != nil {
-				_, _, lineW, lineH, _ := lineTexture.Query()
-
-				var lineX int32
-				switch align {
-				case TextAlignCenter:
-					lineX = x + (maxWidth-lineW)/2
-				case TextAlignRight:
-					lineX = x + maxWidth - lineW
-				default:
-					lineX = x
-				}
-
-				lineRect := &sdl.Rect{
-					X: lineX,
-					Y: lineY,
-					W: lineW,
-					H: lineH,
-				}
-
-				renderer.Copy(lineTexture, nil, lineRect)
-			}
-
-			lineY += int32(fontHeight) + lineSpacing
-
-			if charsPerLine >= len(remainingText) {
-				break
-			}
-
-			remainingText = remainingText[charsPerLine:]
-			remainingText = strings.TrimLeft(remainingText, " ")
-		}
-	}
 }
 
 func isRectVisible(rect sdl.Rect, viewportHeight int32) bool {

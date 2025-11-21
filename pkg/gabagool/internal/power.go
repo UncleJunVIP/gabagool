@@ -1,4 +1,4 @@
-package gabagool
+package internal
 
 import (
 	"log"

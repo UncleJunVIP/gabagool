@@ -1,24 +1,23 @@
-package gabagool
+package internal
 
 import (
 	"fmt"
 	"os"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/core"
 	"github.com/veandco/go-sdl2/ttf"
 )
 
-var fonts fontsManager
+var Fonts fontsManager
 
 type fontsManager struct {
-	extraLargeFont *ttf.Font
-	largeFont      *ttf.Font
-	mediumFont     *ttf.Font
-	smallFont      *ttf.Font
+	ExtraLargeFont *ttf.Font
+	LargeFont      *ttf.Font
+	MediumFont     *ttf.Font
+	SmallFont      *ttf.Font
 	tinyFont       *ttf.Font
 	microFont      *ttf.Font
 
-	largeSymbolFont  *ttf.Font
+	LargeSymbolFont  *ttf.Font
 	mediumSymbolFont *ttf.Font
 	smallSymbolFont  *ttf.Font
 	tinySymbolFont   *ttf.Font
@@ -64,28 +63,28 @@ func initFonts(configuration *Configuration) {
 	tinySize := CalculateFontSizeForResolution(fontSizesConfig.Tiny, screenWidth)
 	microSize := CalculateFontSizeForResolution(fontSizesConfig.Micro, screenWidth)
 
-	xlFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), xlSize)
-	largeFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), largeSize)
-	mediumFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), mediumSize)
-	smallFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), smallSize)
-	tinyFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), tinySize)
-	microFont := loadFont(core.GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), microSize)
+	xlFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), xlSize)
+	LargeFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), largeSize)
+	MediumFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), mediumSize)
+	SmallFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), smallSize)
+	tinyFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), tinySize)
+	microFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), microSize)
 
-	largeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), largeSize)
+	LargeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), largeSize)
 	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), mediumSize)
 	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), smallSize)
 	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), tinySize)
 	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), microSize)
 
-	fonts = fontsManager{
-		extraLargeFont: xlFont,
-		largeFont:      largeFont,
-		mediumFont:     mediumFont,
-		smallFont:      smallFont,
+	Fonts = fontsManager{
+		ExtraLargeFont: xlFont,
+		LargeFont:      LargeFont,
+		MediumFont:     MediumFont,
+		SmallFont:      SmallFont,
 		tinyFont:       tinyFont,
 		microFont:      microFont,
 
-		largeSymbolFont:  largeSymbolFont,
+		LargeSymbolFont:  LargeSymbolFont,
 		mediumSymbolFont: mediumSymbolFont,
 		smallSymbolFont:  smallSymbolFont,
 		tinySymbolFont:   tinySymbolFont,
@@ -110,15 +109,15 @@ func loadFont(path string, fallback string, size int) *ttf.Font {
 }
 
 func closeFonts() {
-	fonts.largeFont.Close()
-	fonts.mediumFont.Close()
-	fonts.smallFont.Close()
-	fonts.tinyFont.Close()
-	fonts.microFont.Close()
+	Fonts.LargeFont.Close()
+	Fonts.MediumFont.Close()
+	Fonts.SmallFont.Close()
+	Fonts.tinyFont.Close()
+	Fonts.microFont.Close()
 
-	fonts.largeSymbolFont.Close()
-	fonts.mediumSymbolFont.Close()
-	fonts.smallSymbolFont.Close()
-	fonts.tinySymbolFont.Close()
-	fonts.microSymbolFont.Close()
+	Fonts.LargeSymbolFont.Close()
+	Fonts.mediumSymbolFont.Close()
+	Fonts.smallSymbolFont.Close()
+	Fonts.tinySymbolFont.Close()
+	Fonts.microSymbolFont.Close()
 }

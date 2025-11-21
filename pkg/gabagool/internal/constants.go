@@ -1,8 +1,17 @@
-package gabagool
+package internal
 
 import (
+	"os"
 	"time"
 )
+
+const Development = "DEV"
+
+const BackgroundPathEnvVar = "BACKGROUND_PATH"
+
+func IsDevMode() bool {
+	return os.Getenv("ENVIRONMENT") == Development
+}
 
 type TextAlign int
 

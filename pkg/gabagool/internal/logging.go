@@ -1,4 +1,4 @@
-package gabagool
+package internal
 
 import (
 	"io"
@@ -14,14 +14,14 @@ var (
 	levelVar    *slog.LevelVar
 	logFile     *os.File
 	loggerOnce  sync.Once
-	logFilename = "app.log"
+	logFilename string
 )
 
-func setLogFilename(filename string) {
+func SetFilename(filename string) {
 	logFilename = filename
 }
 
-func GetLoggerInstance() *slog.Logger {
+func GetLogger() *slog.Logger {
 	loggerOnce.Do(func() {
 		levelVar = &slog.LevelVar{}
 
@@ -47,7 +47,7 @@ func GetLoggerInstance() *slog.Logger {
 }
 
 func SetLogLevel(level slog.Level) {
-	GetLoggerInstance()
+	GetLogger()
 	levelVar.Set(level)
 }
 
@@ -67,7 +67,7 @@ func SetRawLogLevel(rawLevel string) {
 		level = slog.LevelInfo
 	}
 
-	GetLoggerInstance()
+	GetLogger()
 	levelVar.Set(level)
 }
 

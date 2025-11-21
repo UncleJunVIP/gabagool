@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/ttf"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -40,7 +41,7 @@ type downloadJob struct {
 }
 
 type downloadManager struct {
-	window             *Window
+	window             *internal.Window
 	downloads          []Download
 	downloadQueue      []*downloadJob
 	activeJobs         []*downloadJob
@@ -63,7 +64,7 @@ type downloadManager struct {
 }
 
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
-	window := GetWindow()
+	window := internal.GetWindow()
 
 	// Calculate responsive progress bar width
 	responsiveBarWidth := window.GetWidth() * 3 / 4
@@ -89,7 +90,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		progressBarX:       progressBarX,
 		scrollOffset:       0,
 		lastInputTime:      time.Now(),
-		inputDelay:         DefaultInputDelay,
+		inputDelay:         internal.DefaultInputDelay,
 	}
 }
 
@@ -109,9 +110,9 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 		return result, nil
 	}
 
-	window := GetWindow()
+	window := internal.GetWindow()
 	renderer := window.Renderer
-	processor := GetInputProcessor()
+	processor := internal.GetInputProcessor()
 
 	// Initialize the download queue
 	for _, download := range downloads {
@@ -165,7 +166,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				}
 
 				// Cancel on Y button
-				if inputEvent.Button == InternalButtonY {
+				if inputEvent.Button == internal.VirtualButtonY {
 					downloadManager.cancelAllDownloads()
 					result.Cancelled = true
 				}
@@ -377,7 +378,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(0, 0, 0, 255)
 	renderer.Clear()
 
-	font := fonts.smallFont
+	font := internal.Fonts.SmallFont
 	windowWidth := dm.window.GetWidth()
 	windowHeight := dm.window.GetHeight()
 
@@ -410,7 +411,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		}
 
 		completeSurface, err := font.RenderUTF8Blended(completeText, completeColor)
-		if err == nil {
+		if err == nil && completeSurface != nil {
 			completeTexture, err := renderer.CreateTextureFromSurface(completeSurface)
 			if err == nil {
 				centerY := (windowHeight - completeSurface.H) / 2
@@ -468,7 +469,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 	var footerHelpItems []FooterHelpItem
 	if dm.isAllComplete {
-		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "Close"})
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "CloseLogger"})
 	} else {
 		helpText := "Cancel Download"
 		if len(dm.downloads) > 1 {
@@ -477,7 +478,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "Y", HelpText: helpText})
 	}
 
-	renderFooter(renderer, fonts.smallFont, footerHelpItems, 20, true)
+	renderFooter(renderer, internal.Fonts.SmallFont, footerHelpItems, 20, true)
 }
 
 func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windowWidth int32, contentAreaStart int32, contentAreaHeight int32, filenameHeight int32, spacingBetweenFilenameAndBar int32, spacingBetweenDownloads int32, singleDownloadHeight int32) {
@@ -488,7 +489,7 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 	remainingTextHeight := int32(0)
 	totalRemaining := len(dm.activeJobs) - maxVisibleDownloads + len(dm.downloadQueue)
 	if totalRemaining > 0 {
-		remainingSurface, _ := fonts.smallFont.RenderUTF8Blended("Sample", sdl.Color{R: 150, G: 150, B: 150, A: 255})
+		remainingSurface, _ := internal.Fonts.SmallFont.RenderUTF8Blended("Sample", sdl.Color{R: 150, G: 150, B: 150, A: 255})
 		if remainingSurface != nil {
 			remainingTextHeight = remainingSurface.H + 15 // Text height + spacing
 			remainingSurface.Free()
@@ -529,8 +530,8 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 			return "s"
 		}())
 
-		remainingSurface, err := fonts.smallFont.RenderUTF8Blended(remainingText, sdl.Color{R: 150, G: 150, B: 150, A: 255})
-		if err == nil {
+		remainingSurface, err := internal.Fonts.SmallFont.RenderUTF8Blended(remainingText, sdl.Color{R: 150, G: 150, B: 150, A: 255})
+		if err == nil && remainingSurface != nil {
 			remainingTexture, err := renderer.CreateTextureFromSurface(remainingSurface)
 			if err == nil {
 				remainingY := startY + int32(maxVisibleDownloads)*(singleDownloadHeight+spacingBetweenDownloads) + 10
@@ -549,7 +550,7 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 }
 
 func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downloadJob, windowWidth int32, startY int32, filenameHeight int32, spacingBetweenFilenameAndBar int32) {
-	font := fonts.smallFont
+	font := internal.Fonts.SmallFont
 
 	// Get display name with truncation
 	var displayText string
@@ -566,9 +567,8 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 	}
 	displayText = truncateFilename(displayText, maxWidth, font)
 
-	// Render filename
 	filenameSurface, err := font.RenderUTF8Blended(displayText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if err == nil {
+	if err == nil && filenameSurface != nil {
 		filenameTexture, err := renderer.CreateTextureFromSurface(filenameSurface)
 		if err == nil {
 			filenameRect := &sdl.Rect{
@@ -618,7 +618,7 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 	}
 
 	percentSurface, err := font.RenderUTF8Blended(percentText, sdl.Color{R: 255, G: 255, B: 255, A: 255})
-	if err == nil {
+	if err == nil && percentSurface != nil {
 		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
 		if err == nil {
 			// Center text inside progress bar

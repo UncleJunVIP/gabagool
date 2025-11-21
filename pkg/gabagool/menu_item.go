@@ -7,7 +7,7 @@ type MenuItem struct {
 	NotMultiSelectable bool
 	Metadata           interface{}
 	ImageFilename      string
-	BackgroundFilename	string
+	BackgroundFilename string
 }
 
 type ListReturn struct {
@@ -17,7 +17,6 @@ type ListReturn struct {
 	SelectedIndices []int
 	SelectedItems   []*MenuItem
 	VisiblePosition int
-	LastPressedBtn  Button
 	ActionTriggered bool
 }
 
