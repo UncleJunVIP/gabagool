@@ -12,7 +12,9 @@ import (
 type Options struct {
 	WindowTitle          string
 	ShowBackground       bool
+	PrimaryThemeColorHex uint32
 	IsCannoli            bool
+	IsNextUI             bool
 	ControllerConfigFile string
 	LogFilename          string
 }
@@ -30,10 +32,19 @@ func Init(options Options) {
 
 	config := internal.GetConfig()
 
-	if options.IsCannoli {
+	if options.IsNextUI {
+		theme := nextui.InitNextUITheme()
+		internal.SetTheme(theme)
+	} else if options.IsCannoli {
 		internal.SetTheme(cannoli.InitCannoliTheme(config.Theme.DefaultFontPath))
 	} else {
-		internal.SetTheme(nextui.InitNextUITheme())
+		internal.SetTheme(cannoli.InitCannoliTheme(config.Theme.DefaultFontPath)) // TODO fix this
+	}
+
+	if options.PrimaryThemeColorHex != 0 && !options.IsNextUI {
+		theme := internal.GetTheme()
+		theme.PrimaryAccentColor = internal.HexToColor(options.PrimaryThemeColorHex)
+		internal.SetTheme(theme)
 	}
 
 	internal.Init(options.WindowTitle, options.ShowBackground)

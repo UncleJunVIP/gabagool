@@ -15,5 +15,4 @@ func InitCannoliTheme(fontPath string) internal.Theme {
 		BGColor:               internal.HexToColor(0xFFFFFF),
 		FontPath:              fontPath,
 	}
-
 }
