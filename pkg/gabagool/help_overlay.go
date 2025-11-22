@@ -158,7 +158,7 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 
 	exitText := "Press any button to close help"
 	exitSurface, err := font.RenderUTF8Blended(exitText, h.TextColor)
-	if err == nil {
+	if err == nil && exitSurface != nil {
 		exitTexture, err := renderer.CreateTextureFromSurface(exitSurface)
 		if err == nil {
 			exitRect := &sdl.Rect{
@@ -175,7 +175,6 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 }
 
 func (h *helpOverlay) calculateMaxScroll() {
-	// Calculate the same way as contentHeight in render()
 	contentY := h.Padding + h.LineHeight*2
 	contentHeight := h.Height - contentY - h.Padding - h.LineHeight - h.ExitTextPadding*7
 
@@ -206,7 +205,6 @@ func (h *helpOverlay) scroll(direction int) {
 	h.ScrollOffset = newOffset
 }
 
-// Help overlay input handling
 func (h *helpOverlay) handleInput(event interface{}) bool {
 	processor := internal.GetInputProcessor()
 	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -225,21 +223,10 @@ func (h *helpOverlay) handleInput(event interface{}) bool {
 		h.scroll(1)
 		return true
 	case constants.VirtualButtonMenu, constants.VirtualButtonB:
-		return false // Signal to close help
+		return false
 	default:
 		return false
 	}
-}
-
-func (lc *listController) handleHelpScreenInput(event interface{}) bool {
-	if lc.helpOverlay != nil {
-		shouldClose := !lc.helpOverlay.handleInput(event)
-		if shouldClose {
-			lc.ShowingHelp = false
-		}
-		return true
-	}
-	return false
 }
 
 func (h *helpOverlay) toggle() {

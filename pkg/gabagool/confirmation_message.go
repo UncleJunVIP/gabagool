@@ -11,6 +11,15 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type MessageOptions struct {
+	ImagePath     string
+	ConfirmButton constants.VirtualButton
+	CancelButton  constants.VirtualButton
+}
+type ConfirmationMessageReturn struct {
+	Cancelled bool
+}
+
 type confirmationMessageSettings struct {
 	Margins          internal.Padding
 	MessageText      string
@@ -27,16 +36,6 @@ type confirmationMessageSettings struct {
 	FooterHelpItems  []FooterHelpItem
 	FooterTextColor  sdl.Color
 	InputDelay       time.Duration
-}
-
-type MessageOptions struct {
-	ImagePath     string
-	ConfirmButton constants.VirtualButton
-	CancelButton  constants.VirtualButton
-}
-
-type ConfirmationMessageReturn struct {
-	Cancelled bool
 }
 
 func defaultMessageSettings(message string) confirmationMessageSettings {
@@ -179,12 +178,11 @@ func renderFrame(renderer *sdl.Renderer, window *internal.Window, settings confi
 		settings.BackgroundColor.A)
 	renderer.Clear()
 
-	// Calculate responsive max width based on screen size
 	windowWidth := window.GetWidth()
 	windowHeight := window.GetHeight()
-	responsiveMaxWidth := int32(float64(windowWidth) * 0.75) // Use 75% of screen width
+	responsiveMaxWidth := int32(float64(windowWidth) * 0.75)
 	if responsiveMaxWidth > 800 {
-		responsiveMaxWidth = 800 // Cap max width for very large screens
+		responsiveMaxWidth = 800
 	}
 
 	contentHeight := calculateContentHeight(settings, imageRect)

@@ -181,7 +181,7 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 	enterWidth := keyWidth + keyWidth/2
 	spaceWidth := keyWidth * 8
 
-	// Calculate the maximum row width to determine consistent left margin
+	// Calculate the maximum row width to determine a consistent left margin
 	// Row 1: 10 regular keys + backspace
 	row1Width := keyWidth*10 + keySpacing*9 + backspaceWidth + keySpacing
 	// Row 2: 10 regular keys
@@ -205,7 +205,7 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 		maxRowWidth = row4Width
 	}
 
-	// Calculate consistent left margin for all rows
+	// Calculate a consistent left margin for all rows
 	leftMargin := startX + (keyboardWidth-maxRowWidth)/2
 
 	y := keyboardStartY + keySpacing
@@ -432,7 +432,7 @@ func (kb *virtualKeyboard) findCurrentPosition(layout *keyLayout) (int, int) {
 		}
 	}
 
-	return 0, 0 // Default position
+	return 0, 0
 }
 
 func (kb *virtualKeyboard) moveUp(layout *keyLayout, row, col int) (int, int) {
@@ -647,7 +647,6 @@ func (kb *virtualKeyboard) render(renderer *sdl.Renderer, font *ttf.Font) {
 }
 
 func (kb *virtualKeyboard) renderTextInput(renderer *sdl.Renderer, font *ttf.Font) {
-	// Background
 	renderer.SetDrawColor(50, 50, 50, 255)
 	renderer.FillRect(&kb.TextInputRect)
 	renderer.SetDrawColor(200, 200, 200, 255)
@@ -710,7 +709,6 @@ func (kb *virtualKeyboard) renderTextWithCursor(renderer *sdl.Renderer, font *tt
 }
 
 func (kb *virtualKeyboard) renderEmptyCursor(renderer *sdl.Renderer, font *ttf.Font, padding int32) {
-	// Get font height for consistent cursor size
 	fontHeight := font.Height()
 
 	cursorRect := sdl.Rect{
@@ -763,7 +761,6 @@ func (kb *virtualKeyboard) renderKeys(renderer *sdl.Renderer, font *ttf.Font) {
 }
 
 func (kb *virtualKeyboard) renderSingleKey(renderer *sdl.Renderer, font *ttf.Font, index int, key key) {
-	// Background
 	bgColor := sdl.Color{R: 50, G: 50, B: 60, A: 255}
 	if index == kb.SelectedKeyIndex {
 		bgColor = sdl.Color{R: 100, G: 100, B: 240, A: 255}
@@ -776,7 +773,6 @@ func (kb *virtualKeyboard) renderSingleKey(renderer *sdl.Renderer, font *ttf.Fon
 	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&key.Rect)
 
-	// Text
 	keyValue := kb.getKeyValue(index)
 	kb.renderKeyText(renderer, font, keyValue, key.Rect)
 }
@@ -856,7 +852,7 @@ func (kb *virtualKeyboard) renderSpaceKey(renderer *sdl.Renderer) {
 	renderer.SetDrawColor(70, 70, 80, 255)
 	renderer.DrawRect(&kb.SpaceRect)
 
-	// Draw space bar indicator
+	// draw space bar indicator
 	lineWidth := kb.SpaceRect.W / 3
 	lineHeight := int32(4)
 	lineRect := sdl.Rect{

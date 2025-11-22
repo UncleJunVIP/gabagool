@@ -68,8 +68,8 @@ func DefaultListOptions(title string, items []MenuItem) ListOptions {
 		ScrollSpeed:       4.0,
 		ScrollPauseTime:   1250,
 		InputDelay:        constants.DefaultInputDelay,
-		MultiSelectButton: constants.VirtualButtonSelect, // New default
-		ReorderButton:     constants.VirtualButtonSelect, // New default
+		MultiSelectButton: constants.VirtualButtonSelect,
+		ReorderButton:     constants.VirtualButtonSelect,
 		EmptyMessage:      "No items available",
 		EmptyMessageColor: sdl.Color{R: 255, G: 255, B: 255, A: 255},
 	}
@@ -133,13 +133,11 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 	renderer := window.Renderer
 
 	if options.MaxVisibleItems <= 0 {
-		// This will be Set dynamically based on window size
-		options.MaxVisibleItems = 9 // fallback default
+		options.MaxVisibleItems = 9
 	}
 
 	lc := newListController(options)
 
-	// Calculate and Set MaxVisibleItems based on window size
 	lc.Options.MaxVisibleItems = int(lc.calculateMaxVisibleItems(window))
 
 	if options.SelectedIndex > 0 {
@@ -157,12 +155,10 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 				lc.handleInput(event, &running, &result)
 			case *sdl.WindowEvent:
-				// Handle window resize events
 				we := event.(*sdl.WindowEvent)
 				if we.Event == sdl.WINDOWEVENT_RESIZED {
 					newMaxItems := lc.calculateMaxVisibleItems(window)
 					lc.Options.MaxVisibleItems = int(newMaxItems)
-					// Recalculate visibility if selection is out of bounds
 					if lc.Options.SelectedIndex >= lc.Options.VisibleStartIndex+lc.Options.MaxVisibleItems {
 						lc.scrollTo(lc.Options.SelectedIndex)
 					}
@@ -178,7 +174,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 
 		lc.render(window)
 		renderer.Present()
-		sdl.Delay(8)
+		sdl.Delay(16)
 	}
 
 	result.Items = lc.Options.Items
@@ -188,7 +184,6 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 func (lc *listController) handleInput(event interface{}, running *bool, result *ListReturn) {
 	processor := internal.GetInputProcessor()
 
-	// Process raw SDL event through the input processor
 	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
 	if inputEvent == nil {
 		return
@@ -203,18 +198,15 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 		return
 	}
 
-	// Exit reorder mode on non-directional input
 	if lc.ReorderMode && !lc.isDirectionalInput(inputEvent.Button) {
 		lc.ReorderMode = false
 		return
 	}
 
-	// Handle navigation
 	if lc.handleNavigation(inputEvent.Button) {
 		return
 	}
 
-	// Handle action buttons
 	lc.handleActionButtons(inputEvent.Button, running, result)
 }
 
@@ -238,24 +230,6 @@ func (lc *listController) handleHelpInput(button constants.VirtualButton) {
 func (lc *listController) isDirectionalInput(button constants.VirtualButton) bool {
 	return button == constants.VirtualButtonUp || button == constants.VirtualButtonDown ||
 		button == constants.VirtualButtonLeft || button == constants.VirtualButtonRight
-}
-
-func (lc *listController) updateHeldDirections(button constants.VirtualButton, pressed bool) {
-	switch button {
-	case constants.VirtualButtonUp:
-		lc.heldDirections.up = pressed
-	case constants.VirtualButtonDown:
-		lc.heldDirections.down = pressed
-	case constants.VirtualButtonLeft:
-		lc.heldDirections.left = pressed
-	case constants.VirtualButtonRight:
-		lc.heldDirections.right = pressed
-	default:
-	}
-
-	if pressed && len(lc.Options.Items) > 0 {
-		lc.lastRepeatTime = time.Now()
-	}
 }
 
 func (lc *listController) handleNavigation(button constants.VirtualButton) bool {
@@ -288,7 +262,6 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		return
 	}
 
-	// Primary action (A button)
 	if button == constants.VirtualButtonA {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleSelection(lc.Options.SelectedIndex)
@@ -298,7 +271,6 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		}
 	}
 
-	// Back button
 	if button == constants.VirtualButtonB {
 		if !lc.Options.DisableBackButton {
 			*running = false
@@ -306,7 +278,6 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		}
 	}
 
-	// Action button (X)
 	if button == constants.VirtualButtonX {
 		if lc.Options.EnableAction {
 			*running = false
@@ -326,14 +297,12 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		}
 	}
 
-	// Help
 	if button == constants.VirtualButtonMenu {
 		if lc.Options.EnableHelp {
 			lc.ShowingHelp = !lc.ShowingHelp
 		}
 	}
 
-	// Multi-select confirmation (Start)
 	if button == constants.VirtualButtonStart {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			*running = false
@@ -343,14 +312,12 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		}
 	}
 
-	// Toggle multi-select mode
 	if button == lc.Options.MultiSelectButton {
 		if lc.Options.EnableMultiSelect && len(lc.Options.Items) > 0 {
 			lc.toggleMultiSelect()
 		}
 	}
 
-	// Toggle reorder mode
 	if button == lc.Options.ReorderButton {
 		if lc.Options.EnableReordering && len(lc.Options.Items) > 0 {
 			lc.ReorderMode = !lc.ReorderMode
@@ -445,7 +412,7 @@ func (lc *listController) moveItem(delta int) {
 		return
 	}
 
-	// Handle multi-step moves for page jumps
+	// Handle multistep moves for page jumps
 	steps := delta
 	if delta > 1 || delta < -1 {
 		steps = delta / internal.Abs(delta) // Get direction
@@ -604,7 +571,7 @@ func (lc *listController) render(window *internal.Window) {
 	visibleItems := make([]MenuItem, endIndex-lc.Options.VisibleStartIndex)
 	copy(visibleItems, lc.Options.Items[lc.Options.VisibleStartIndex:endIndex])
 
-	// Add reorder indicator
+	// Add the reorder indicator
 	if lc.ReorderMode {
 		selectedIdx := lc.Options.SelectedIndex - lc.Options.VisibleStartIndex
 		if selectedIdx >= 0 && selectedIdx < len(visibleItems) {
@@ -612,7 +579,6 @@ func (lc *listController) render(window *internal.Window) {
 		}
 	}
 
-	// Render everything
 	lc.renderContent(window, visibleItems)
 
 	if lc.ShowingHelp && lc.helpOverlay != nil {
@@ -626,7 +592,6 @@ func (lc *listController) renderContent(window *internal.Window, visibleItems []
 
 	itemStartY := lc.StartY
 
-	// Render background
 	if lc.Options.EnableImages && lc.Options.SelectedIndex < len(lc.Options.Items) {
 		selectedItem := lc.Options.Items[lc.Options.SelectedIndex]
 		if selectedItem.BackgroundFilename != "" {
@@ -638,7 +603,6 @@ func (lc *listController) renderContent(window *internal.Window, visibleItems []
 		window.RenderBackground()
 	}
 
-	// Render title
 	if lc.Options.Title != "" {
 		titleFont := internal.Fonts.ExtraLargeFont
 		if lc.Options.SmallTitle {
@@ -647,19 +611,16 @@ func (lc *listController) renderContent(window *internal.Window, visibleItems []
 		itemStartY = lc.renderScrollableTitle(renderer, titleFont, lc.Options.Title, lc.Options.TitleAlign, lc.StartY, lc.Options.Margins.Left+10) + lc.Options.TitleSpacing
 	}
 
-	// Render items or empty message
 	if len(lc.Options.Items) == 0 {
 		lc.renderEmptyMessage(renderer, internal.Fonts.MediumFont, itemStartY)
 	} else {
 		lc.renderItems(renderer, internal.Fonts.SmallFont, visibleItems, itemStartY)
 	}
 
-	// Render selected item image
 	if lc.imageIsDisplayed() {
 		lc.renderSelectedItemImage(renderer, lc.Options.Items[lc.Options.SelectedIndex].ImageFilename)
 	}
 
-	// Render footer
 	renderFooter(renderer, internal.Fonts.SmallFont, lc.Options.FooterHelpItems, lc.Options.Margins.Bottom, true)
 }
 
@@ -696,7 +657,6 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 		itemY := startY + int32(i)*(pillHeight+lc.Options.ItemSpacing)
 		globalIndex := lc.Options.VisibleStartIndex + i
 
-		// Render background pill
 		if item.Selected || item.Focused {
 			_, bgColor := lc.getItemColors(item)
 			pillWidth := internal.Min32(maxPillWidth, lc.measureText(font, itemText)+pillPadding)
@@ -710,7 +670,6 @@ func (lc *listController) renderItems(renderer *sdl.Renderer, font *ttf.Font, vi
 			internal.DrawRoundedRect(renderer, &pillRect, int32(float32(30)*scaleFactor), bgColor)
 		}
 
-		// Render text (scrolling or static)
 		lc.renderItemText(renderer, font, itemText, item.Focused, globalIndex, itemY, pillHeight, maxTextWidth)
 	}
 }
@@ -842,7 +801,6 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 	_, _, textureWidth, textureHeight, _ := texture.Query()
 	screenWidth, screenHeight, _ := renderer.GetOutputSize()
 
-	// Ensure texture has valid dimensions
 	if textureWidth == 0 || textureHeight == 0 {
 		return
 	}
@@ -850,11 +808,10 @@ func (lc *listController) renderSelectedItemImage(renderer *sdl.Renderer, imageF
 	maxImageWidth := screenWidth / 3
 	maxImageHeight := screenHeight / 2
 
-	// Calculate scale using float arithmetic to avoid integer division issues
 	scaleX := float32(maxImageWidth) / float32(textureWidth)
 	scaleY := float32(maxImageHeight) / float32(textureHeight)
 
-	// Use the smaller scale to maintain aspect ratio
+	// Use the smaller scale to maintain the aspect ratio
 	scale := scaleX
 	if scaleY < scaleX {
 		scale = scaleY
@@ -1032,13 +989,6 @@ func (lc *listController) calculateMaxVisibleItems(window *internal.Window) int3
 	}
 
 	return maxItems
-}
-
-func (lc *listController) getTitleFont() *ttf.Font {
-	if lc.Options.SmallTitle {
-		return internal.Fonts.LargeFont
-	}
-	return internal.Fonts.ExtraLargeFont
 }
 
 func (lc *listController) measureText(font *ttf.Font, text string) int32 {

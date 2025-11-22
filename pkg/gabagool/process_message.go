@@ -125,7 +125,6 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 			}
 		}
 
-		// Render the process message with current progress
 		processor.render(renderer)
 		renderer.Present()
 
@@ -141,7 +140,6 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		return result, result.Error
 	}
 
-	// return the SDL error if any
 	return result, err
 }
 
@@ -177,18 +175,15 @@ func (p *processMessage) render(renderer *sdl.Renderer) {
 	maxWidth := p.window.GetWidth() * 3 / 4
 	internal.RenderMultilineText(renderer, p.message, font, maxWidth, p.window.GetWidth()/2, p.window.GetHeight()/2, sdl.Color{R: 255, G: 255, B: 255, A: 255})
 
-	// Add progress bar if requested
 	if p.showProgressBar {
 		p.renderProgressBar(renderer)
 	}
 }
 
 func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
-	// Calculate progress bar dimensions
 	windowWidth := p.window.GetWidth()
 	windowHeight := p.window.GetHeight()
 
-	// Progress bar dimensions
 	barWidth := windowWidth * 3 / 4
 	if barWidth > 900 {
 		barWidth = 900
@@ -197,7 +192,6 @@ func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
 	barX := (windowWidth - barWidth) / 2
 	barY := (windowHeight - barHeight + (int32(internal.Fonts.SmallFont.Height()) * 2)) / 2
 
-	// Progress bar background
 	renderer.SetDrawColor(50, 50, 50, 255)
 	progressBarBg := sdl.Rect{
 		X: barX,
@@ -207,7 +201,6 @@ func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
 	}
 	renderer.FillRect(&progressBarBg)
 
-	// Progress bar fill
 	progressWidth := int32(float64(barWidth) * p.progress.Load())
 
 	if progressWidth > 0 {
@@ -227,7 +220,6 @@ func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
 	if err == nil {
 		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
 		if err == nil {
-			// Center text inside progress bar
 			textX := barX + (barWidth-percentSurface.W)/2
 			textY := barY + (barHeight-percentSurface.H)/2
 

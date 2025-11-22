@@ -40,8 +40,7 @@ func renderFooter(
 			H: outerPillHeight + int32(float32(50)*scaleFactor), // Same height as the pills
 		}
 
-		// Set color to black and draw the footer background
-		renderer.SetDrawColor(0, 0, 0, 255) // Black with full opacity
+		renderer.SetDrawColor(0, 0, 0, 255)
 		renderer.FillRect(footerBackgroundRect)
 	}
 
@@ -50,7 +49,7 @@ func renderFooter(
 	var rightItems []FooterHelpItem
 	switch len(footerHelpItems) {
 	case 1:
-		// For a single item, we'll center it
+		// For a single item, center it
 		leftItems = footerHelpItems[0:1]
 	case 2:
 		leftItems = footerHelpItems[0:1]
@@ -68,7 +67,6 @@ func renderFooter(
 
 	if len(leftItems) > 0 {
 		if len(footerHelpItems) == 1 {
-			// Center the single item
 			pillWidth := calculateContinuousPillWidth(font, leftItems, outerPillHeight, innerPillMargin)
 			centerX := (windowWidth - pillWidth) / 2
 			renderGroupAsContinuousPill(renderer, font, leftItems, centerX, y, outerPillHeight, innerPillMargin)
@@ -142,7 +140,6 @@ func renderGroupAsContinuousPill(
 		H: outerPillHeight,
 	}
 
-	// Keep the rounded corners proportional but not excessive
 	cornerRadius := outerPillHeight / 2
 	internal.DrawRoundedRect(renderer, outerPillRect, cornerRadius, internal.GetTheme().PrimaryAccentColor)
 

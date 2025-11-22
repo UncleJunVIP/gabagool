@@ -115,7 +115,6 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 	renderer := window.Renderer
 	processor := internal.GetInputProcessor()
 
-	// Initialize the download queue
 	for _, download := range downloads {
 		job := &downloadJob{
 			download:   download,
@@ -127,13 +126,10 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 		downloadManager.downloadQueue = append(downloadManager.downloadQueue, job)
 	}
 
-	// Start initial downloads
 	downloadManager.startNextDownloads()
 
 	downloadManager.render(renderer)
 	renderer.Present()
-
-	sdl.Delay(100)
 
 	running := true
 	var err error
@@ -166,7 +162,6 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 					continue
 				}
 
-				// Cancel on Y button
 				if inputEvent.Button == constants.VirtualButtonY {
 					downloadManager.cancelAllDownloads()
 					result.Cancelled = true
@@ -174,15 +169,12 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 			}
 		}
 
-		// Check for completed or failed downloads
 		downloadManager.updateJobStatus()
 
-		// Start new downloads if there's room
 		if len(downloadManager.activeJobs) < downloadManager.maxActiveJobs && len(downloadManager.downloadQueue) > 0 {
 			downloadManager.startNextDownloads()
 		}
 
-		// Check if all downloads are complete
 		if len(downloadManager.activeJobs) == 0 && len(downloadManager.downloadQueue) == 0 && !downloadManager.isAllComplete {
 			downloadManager.isAllComplete = true
 
@@ -225,7 +217,7 @@ func (dm *downloadManager) startNextDownloads() {
 }
 
 func (dm *downloadManager) updateJobStatus() {
-	remaining := []*downloadJob{}
+	var remaining []*downloadJob
 
 	for _, job := range dm.activeJobs {
 		if job.isComplete {
@@ -242,7 +234,6 @@ func (dm *downloadManager) updateJobStatus() {
 }
 
 func (dm *downloadManager) cancelAllDownloads() {
-	// Cancel all active downloads
 	for _, job := range dm.activeJobs {
 		close(job.cancelChan)
 		if !job.isComplete && !job.hasError {
@@ -253,7 +244,6 @@ func (dm *downloadManager) cancelAllDownloads() {
 		}
 	}
 
-	// Mark all queued downloads as failed
 	for _, job := range dm.downloadQueue {
 		job.hasError = true
 		job.error = fmt.Errorf("download cancelled by user")
@@ -383,7 +373,6 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 	windowWidth := dm.window.GetWidth()
 	windowHeight := dm.window.GetHeight()
 
-	// No title, no footer - use full screen for content
 	contentAreaStart := int32(20)
 	contentAreaHeight := windowHeight - 20
 
@@ -428,7 +417,6 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			completeSurface.Free()
 		}
 	} else {
-		// Measure text heights
 		maxFilenameSurface, _ := font.RenderUTF8Blended("Sample", sdl.Color{R: 255, G: 255, B: 255, A: 255})
 		filenameHeight := int32(0)
 		if maxFilenameSurface != nil {
@@ -439,7 +427,6 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 		spacingBetweenFilenameAndBar := int32(5)
 		spacingBetweenDownloads := int32(25)
 
-		// More compact: filename + bar only (no separate percentage below)
 		singleDownloadHeight := filenameHeight + spacingBetweenFilenameAndBar + dm.progressBarHeight
 
 		if len(dm.activeJobs) > 0 {
@@ -483,10 +470,8 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 }
 
 func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windowWidth int32, contentAreaStart int32, contentAreaHeight int32, filenameHeight int32, spacingBetweenFilenameAndBar int32, spacingBetweenDownloads int32, singleDownloadHeight int32) {
-	// Always show max 3 concurrent downloads
 	maxVisibleDownloads := 3
 
-	// Measure remaining text height if needed
 	remainingTextHeight := int32(0)
 	totalRemaining := len(dm.activeJobs) - maxVisibleDownloads + len(dm.downloadQueue)
 	if totalRemaining > 0 {
@@ -497,20 +482,16 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 		}
 	}
 
-	// Calculate total height needed for visible downloads + remaining text
 	totalHeight := int32(maxVisibleDownloads)*singleDownloadHeight + int32(maxVisibleDownloads-1)*spacingBetweenDownloads + remainingTextHeight
 
-	// Reserve space for footer and center content
 	footerHeight := int32(80)
 	availableHeight := contentAreaHeight - footerHeight
 
-	// Center downloads vertically within available space
 	startY := contentAreaStart + (availableHeight-totalHeight)/2
 	if startY < contentAreaStart {
-		startY = contentAreaStart + 10 // Don't go above content area
+		startY = contentAreaStart + 10
 	}
 
-	// Render up to 3 active downloads
 	renderCount := 0
 	for _, job := range dm.activeJobs {
 		if renderCount >= maxVisibleDownloads {
@@ -553,7 +534,6 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downloadJob, windowWidth int32, startY int32, filenameHeight int32, spacingBetweenFilenameAndBar int32) {
 	font := internal.Fonts.SmallFont
 
-	// Get display name with truncation
 	var displayText string
 	if job.download.DisplayName != "" {
 		displayText = job.download.DisplayName
@@ -561,7 +541,6 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 		displayText = filepath.Base(job.download.Location)
 	}
 
-	// Truncate filename to fit responsively
 	maxWidth := windowWidth * 3 / 4
 	if maxWidth > 900 {
 		maxWidth = 900
@@ -584,10 +563,8 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 		filenameSurface.Free()
 	}
 
-	// Calculate progress bar Y position
 	progressBarY := startY + filenameHeight + spacingBetweenFilenameAndBar
 
-	// Render progress bar background
 	renderer.SetDrawColor(50, 50, 50, 255)
 	progressBarBg := sdl.Rect{
 		X: dm.progressBarX,
@@ -597,7 +574,6 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 	}
 	renderer.FillRect(&progressBarBg)
 
-	// Render progress bar fill
 	progressWidth := int32(float64(dm.progressBarWidth) * job.progress)
 	if progressWidth > 0 {
 		renderer.SetDrawColor(100, 150, 255, 255)
@@ -610,7 +586,6 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 		renderer.FillRect(&progressBarFill)
 	}
 
-	// Render percentage text INSIDE the progress bar
 	percentText := fmt.Sprintf("%.0f%%", job.progress*100)
 	if job.totalSize > 0 {
 		downloadedMB := float64(job.downloadedSize) / 1048576.0
@@ -622,7 +597,6 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 	if err == nil && percentSurface != nil {
 		percentTexture, err := renderer.CreateTextureFromSurface(percentSurface)
 		if err == nil {
-			// Center text inside progress bar
 			textX := dm.progressBarX + (dm.progressBarWidth-percentSurface.W)/2
 			textY := progressBarY + (dm.progressBarHeight-percentSurface.H)/2
 

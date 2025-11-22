@@ -39,7 +39,7 @@ func newInputLogger() *inputLoggerController {
 		textColor:         sdl.Color{R: 200, G: 100, B: 255, A: 255},
 		mappedButtons:     make(map[constants.VirtualButton]int),
 		currentButtonIdx:  0,
-		debounceDelay:     1000 * time.Millisecond, // Wait 1000 ms before accepting the next input
+		debounceDelay:     1000 * time.Millisecond,
 		waitingForRelease: false,
 		buttonSequence: []buttonConfig{
 			{constants.VirtualButtonA, "A Button"},
@@ -84,7 +84,7 @@ func InputLogger() *internal.InternalInputMapping {
 		}
 
 		logger.render()
-		sdl.Delay(16) // ~60 FPS
+		sdl.Delay(16)
 	}
 
 	return logger.buildMapping()

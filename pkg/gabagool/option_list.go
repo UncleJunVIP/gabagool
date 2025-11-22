@@ -133,11 +133,10 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 		items[i].Item.Selected = i == selectedIndex
 	}
 
-	// Initialize color pickers for any color picker options
 	for i := range items {
 		for j, opt := range items[i].Options {
 			if opt.Type == OptionTypeColorPicker {
-				// Initialize with default color if not already Set
+				// Initialize with the default color if not already Set
 				if opt.Value == nil {
 					items[i].Options[j].Value = sdl.Color{R: 255, G: 255, B: 255, A: 255}
 				}
@@ -146,7 +145,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 				window := internal.GetWindow()
 				items[i].colorPicker = NewHexColorPicker(window)
 
-				// Initialize with current color value if it's an sdl.Color
+				// Initialize with the current color value if it's a sdl.Color
 				if color, ok := opt.Value.(sdl.Color); ok {
 					colorFound := false
 					for idx, pickerColor := range items[i].colorPicker.Colors {
@@ -158,15 +157,13 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 					}
 					// If color not found in the predefined list, we could add it
 					if !colorFound {
-						// Optional: Add custom color to the list or leave as is
+						// TODO: Add custom color to the list or leave as is
 					}
 				}
 
-				// Set visibility to false initially
-				items[i].colorPicker.SetVisible(false)
+				items[i].colorPicker.setVisible(false)
 
-				// Set the callback for when a color is selected
-				items[i].colorPicker.SetOnColorSelected(func(color sdl.Color) {
+				items[i].colorPicker.setOnColorSelected(func(color sdl.Color) {
 					items[i].Options[j].Value = color
 					items[i].Options[j].DisplayName = fmt.Sprintf("#%02X%02X%02X", color.R, color.G, color.B)
 
@@ -175,7 +172,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 					}
 				})
 
-				break // Only need one color picker per item
+				break
 			}
 		}
 	}
@@ -201,7 +198,6 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 
 	optionsListController := newOptionsListController(title, items)
 
-	// Calculate MaxVisibleItems based on window height
 	optionsListController.MaxVisibleItems = int(optionsListController.calculateMaxVisibleItems(window))
 	optionsListController.Settings.FooterHelpItems = footerHelpItems
 
@@ -240,13 +236,13 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 			renderer.Clear()
 		}
 
-		// If showing color picker, draw it; otherwise draw the options list
+		// If showing the color picker, draw it; otherwise draw just the option list
 		if optionsListController.showingColorPicker &&
 			optionsListController.activeColorPickerIdx >= 0 &&
 			optionsListController.activeColorPickerIdx < len(optionsListController.Items) {
 			item := &optionsListController.Items[optionsListController.activeColorPickerIdx]
 			if item.colorPicker != nil {
-				item.colorPicker.Draw(renderer)
+				item.colorPicker.draw(renderer)
 			}
 		} else {
 			optionsListController.render(renderer)
@@ -308,7 +304,7 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 	case constants.VirtualButtonB:
 		olc.hideColorPicker()
 	case constants.VirtualButtonA:
-		selectedColor := item.colorPicker.GetSelectedColor()
+		selectedColor := item.colorPicker.getSelectedColor()
 		for j := range item.Options {
 			if item.Options[j].Type == OptionTypeColorPicker {
 				item.Options[j].Value = selectedColor
@@ -322,7 +318,6 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 		}
 		olc.hideColorPicker()
 	case constants.VirtualButtonLeft, constants.VirtualButtonRight, constants.VirtualButtonUp, constants.VirtualButtonDown:
-		// Convert internal button to keycode for color picker
 		var keycode sdl.Keycode
 		switch inputEvent.Button {
 		case constants.VirtualButtonLeft:
@@ -336,7 +331,7 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 		}
 		item.colorPicker.handleKeyPress(keycode)
 
-		selectedColor := item.colorPicker.GetSelectedColor()
+		selectedColor := item.colorPicker.getSelectedColor()
 		for j := range item.Options {
 			if item.Options[j].Type == OptionTypeColorPicker && item.Options[j].OnUpdate != nil {
 				item.Options[j].OnUpdate(selectedColor)
@@ -489,7 +484,7 @@ func (olc *optionsListController) showColorPicker(itemIndex int) {
 
 	item := &olc.Items[itemIndex]
 	if item.colorPicker != nil {
-		item.colorPicker.SetVisible(true)
+		item.colorPicker.setVisible(true)
 		olc.showingColorPicker = true
 		olc.activeColorPickerIdx = itemIndex
 	}
@@ -499,7 +494,7 @@ func (olc *optionsListController) hideColorPicker() {
 	if olc.activeColorPickerIdx >= 0 && olc.activeColorPickerIdx < len(olc.Items) {
 		item := &olc.Items[olc.activeColorPickerIdx]
 		if item.colorPicker != nil {
-			item.colorPicker.SetVisible(false)
+			item.colorPicker.setVisible(false)
 		}
 	}
 	olc.showingColorPicker = false
@@ -765,7 +760,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 						textCenterY := itemY + (optionSurface.H / 2)
 						swatchY := textCenterY - (swatchHeight / 2)
 
-						// Draw the text on the left
+						// draw the text on the left
 						renderer.Copy(optionTexture, nil, &sdl.Rect{
 							X: textX,
 							Y: itemY,
@@ -773,7 +768,7 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 							H: optionSurface.H,
 						})
 
-						// Draw color swatch on the right
+						// draw color swatch on the right
 						if color, ok := selectedOption.Value.(sdl.Color); ok {
 							swatchRect := &sdl.Rect{
 								X: swatchX,
@@ -785,11 +780,11 @@ func (olc *optionsListController) render(renderer *sdl.Renderer) {
 							// Save current color
 							r, g, b, a, _ := renderer.GetDrawColor()
 
-							// Draw color swatch
+							// draw color swatch
 							renderer.SetDrawColor(color.R, color.G, color.B, color.A)
 							renderer.FillRect(swatchRect)
 
-							// Draw swatch border
+							// draw swatch border
 							renderer.SetDrawColor(255, 255, 255, 255)
 							renderer.DrawRect(swatchRect)
 

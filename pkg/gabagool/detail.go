@@ -148,10 +148,10 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		state.handleEvents()
 		state.update()
 		state.render()
-		state.delay()
+		sdl.Delay(16)
 	}
 
-	// Return None only if explicitly cancelled, otherwise return the result
+	// Return None only if explicitly canceled, otherwise return the result
 	if state.result.Cancelled {
 		return option.None[DetailScreenReturn](), nil
 	}
@@ -174,7 +174,7 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		metadataLabelTextures: make(map[int][]*sdl.Texture),
 		repeatDelay:           time.Millisecond * 100,
 		repeatInterval:        time.Millisecond * 100,
-		result:                DetailScreenReturn{Cancelled: false}, // Start as NOT cancelled
+		result:                DetailScreenReturn{Cancelled: false},
 	}
 
 	state.initializeImageDefaults()
@@ -487,7 +487,6 @@ func (s *detailScreenState) renderSections(margins internal.Padding, startY int3
 	currentY := startY
 	contentWidth := s.window.GetWidth() - (margins.Left + margins.Right)
 
-	// Reset active slideshow at start of rendering
 	s.activeSlideshow = -1
 
 	for sectionIndex, section := range s.options.Sections {
@@ -710,7 +709,6 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 
 	scrollbarY := int32(float64(s.scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(s.maxScrollY))
 
-	// Background
 	s.renderer.SetDrawColor(50, 50, 50, 120)
 	s.renderer.FillRect(&sdl.Rect{
 		X: s.window.GetWidth() - scrollbarWidth - 5,
@@ -719,7 +717,6 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 		H: safeAreaHeight - 10,
 	})
 
-	// Thumb
 	s.renderer.SetDrawColor(180, 180, 180, 200)
 	scrollbarRect := &sdl.Rect{
 		X: s.window.GetWidth() - scrollbarWidth - 5,
@@ -739,14 +736,6 @@ func (s *detailScreenState) renderFooter(margins internal.Padding) {
 			margins.Bottom,
 			false,
 		)
-	}
-}
-
-func (s *detailScreenState) delay() {
-	if internal.Abs32(s.scrollY-s.targetScrollY) > 3 {
-		sdl.Delay(8)
-	} else {
-		sdl.Delay(16)
 	}
 }
 
