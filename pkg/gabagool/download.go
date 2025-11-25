@@ -19,6 +19,7 @@ type Download struct {
 	URL         string
 	Location    string
 	DisplayName string
+	Timeout     time.Duration
 }
 
 type DownloadReturn struct {
@@ -35,6 +36,7 @@ type downloadJob struct {
 	progress       float64
 	totalSize      int64
 	downloadedSize int64
+	timeout        time.Duration
 	isComplete     bool
 	hasError       bool
 	error          error
@@ -116,8 +118,14 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 	processor := internal.GetInputProcessor()
 
 	for _, download := range downloads {
+		timeout := download.Timeout
+		if timeout == 0 {
+			timeout = 120 * time.Minute
+		}
+
 		job := &downloadJob{
 			download:   download,
+			timeout:    timeout,
 			progress:   0,
 			isComplete: false,
 			hasError:   false,
@@ -281,7 +289,7 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 	}
 
 	client := &http.Client{
-		Timeout: 120 * time.Minute,
+		Timeout: job.timeout,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
