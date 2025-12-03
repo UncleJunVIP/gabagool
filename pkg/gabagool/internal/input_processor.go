@@ -40,7 +40,7 @@ func (ip *Processor) IsGameControllerJoystick(joystickIndex int) bool {
 }
 
 func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
-	logger := GetLogger()
+	logger := GetInternalLogger()
 	switch e := event.(type) {
 	case *sdl.KeyboardEvent:
 		keyCode := e.Keysym.Sym

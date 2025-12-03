@@ -10,21 +10,27 @@ import (
 )
 
 var (
-	logger      *slog.Logger
-	levelVar    *slog.LevelVar
 	logFile     *os.File
-	loggerOnce  sync.Once
 	logFilename string
+
+	setupOnce   sync.Once
+	multiWriter io.Writer
+
+	loggerOnce sync.Once
+	logger     *slog.Logger
+	levelVar   *slog.LevelVar
+
+	internalLoggerOnce sync.Once
+	internalLogger     *slog.Logger
+	internalLevelVar   *slog.LevelVar
 )
 
 func SetFilename(filename string) {
 	logFilename = filename
 }
 
-func GetLogger() *slog.Logger {
-	loggerOnce.Do(func() {
-		levelVar = &slog.LevelVar{}
-
+func setup() {
+	setupOnce.Do(func() {
 		if err := os.MkdirAll("logs", 0755); err != nil {
 			panic("Failed to create logs directory: " + err.Error())
 		}
@@ -35,7 +41,15 @@ func GetLogger() *slog.Logger {
 			panic("Failed to open log file: " + err.Error())
 		}
 
-		multiWriter := io.MultiWriter(os.Stdout, logFile)
+		multiWriter = io.MultiWriter(os.Stdout, logFile)
+	})
+}
+
+func GetLogger() *slog.Logger {
+	loggerOnce.Do(func() {
+		levelVar = &slog.LevelVar{}
+
+		setup()
 
 		handler := slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{
 			Level:     levelVar,
@@ -46,9 +60,29 @@ func GetLogger() *slog.Logger {
 	return logger
 }
 
+func GetInternalLogger() *slog.Logger {
+	internalLoggerOnce.Do(func() {
+		internalLevelVar = &slog.LevelVar{}
+
+		setup()
+
+		handler := slog.NewJSONHandler(multiWriter, &slog.HandlerOptions{
+			Level:     internalLevelVar,
+			AddSource: false,
+		})
+		internalLogger = slog.New(handler)
+	})
+	return internalLogger
+}
+
 func SetLogLevel(level slog.Level) {
 	GetLogger()
 	levelVar.Set(level)
+}
+
+func SetInternalLogLevel(level slog.Level) {
+	GetInternalLogger()
+	internalLevelVar.Set(level)
 }
 
 func SetRawLogLevel(rawLevel string) {

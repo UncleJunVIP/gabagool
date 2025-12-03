@@ -24,10 +24,10 @@ type Options struct {
 func Init(options Options) {
 	internal.SetFilename(options.LogFilename)
 
-	if os.Getenv("ENVIRONMENT") == "DEV" || os.Getenv("INPUT_CAPTURE") != "" {
-		internal.SetLogLevel(slog.LevelDebug)
+	if os.Getenv("NITRATES") != "" || os.Getenv("INPUT_CAPTURE") != "" {
+		internal.SetInternalLogLevel(slog.LevelDebug)
 	} else {
-		internal.SetLogLevel(slog.LevelError)
+		internal.SetInternalLogLevel(slog.LevelError)
 	}
 
 	config := internal.GetConfig()
@@ -54,7 +54,7 @@ func Init(options Options) {
 		if mapping != nil {
 			err := mapping.SaveToJSON("custom_input_mapping.json")
 			if err != nil {
-				internal.GetLogger().Error("Failed to save custom input mapping", "error", err)
+				internal.GetInternalLogger().Error("Failed to save custom input mapping", "error", err)
 			}
 		}
 		os.Exit(0)

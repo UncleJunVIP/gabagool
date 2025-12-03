@@ -41,6 +41,11 @@ type Option struct {
 	OnUpdate       func(newValue interface{})
 }
 
+type OptionListSettings struct {
+	DisableBackButton bool
+	FooterHelpItems   []FooterHelpItem
+}
+
 // ItemWithOptions represents a menu item with multiple choices.
 // Item is the menu item itself.
 // Options is the list of options for the menu item.
@@ -71,23 +76,24 @@ type OptionsListReturn struct {
 	SelectedItem  *ItemWithOptions
 	Canceled      bool
 }
-type optionsListSettings struct {
-	Margins         internal.Padding
-	ItemSpacing     int32
-	InputDelay      time.Duration
-	Title           string
-	TitleAlign      constants.TextAlign
-	TitleSpacing    int32
-	ScrollSpeed     float32
-	ScrollPauseTime int
-	FooterHelpItems []FooterHelpItem
-	FooterTextColor sdl.Color
+type internalOptionsListSettings struct {
+	Margins           internal.Padding
+	ItemSpacing       int32
+	InputDelay        time.Duration
+	Title             string
+	TitleAlign        constants.TextAlign
+	TitleSpacing      int32
+	ScrollSpeed       float32
+	ScrollPauseTime   int
+	FooterHelpItems   []FooterHelpItem
+	FooterTextColor   sdl.Color
+	DisableBackButton bool
 }
 
 type optionsListController struct {
 	Items         []ItemWithOptions
 	SelectedIndex int
-	Settings      optionsListSettings
+	Settings      internalOptionsListSettings
 	StartY        int32
 	lastInputTime time.Time
 	OnSelect      func(index int, item *ItemWithOptions)
@@ -104,8 +110,8 @@ type optionsListController struct {
 	activeColorPickerIdx int
 }
 
-func defaultOptionsListSettings(title string) optionsListSettings {
-	return optionsListSettings{
+func defaultOptionsListSettings(title string) internalOptionsListSettings {
+	return internalOptionsListSettings{
 		Margins:         internal.UniformPadding(20),
 		ItemSpacing:     60,
 		InputDelay:      constants.DefaultInputDelay,
@@ -191,7 +197,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 
 // OptionsList presents a list of options to the user.
 // This blocks until a selection is made or the user cancels.
-func OptionsList(title string, items []ItemWithOptions, footerHelpItems []FooterHelpItem) (types.Option[OptionsListReturn], error) {
+func OptionsList(title string, listOptions OptionListSettings, items []ItemWithOptions) (types.Option[OptionsListReturn], error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 	processor := internal.GetInputProcessor()
@@ -199,7 +205,8 @@ func OptionsList(title string, items []ItemWithOptions, footerHelpItems []Footer
 	optionsListController := newOptionsListController(title, items)
 
 	optionsListController.MaxVisibleItems = int(optionsListController.calculateMaxVisibleItems(window))
-	optionsListController.Settings.FooterHelpItems = footerHelpItems
+	optionsListController.Settings.FooterHelpItems = listOptions.FooterHelpItems
+	optionsListController.Settings.DisableBackButton = listOptions.DisableBackButton
 
 	running := true
 	result := OptionsListReturn{
@@ -359,7 +366,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 	case constants.VirtualButtonB:
 		if olc.ShowingHelp {
 			olc.ShowingHelp = false
-		} else {
+		} else if !olc.Settings.DisableBackButton {
 			*running = false
 			result.SelectedIndex = -1
 			result.Canceled = true

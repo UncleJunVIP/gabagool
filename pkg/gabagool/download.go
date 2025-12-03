@@ -465,7 +465,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 	var footerHelpItems []FooterHelpItem
 	if dm.isAllComplete {
-		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "CloseLogger"})
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "A", HelpText: "Close"})
 	} else {
 		helpText := "Cancel Download"
 		if len(dm.downloads) > 1 {

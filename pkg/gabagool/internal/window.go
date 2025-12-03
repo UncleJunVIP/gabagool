@@ -25,7 +25,7 @@ func initWindow(title string, displayBackground bool) *Window {
 	displayMode, err := sdl.GetCurrentDisplayMode(displayIndex)
 
 	if err != nil {
-		GetLogger().Error("Failed to Get display mode!", "error", err)
+		GetInternalLogger().Error("Failed to Get display mode!", "error", err)
 	}
 
 	return initWindowWithSize(title, displayMode.W, displayMode.H, displayBackground)
@@ -57,7 +57,7 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	renderer, lastErr = sdl.CreateRenderer(window, -1, sdl.RENDERER_ACCELERATED|sdl.RENDERER_PRESENTVSYNC|sdl.RENDERER_TARGETTEXTURE)
 
 	if lastErr != nil {
-		GetLogger().Error("Failed to create any renderer!", "final_error", lastErr)
+		GetInternalLogger().Error("Failed to create any renderer!", "final_error", lastErr)
 		os.Exit(1)
 	}
 

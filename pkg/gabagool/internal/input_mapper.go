@@ -99,7 +99,7 @@ func DefaultInputMapping() *InternalInputMapping {
 // GetInputMapping returns the input mapping from the environment variable if set,
 // otherwise returns the default mapping
 func GetInputMapping() *InternalInputMapping {
-	logger := GetLogger()
+	logger := GetInternalLogger()
 	mappingPath := os.Getenv(MappingPathEnvVar)
 	if mappingPath != "" {
 		mapping, err := LoadInputMappingFromJSON(mappingPath)

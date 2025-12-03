@@ -69,7 +69,7 @@ func newInputLogger() *inputLoggerController {
 func InputLogger() *internal.InternalInputMapping {
 	logger := newInputLogger()
 
-	internal.GetLogger().Info("Input logger started", "totalButtons", len(logger.buttonSequence))
+	internal.GetInternalLogger().Info("Input logger started", "totalButtons", len(logger.buttonSequence))
 
 	running := true
 
@@ -96,7 +96,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 
 	// Check if we're done with all buttons
 	if il.currentButtonIdx >= len(il.buttonSequence) {
-		internal.GetLogger().Info("All buttons configured successfully",
+		internal.GetInternalLogger().Info("All buttons configured successfully",
 			"totalConfigured", len(il.mappedButtons))
 		return false
 	}
@@ -137,7 +137,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 		if e.State == sdl.PRESSED {
 			// Exit on ESC key
 			if e.Keysym.Scancode == sdl.SCANCODE_ESCAPE {
-				internal.GetLogger().Info("Input logger cancelled by user (ESC pressed)")
+				internal.GetInternalLogger().Info("Input logger cancelled by user (ESC pressed)")
 				return false
 			}
 			// Store the KEYCODE (Sym), not the scancode
@@ -147,7 +147,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.currentSource = internal.SourceKeyboard
 			il.lastInputTime = time.Now()
 			il.waitingForRelease = true
-			internal.GetLogger().Debug("Registered keyboard button",
+			internal.GetInternalLogger().Debug("Registered keyboard button",
 				"button", currentButton.displayName,
 				"keycode", e.Keysym.Sym,
 				"scancode", e.Keysym.Scancode)
@@ -161,7 +161,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.currentSource = internal.SourceJoystick
 			il.lastInputTime = time.Now()
 			il.waitingForRelease = true
-			internal.GetLogger().Debug("Registered joystick button",
+			internal.GetInternalLogger().Debug("Registered joystick button",
 				"button", currentButton.displayName,
 				"joystickButton", e.Button)
 			il.advanceToNextButton()
@@ -174,7 +174,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.currentSource = internal.SourceController
 			il.lastInputTime = time.Now()
 			il.waitingForRelease = true
-			internal.GetLogger().Debug("Registered controller button",
+			internal.GetInternalLogger().Debug("Registered controller button",
 				"button", currentButton.displayName,
 				"controllerButton", e.Button)
 			il.advanceToNextButton()
@@ -194,7 +194,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.currentSource = internal.SourceJoystick
 			il.lastInputTime = time.Now()
 			il.waitingForRelease = true
-			internal.GetLogger().Debug("Registered joystick axis",
+			internal.GetInternalLogger().Debug("Registered joystick axis",
 				"button", currentButton.displayName,
 				"axis", e.Axis,
 				"direction", direction,
@@ -220,7 +220,7 @@ func (il *inputLoggerController) handleEvent(event sdl.Event) bool {
 			il.currentSource = internal.SourceHatSwitch
 			il.lastInputTime = time.Now()
 			il.waitingForRelease = true
-			internal.GetLogger().Debug("Registered hat switch",
+			internal.GetInternalLogger().Debug("Registered hat switch",
 				"button", currentButton.displayName,
 				"hat", e.Hat,
 				"direction", hatName,
@@ -305,7 +305,7 @@ func (il *inputLoggerController) buildMapping() *internal.InternalInputMapping {
 		}
 	}
 
-	internal.GetLogger().Info("Input mapping complete",
+	internal.GetInternalLogger().Info("Input mapping complete",
 		"totalMapped", len(il.mappedButtons),
 		"inputSource", il.currentSource,
 		"keyboardMappings", len(mapping.KeyboardMap),
@@ -319,21 +319,21 @@ func (il *inputLoggerController) buildMapping() *internal.InternalInputMapping {
 func (il *inputLoggerController) renderText(renderer *sdl.Renderer, text string, x, y int32, centered bool) {
 	surface, err := il.font.RenderUTF8Blended(text, il.textColor)
 	if err != nil {
-		internal.GetLogger().Error("Failed to render text surface", "text", text, "error", err)
+		internal.GetInternalLogger().Error("Failed to render text surface", "text", text, "error", err)
 		return
 	}
 	defer surface.Free()
 
 	texture, err := renderer.CreateTextureFromSurface(surface)
 	if err != nil {
-		internal.GetLogger().Error("Failed to create texture from surface", "text", text, "error", err)
+		internal.GetInternalLogger().Error("Failed to create texture from surface", "text", text, "error", err)
 		return
 	}
 	defer texture.Destroy()
 
 	_, _, w, h, err := texture.Query()
 	if err != nil {
-		internal.GetLogger().Error("Failed to query texture", "text", text, "error", err)
+		internal.GetInternalLogger().Error("Failed to query texture", "text", text, "error", err)
 		return
 	}
 

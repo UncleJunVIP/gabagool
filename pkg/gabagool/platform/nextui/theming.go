@@ -34,7 +34,7 @@ func InitNextUITheme() internal.Theme {
 	}
 
 	if err != nil {
-		internal.GetLogger().Error("Error loading theme. using default NextUI styling...", "error", err)
+		internal.GetInternalLogger().Error("Error loading theme. using default NextUI styling...", "error", err)
 		return defaultTheme
 	}
 
@@ -79,7 +79,7 @@ func loadNextVal() (*NextVal, error) {
 	cmd := exec.Command(execPath)
 	output, err := cmd.Output()
 	if err != nil {
-		internal.GetLogger().Error("Error executing command!", "error", err)
+		internal.GetInternalLogger().Error("Error executing command!", "error", err)
 		return nil, err
 	}
 
@@ -88,7 +88,7 @@ func loadNextVal() (*NextVal, error) {
 	var nextval NextVal
 	err = json.Unmarshal([]byte(jsonStr), &nextval)
 	if err != nil {
-		internal.GetLogger().Error("Error parsing JSON", "error", err)
+		internal.GetInternalLogger().Error("Error parsing JSON", "error", err)
 		return nil, err
 	}
 
