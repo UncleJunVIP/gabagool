@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"go.uber.org/atomic"
@@ -17,12 +17,6 @@ type ProcessMessageOptions struct {
 	ShowThemeBackground bool
 	ShowProgressBar     bool
 	Progress            *atomic.Float64
-}
-
-type ProcessMessageReturn struct {
-	Success bool
-	Result  interface{}
-	Error   error
 }
 
 type processMessage struct {
@@ -38,7 +32,9 @@ type processMessage struct {
 	progress        *atomic.Float64
 }
 
-func ProcessMessage(message string, options ProcessMessageOptions, fn func() (interface{}, error)) (ProcessMessageReturn, error) {
+// ProcessMessage displays a message while executing a function asynchronously.
+// The function is generic and returns the typed result of the function.
+func ProcessMessage[T any](message string, options ProcessMessageOptions, fn func() (T, error)) (T, error) {
 	processor := &processMessage{
 		window:          internal.GetWindow(),
 		showBG:          options.ShowThemeBackground,
@@ -58,11 +54,8 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		}
 	}
 
-	result := ProcessMessageReturn{
-		Success: false,
-		Result:  nil,
-		Error:   nil,
-	}
+	var result T
+	var fnError error
 
 	window := internal.GetWindow()
 	renderer := window.Renderer
@@ -71,47 +64,36 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 	renderer.Present()
 
 	resultChan := make(chan struct {
-		success bool
-		result  interface{}
-		err     error
+		result T
+		err    error
 	}, 1)
 
 	go func() {
-		result, err := fn()
-		if err != nil {
-			resultChan <- struct {
-				success bool
-				result  interface{}
-				err     error
-			}{success: false, result: nil, err: err}
-		} else {
-			resultChan <- struct {
-				success bool
-				result  interface{}
-				err     error
-			}{success: true, result: result, err: nil}
-		}
+		res, err := fn()
+		resultChan <- struct {
+			result T
+			err    error
+		}{result: res, err: err}
 	}()
 
 	running := true
 	functionComplete := false
-	var err error
+	var quitErr error
 
 	for running {
 
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 			if _, ok := event.(*sdl.QuitEvent); ok {
 				running = false
-				err = sdl.GetError()
+				quitErr = sdl.GetError()
 			}
 		}
 
 		if !functionComplete {
 			select {
 			case processResult := <-resultChan:
-				result.Success = processResult.success
-				result.Result = processResult.result
-				result.Error = processResult.err
+				result = processResult.result
+				fnError = processResult.err
 				functionComplete = true
 				processor.isProcessing = false
 				processor.completeTime = time.Now()
@@ -135,12 +117,16 @@ func ProcessMessage(message string, options ProcessMessageOptions, fn func() (in
 		processor.imageTexture.Destroy()
 	}
 
-	if result.Error != nil {
-		// If the go routine returned an error, use this one
-		return result, result.Error
+	// Prioritize function error over quit error
+	if fnError != nil {
+		return result, fnError
 	}
 
-	return result, err
+	if quitErr != nil {
+		return result, quitErr
+	}
+
+	return result, nil
 }
 
 func (p *processMessage) render(renderer *sdl.Renderer) {

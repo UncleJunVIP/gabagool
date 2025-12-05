@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

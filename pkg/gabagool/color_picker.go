@@ -3,7 +3,7 @@ package gabagool
 import (
 	"math"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 )
 

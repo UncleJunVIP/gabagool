@@ -4,9 +4,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/platform/cannoli"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/platform/nextui"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/platform/cannoli"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/platform/nextui"
 )
 
 type Options struct {

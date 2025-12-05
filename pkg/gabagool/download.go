@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/ttf"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -22,13 +22,16 @@ type Download struct {
 	Timeout     time.Duration
 }
 
-type DownloadReturn struct {
-	CompletedDownloads []Download
-	FailedDownloads    []Download
-	Errors             []error
-	LastPressedKey     sdl.Keycode
-	LastPressedBtn     uint8
-	Cancelled          bool
+// DownloadError represents a failed download with its error.
+type DownloadError struct {
+	Download Download
+	Error    error
+}
+
+// DownloadResult represents the result of the DownloadManager.
+type DownloadResult struct {
+	Completed []Download
+	Failed    []DownloadError
 }
 
 type downloadJob struct {
@@ -97,20 +100,19 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 	}
 }
 
-func DownloadManager(downloads []Download, headers map[string]string, autoContinue bool) (DownloadReturn, error) {
+// DownloadManager manages and displays download progress.
+// Returns ErrCancelled if the user cancels the downloads.
+func DownloadManager(downloads []Download, headers map[string]string, autoContinue bool) (*DownloadResult, error) {
 	downloadManager := newDownloadManager(downloads, headers)
 
-	result := DownloadReturn{
-		CompletedDownloads: []Download{},
-		FailedDownloads:    []Download{},
-		Errors:             []error{},
-		LastPressedKey:     0,
-		LastPressedBtn:     0,
-		Cancelled:          false,
+	result := DownloadResult{
+		Completed: []Download{},
+		Failed:    []DownloadError{},
 	}
+	cancelled := false
 
 	if len(downloads) == 0 {
-		return result, nil
+		return &result, nil
 	}
 
 	window := internal.GetWindow()
@@ -149,7 +151,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				running = false
 				err = sdl.GetError()
 				downloadManager.cancelAllDownloads()
-				result.Cancelled = true
+				cancelled = true
 
 			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 				inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -162,9 +164,6 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				}
 				downloadManager.lastInputTime = time.Now()
 
-				result.LastPressedKey = sdl.Keycode(inputEvent.RawCode)
-				result.LastPressedBtn = uint8(inputEvent.RawCode)
-
 				if downloadManager.isAllComplete {
 					running = false
 					continue
@@ -172,7 +171,7 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 				if inputEvent.Button == constants.VirtualButtonY {
 					downloadManager.cancelAllDownloads()
-					result.Cancelled = true
+					cancelled = true
 				}
 			}
 		}
@@ -198,11 +197,31 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 		sdl.Delay(16)
 	}
 
-	result.CompletedDownloads = downloadManager.completedDownloads
-	result.FailedDownloads = downloadManager.failedDownloads
-	result.Errors = downloadManager.errors
+	if err != nil {
+		return nil, err
+	}
 
-	return result, err
+	if cancelled {
+		return nil, ErrCancelled
+	}
+
+	// Populate result
+	result.Completed = downloadManager.completedDownloads
+
+	// Combine failed downloads with their errors
+	result.Failed = make([]DownloadError, len(downloadManager.failedDownloads))
+	for i, download := range downloadManager.failedDownloads {
+		var downloadErr error
+		if i < len(downloadManager.errors) {
+			downloadErr = downloadManager.errors[i]
+		}
+		result.Failed[i] = DownloadError{
+			Download: download,
+			Error:    downloadErr,
+		}
+	}
+
+	return &result, nil
 }
 
 func (dm *downloadManager) isInputAllowed() bool {

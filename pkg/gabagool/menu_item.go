@@ -10,31 +10,10 @@ type MenuItem struct {
 	BackgroundFilename string
 }
 
-type ListReturn struct {
+// ListResult is the standardized return type for the List component
+type ListResult struct {
 	Items           []MenuItem
-	SelectedIndex   int
-	SelectedItem    *MenuItem
-	SelectedIndices []int
-	SelectedItems   []*MenuItem
-	VisiblePosition int
-	ActionTriggered bool
-}
-
-func (r *ListReturn) populateSingleSelection(index int, items []MenuItem, visibleStartIndex int) {
-	r.SelectedIndex = index
-	r.SelectedItem = &items[index]
-	r.SelectedIndices = []int{index}
-	r.SelectedItems = []*MenuItem{&items[index]}
-	r.VisiblePosition = index - visibleStartIndex
-}
-
-func (r *ListReturn) populateMultiSelection(indices []int, items []MenuItem, visibleStartIndex int) {
-	r.SelectedIndex = indices[0]
-	r.SelectedItem = &items[indices[0]]
-	r.SelectedIndices = indices
-	r.SelectedItems = make([]*MenuItem, len(indices))
-	r.VisiblePosition = indices[0] - visibleStartIndex
-	for i, idx := range indices {
-		r.SelectedItems[i] = &items[idx]
-	}
+	Selected        []int      // Indices of selected items (always a slice, even for single selection)
+	Action          ListAction // The action taken when exiting (Selected or Triggered)
+	VisiblePosition int        // Position of first selected item relative to VisibleStartIndex (for scroll restoration)
 }

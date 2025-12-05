@@ -3,10 +3,8 @@ package gabagool
 import (
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/patrickhuber/go-types"
-	"github.com/patrickhuber/go-types/option"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
 )
@@ -255,7 +253,14 @@ func setupKeyboardRects(kb *virtualKeyboard, windowWidth, windowHeight int32) {
 	kb.SpaceRect = sdl.Rect{X: x, Y: y, W: spaceWidth, H: keyHeight}
 }
 
-func Keyboard(initialText string) (types.Option[string], error) {
+// KeyboardResult represents the result of the Keyboard component.
+type KeyboardResult struct {
+	Text string
+}
+
+// Keyboard displays a virtual keyboard for text input.
+// Returns ErrCancelled if the user exits without pressing Enter.
+func Keyboard(initialText string) (*KeyboardResult, error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 	font := internal.Fonts.MediumFont
@@ -277,9 +282,9 @@ func Keyboard(initialText string) (types.Option[string], error) {
 	}
 
 	if kb.EnterPressed {
-		return option.Some(kb.TextBuffer), nil
+		return &KeyboardResult{Text: kb.TextBuffer}, nil
 	}
-	return option.None[string](), nil
+	return nil, ErrCancelled
 }
 
 func (kb *virtualKeyboard) handleEvents() bool {

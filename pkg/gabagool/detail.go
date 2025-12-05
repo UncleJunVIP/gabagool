@@ -4,14 +4,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/veandco/go-sdl2/ttf"
-
-	"github.com/patrickhuber/go-types"
-	"github.com/patrickhuber/go-types/option"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
+	"github.com/veandco/go-sdl2/ttf"
 )
 
 type MetadataItem struct {
@@ -51,12 +48,9 @@ type DetailScreenOptions struct {
 	ShowThemeBackground bool
 }
 
-type DetailScreenReturn struct {
-	LastPressedKey   sdl.Keycode
-	LastPressedBtn   uint8
-	Cancelled        bool
-	ActionTriggered  bool
-	ConfirmTriggered bool
+// DetailScreenResult represents the result of the DetailScreen component.
+type DetailScreenResult struct {
+	Action DetailAction
 }
 
 type detailScreenState struct {
@@ -80,7 +74,7 @@ type detailScreenState struct {
 	lastRepeatTime        time.Time
 	repeatDelay           time.Duration
 	repeatInterval        time.Duration
-	result                DetailScreenReturn
+	result                DetailScreenResult
 	activeSlideshow       int
 }
 
@@ -140,7 +134,9 @@ func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, 
 	}
 }
 
-func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (types.Option[DetailScreenReturn], error) {
+// DetailScreen displays a scrollable detail screen with sections.
+// Returns ErrCancelled if the user presses the back button.
+func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (*DetailScreenResult, error) {
 	state := initializeDetailScreenState(title, options, footerHelpItems)
 	defer state.cleanup()
 
@@ -151,11 +147,11 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		sdl.Delay(16)
 	}
 
-	// Return None only if explicitly canceled, otherwise return the result
-	if state.result.Cancelled {
-		return option.None[DetailScreenReturn](), nil
+	// Return error if cancelled
+	if state.result.Action == DetailActionNone {
+		return nil, ErrCancelled
 	}
-	return option.Some(state.result), nil
+	return &state.result, nil
 }
 
 func initializeDetailScreenState(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) *detailScreenState {
@@ -174,7 +170,7 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		metadataLabelTextures: make(map[int][]*sdl.Texture),
 		repeatDelay:           time.Millisecond * 100,
 		repeatInterval:        time.Millisecond * 100,
-		result:                DetailScreenReturn{Cancelled: false},
+		result:                DetailScreenResult{Action: DetailActionNone},
 	}
 
 	state.initializeImageDefaults()
@@ -310,7 +306,7 @@ func (s *detailScreenState) calculateImageX(imageW int32, section Section) int32
 }
 
 func (s *detailScreenState) isFinished() bool {
-	return s.result.Cancelled || s.result.ActionTriggered || s.result.ConfirmTriggered
+	return s.result.Action != DetailActionNone
 }
 
 func (s *detailScreenState) handleEvents() {
@@ -319,7 +315,7 @@ func (s *detailScreenState) handleEvents() {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
-			s.result.Cancelled = true
+			s.result.Action = DetailActionNone
 			return
 		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -350,14 +346,12 @@ func (s *detailScreenState) handleInputEvent(inputEvent *internal.Event) {
 	case constants.VirtualButtonLeft, constants.VirtualButtonRight:
 		s.handleSlideshowNavigation(inputEvent.Button == constants.VirtualButtonLeft)
 	case constants.VirtualButtonB:
-		s.result.Cancelled = true
+		s.result.Action = DetailActionNone
 	case s.options.ActionButton, constants.VirtualButtonA, constants.VirtualButtonStart:
-		s.result.Cancelled = false
-		s.result.ConfirmTriggered = true
+		s.result.Action = DetailActionConfirmed
 	case constants.VirtualButtonX:
 		if s.options.EnableAction {
-			s.result.Cancelled = false
-			s.result.ActionTriggered = true
+			s.result.Action = DetailActionTriggered
 		}
 	}
 }

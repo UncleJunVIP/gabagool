@@ -5,10 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/patrickhuber/go-types"
-	"github.com/patrickhuber/go-types/option"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/sdl"
 )
 
@@ -65,16 +63,12 @@ func (iow *ItemWithOptions) Value() interface{} {
 	return fmt.Sprintf("%s", iow.Options[iow.SelectedOption].Value)
 }
 
-// OptionsListReturn represents the return value of the OptionsList function.
-// Items is the entire list of menu items that were selected.
-// SelectedIndex is the index of the selected item.
-// SelectedItem is the selected item.
-// Canceled is true if the user canceled the OptionsList.
-type OptionsListReturn struct {
-	Items         []ItemWithOptions
-	SelectedIndex int
-	SelectedItem  *ItemWithOptions
-	Canceled      bool
+// OptionsListResult represents the return value of the OptionsList function.
+// Items is the entire list of menu items.
+// Selected is the index of the selected item.
+type OptionsListResult struct {
+	Items    []ItemWithOptions
+	Selected int
 }
 type internalOptionsListSettings struct {
 	Margins           internal.Padding
@@ -197,7 +191,7 @@ func newOptionsListController(title string, items []ItemWithOptions) *optionsLis
 
 // OptionsList presents a list of options to the user.
 // This blocks until a selection is made or the user cancels.
-func OptionsList(title string, listOptions OptionListSettings, items []ItemWithOptions) (types.Option[OptionsListReturn], error) {
+func OptionsList(title string, listOptions OptionListSettings, items []ItemWithOptions) (*OptionsListResult, error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 	processor := internal.GetInputProcessor()
@@ -209,8 +203,10 @@ func OptionsList(title string, listOptions OptionListSettings, items []ItemWithO
 	optionsListController.Settings.DisableBackButton = listOptions.DisableBackButton
 
 	running := true
-	result := OptionsListReturn{
-		Items: items,
+	cancelled := false
+	result := OptionsListResult{
+		Items:    items,
+		Selected: -1,
 	}
 
 	var err error
@@ -231,7 +227,7 @@ func OptionsList(title string, listOptions OptionListSettings, items []ItemWithO
 				if optionsListController.showingColorPicker {
 					optionsListController.handleColorPickerInput(inputEvent)
 				} else {
-					optionsListController.handleOptionsInput(inputEvent, &running, &result)
+					optionsListController.handleOptionsInput(inputEvent, &running, &result, &cancelled)
 				}
 			}
 		}
@@ -260,11 +256,15 @@ func OptionsList(title string, listOptions OptionListSettings, items []ItemWithO
 		sdl.Delay(16)
 	}
 
-	if err != nil || result.Canceled {
-		return option.None[OptionsListReturn](), err
+	if err != nil {
+		return nil, err
 	}
 
-	return option.Some(result), nil
+	if cancelled {
+		return nil, ErrCancelled
+	}
+
+	return &result, nil
 }
 
 func (olc *optionsListController) calculateMaxVisibleItems(window *internal.Window) int32 {
@@ -348,7 +348,7 @@ func (olc *optionsListController) handleColorPickerInput(inputEvent *internal.Ev
 	}
 }
 
-func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event, running *bool, result *OptionsListReturn) {
+func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event, running *bool, result *OptionsListResult, cancelled *bool) {
 	if !inputEvent.Pressed {
 		return
 	}
@@ -368,8 +368,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 			olc.ShowingHelp = false
 		} else if !olc.Settings.DisableBackButton {
 			*running = false
-			result.SelectedIndex = -1
-			result.Canceled = true
+			*cancelled = true
 		}
 		olc.lastInputTime = time.Now()
 
@@ -384,9 +383,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 	case constants.VirtualButtonStart:
 		if !olc.ShowingHelp && olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 			*running = false
-			result.SelectedIndex = olc.SelectedIndex
-			result.SelectedItem = &olc.Items[olc.SelectedIndex]
-			result.Canceled = false
+			result.Selected = olc.SelectedIndex
 		}
 		olc.lastInputTime = time.Now()
 
@@ -420,7 +417,7 @@ func (olc *optionsListController) handleOptionsInput(inputEvent *internal.Event,
 	}
 }
 
-func (olc *optionsListController) handleAButton(running *bool, result *OptionsListReturn) {
+func (olc *optionsListController) handleAButton(running *bool, result *OptionsListResult) {
 	if olc.SelectedIndex >= 0 && olc.SelectedIndex < len(olc.Items) {
 		item := &olc.Items[olc.SelectedIndex]
 		if len(item.Options) > 0 && item.SelectedOption < len(item.Options) {
@@ -429,8 +426,8 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 			case OptionTypeKeyboard:
 				prompt := o.KeyboardPrompt
 				keyboardResult, err := Keyboard(prompt)
-				if err == nil && keyboardResult.IsSome() {
-					enteredText := keyboardResult.Unwrap()
+				if err == nil {
+					enteredText := keyboardResult.Text
 					item.Options[item.SelectedOption] = Option{
 						DisplayName:    enteredText,
 						Value:          enteredText,
@@ -443,9 +440,7 @@ func (olc *optionsListController) handleAButton(running *bool, result *OptionsLi
 				olc.showColorPicker(olc.SelectedIndex)
 			case OptionTypeClickable:
 				*running = false
-				result.SelectedIndex = olc.SelectedIndex
-				result.SelectedItem = &olc.Items[olc.SelectedIndex]
-				result.Canceled = false
+				result.Selected = olc.SelectedIndex
 			}
 		}
 	}

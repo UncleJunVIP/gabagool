@@ -3,10 +3,8 @@ package gabagool
 import (
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/patrickhuber/go-types"
-	"github.com/patrickhuber/go-types/option"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -16,8 +14,10 @@ type MessageOptions struct {
 	ConfirmButton constants.VirtualButton
 	CancelButton  constants.VirtualButton
 }
-type ConfirmationMessageReturn struct {
-	Cancelled bool
+
+// ConfirmationResult represents the result of a confirmation message.
+type ConfirmationResult struct {
+	Confirmed bool
 }
 
 type confirmationMessageSettings struct {
@@ -54,7 +54,9 @@ func defaultMessageSettings(message string) confirmationMessageSettings {
 	}
 }
 
-func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (types.Option[ConfirmationMessageReturn], error) {
+// ConfirmationMessage displays a confirmation dialog.
+// Returns ErrCancelled if the user cancels or presses the cancel button.
+func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, options MessageOptions) (*ConfirmationResult, error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
@@ -75,7 +77,7 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		settings.CancelButton = options.CancelButton
 	}
 
-	result := ConfirmationMessageReturn{Cancelled: true}
+	result := ConfirmationResult{Confirmed: false}
 	lastInputTime := time.Now()
 
 	imageTexture, imageRect := loadAndPrepareImage(renderer, settings)
@@ -94,10 +96,10 @@ func ConfirmationMessage(message string, footerHelpItems []FooterHelpItem, optio
 		sdl.Delay(16)
 	}
 
-	if result.Cancelled {
-		return option.None[ConfirmationMessageReturn](), nil
+	if !result.Confirmed {
+		return nil, ErrCancelled
 	}
-	return option.Some(result), nil
+	return &result, nil
 }
 
 func loadAndPrepareImage(renderer *sdl.Renderer, settings confirmationMessageSettings) (*sdl.Texture, sdl.Rect) {
@@ -132,13 +134,13 @@ func loadAndPrepareImage(renderer *sdl.Renderer, settings confirmationMessageSet
 	}
 }
 
-func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, settings confirmationMessageSettings) bool {
+func handleEvents(result *ConfirmationResult, lastInputTime *time.Time, settings confirmationMessageSettings) bool {
 	processor := internal.GetInputProcessor()
 
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
-			result.Cancelled = true
+			result.Confirmed = false
 			return false
 
 		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
@@ -155,10 +157,10 @@ func handleEvents(result *ConfirmationMessageReturn, lastInputTime *time.Time, s
 
 			switch inputEvent.Button {
 			case settings.ConfirmButton, constants.VirtualButtonStart:
-				result.Cancelled = false
+				result.Confirmed = true
 				return false
 			case settings.CancelButton:
-				result.Cancelled = true
+				result.Confirmed = false
 				return false
 			}
 		}

@@ -4,10 +4,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/constants"
-	"github.com/UncleJunVIP/gabagool/pkg/gabagool/internal"
-	"github.com/patrickhuber/go-types"
-	"github.com/patrickhuber/go-types/option"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
@@ -128,7 +126,7 @@ func newListController(options ListOptions) *listController {
 	}
 }
 
-func List(options ListOptions) (types.Option[ListReturn], error) {
+func List(options ListOptions) (*ListResult, error) {
 	window := internal.GetWindow()
 	renderer := window.Renderer
 
@@ -145,7 +143,12 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 	}
 
 	running := true
-	result := ListReturn{SelectedIndex: -1}
+	cancelled := false
+	result := ListResult{
+		Items:    lc.Options.Items,
+		Selected: []int{},
+		Action:   ListActionSelected,
+	}
 
 	for running {
 		for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
@@ -153,7 +156,7 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 			case *sdl.QuitEvent:
 				running = false
 			case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
-				lc.handleInput(event, &running, &result)
+				lc.handleInput(event, &running, &result, &cancelled)
 			case *sdl.WindowEvent:
 				we := event.(*sdl.WindowEvent)
 				if we.Event == sdl.WINDOWEVENT_RESIZED {
@@ -177,11 +180,14 @@ func List(options ListOptions) (types.Option[ListReturn], error) {
 		sdl.Delay(16)
 	}
 
-	result.Items = lc.Options.Items
-	return option.Some(result), nil
+	if cancelled {
+		return nil, ErrCancelled
+	}
+
+	return &result, nil
 }
 
-func (lc *listController) handleInput(event interface{}, running *bool, result *ListReturn) {
+func (lc *listController) handleInput(event interface{}, running *bool, result *ListResult, cancelled *bool) {
 	processor := internal.GetInputProcessor()
 
 	inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -207,7 +213,7 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 		return
 	}
 
-	lc.handleActionButtons(inputEvent.Button, running, result)
+	lc.handleActionButtons(inputEvent.Button, running, result, cancelled)
 }
 
 func (lc *listController) handleHelpInput(button constants.VirtualButton) {
@@ -257,7 +263,7 @@ func (lc *listController) handleNavigation(button constants.VirtualButton) bool 
 	return false
 }
 
-func (lc *listController) handleActionButtons(button constants.VirtualButton, running *bool, result *ListReturn) {
+func (lc *listController) handleActionButtons(button constants.VirtualButton, running *bool, result *ListResult, cancelled *bool) {
 	if len(lc.Options.Items) == 0 && button != constants.VirtualButtonB && button != constants.VirtualButtonMenu {
 		return
 	}
@@ -267,31 +273,35 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 			lc.toggleSelection(lc.Options.SelectedIndex)
 		} else if len(lc.Options.Items) > 0 {
 			*running = false
-			result.populateSingleSelection(lc.Options.SelectedIndex, lc.Options.Items, lc.Options.VisibleStartIndex)
+			result.Action = ListActionSelected
+			result.Selected = []int{lc.Options.SelectedIndex}
+			result.VisiblePosition = lc.Options.SelectedIndex - lc.Options.VisibleStartIndex
 		}
 	}
 
 	if button == constants.VirtualButtonB {
 		if !lc.Options.DisableBackButton {
 			*running = false
-			result.SelectedIndex = -1
+			*cancelled = true
 		}
 	}
 
 	if button == constants.VirtualButtonX {
 		if lc.Options.EnableAction {
 			*running = false
-			result.ActionTriggered = true
+			result.Action = ListActionTriggered
 			// New logic to handle returning the value(s) selected when X is pressed, if the app wants to use them
 			// If not multi select, returns a single value like A button
 			// if multi select, returns selected values like start button
 			if len(lc.Options.Items) > 0 {
 				if lc.MultiSelect {
 					if indices := lc.getSelectedItems(); len(indices) > 0 {
-						result.populateMultiSelection(indices, lc.Options.Items, lc.Options.VisibleStartIndex)
+						result.Selected = indices
+						result.VisiblePosition = indices[0] - lc.Options.VisibleStartIndex
 					}
 				} else {
-					result.populateSingleSelection(lc.Options.SelectedIndex, lc.Options.Items, lc.Options.VisibleStartIndex)
+					result.Selected = []int{lc.Options.SelectedIndex}
+					result.VisiblePosition = lc.Options.SelectedIndex - lc.Options.VisibleStartIndex
 				}
 			}
 		}
@@ -306,8 +316,10 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 	if button == constants.VirtualButtonStart {
 		if lc.MultiSelect && len(lc.Options.Items) > 0 {
 			*running = false
+			result.Action = ListActionSelected
 			if indices := lc.getSelectedItems(); len(indices) > 0 {
-				result.populateMultiSelection(indices, lc.Options.Items, lc.Options.VisibleStartIndex)
+				result.Selected = indices
+				result.VisiblePosition = indices[0] - lc.Options.VisibleStartIndex
 			}
 		}
 	}
