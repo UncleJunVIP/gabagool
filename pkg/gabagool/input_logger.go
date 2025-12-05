@@ -66,7 +66,7 @@ func newInputLogger() *inputLoggerController {
 	}
 }
 
-func InputLogger() *internal.InternalInputMapping {
+func InputLogger() *internal.InputMapping {
 	logger := newInputLogger()
 
 	internal.GetInternalLogger().Info("Input logger started", "totalButtons", len(logger.buttonSequence))
@@ -278,11 +278,11 @@ func (il *inputLoggerController) render() {
 	renderer.Present()
 }
 
-func (il *inputLoggerController) buildMapping() *internal.InternalInputMapping {
+func (il *inputLoggerController) buildMapping() *internal.InputMapping {
 	il.mutex.Lock()
 	defer il.mutex.Unlock()
 
-	mapping := &internal.InternalInputMapping{
+	mapping := &internal.InputMapping{
 		KeyboardMap:         make(map[sdl.Keycode]constants.VirtualButton),
 		ControllerButtonMap: make(map[sdl.GameControllerButton]constants.VirtualButton),
 		ControllerHatMap:    make(map[uint8]constants.VirtualButton),

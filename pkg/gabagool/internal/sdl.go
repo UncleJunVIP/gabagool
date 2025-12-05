@@ -22,6 +22,8 @@ func Init(title string, showBackground bool) {
 		os.Exit(1)
 	}
 
+	InitInputProcessor()
+
 	window = initWindow(title, showBackground)
 
 	initFonts(GetConfig())

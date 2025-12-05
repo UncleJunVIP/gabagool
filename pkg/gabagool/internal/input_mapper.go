@@ -33,7 +33,7 @@ type JoystickAxisMapping struct {
 	Threshold      int16
 }
 
-type InternalInputMapping struct {
+type InputMapping struct {
 	KeyboardMap map[sdl.Keycode]constants.VirtualButton
 
 	ControllerButtonMap map[sdl.GameControllerButton]constants.VirtualButton
@@ -65,8 +65,8 @@ type Mapping struct {
 	JoystickHatMap map[int]int `json:"joystick_hat_map"`
 }
 
-func DefaultInputMapping() *InternalInputMapping {
-	return &InternalInputMapping{
+func DefaultInputMapping() *InputMapping {
+	return &InputMapping{
 		KeyboardMap: map[sdl.Keycode]constants.VirtualButton{
 			sdl.K_UP:     constants.VirtualButtonUp,
 			sdl.K_DOWN:   constants.VirtualButtonDown,
@@ -98,7 +98,7 @@ func DefaultInputMapping() *InternalInputMapping {
 
 // GetInputMapping returns the input mapping from the environment variable if set,
 // otherwise returns the default mapping
-func GetInputMapping() *InternalInputMapping {
+func GetInputMapping() *InputMapping {
 	logger := GetInternalLogger()
 	mappingPath := os.Getenv(MappingPathEnvVar)
 	if mappingPath != "" {
@@ -112,7 +112,7 @@ func GetInputMapping() *InternalInputMapping {
 	return DefaultInputMapping()
 }
 
-func LoadInputMappingFromJSON(filePath string) (*InternalInputMapping, error) {
+func LoadInputMappingFromJSON(filePath string) (*InputMapping, error) {
 	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read JSON file: %w", err)
@@ -124,7 +124,7 @@ func LoadInputMappingFromJSON(filePath string) (*InternalInputMapping, error) {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	mapping := &InternalInputMapping{
+	mapping := &InputMapping{
 		KeyboardMap:         make(map[sdl.Keycode]constants.VirtualButton),
 		ControllerButtonMap: make(map[sdl.GameControllerButton]constants.VirtualButton),
 		ControllerHatMap:    make(map[uint8]constants.VirtualButton),
@@ -176,7 +176,7 @@ func LoadInputMappingFromJSON(filePath string) (*InternalInputMapping, error) {
 	return mapping, nil
 }
 
-func (im *InternalInputMapping) SaveToJSON(filePath string) error {
+func (im *InputMapping) SaveToJSON(filePath string) error {
 	serializableMapping := &Mapping{
 		KeyboardMap:         make(map[int]int),
 		ControllerButtonMap: make(map[int]int),

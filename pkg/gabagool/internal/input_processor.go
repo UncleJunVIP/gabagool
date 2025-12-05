@@ -2,71 +2,67 @@ package internal
 
 import (
 	"fmt"
-	"sync"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
-
-var once sync.Once
 
 var globalInputProcessor *Processor
 var gameControllers []*sdl.GameController
 var rawJoysticks []*sdl.Joystick
 
-func GetInputProcessor() *Processor {
-	once.Do(func() {
-		globalInputProcessor = NewInputProcessor()
+func InitInputProcessor() {
+	globalInputProcessor = NewInputProcessor()
 
-		numJoysticks := sdl.NumJoysticks()
-		GetInternalLogger().Debug("Detecting controllers", "joystick_count", numJoysticks)
+	numJoysticks := sdl.NumJoysticks()
+	GetInternalLogger().Debug("Detecting controllers", "joystick_count", numJoysticks)
 
-		for i := 0; i < numJoysticks; i++ {
-			if sdl.IsGameController(i) {
-				controller := sdl.GameControllerOpen(i)
-				if controller != nil {
-					name := controller.Name()
+	for i := 0; i < numJoysticks; i++ {
+		if sdl.IsGameController(i) {
+			controller := sdl.GameControllerOpen(i)
+			if controller != nil {
+				name := controller.Name()
 
-					// Register this joystick INDEX (not instance ID) as being handled by a game controller
-					globalInputProcessor.RegisterGameControllerJoystickIndex(i)
+				// Register this joystick INDEX (not instance ID) as being handled by a game controller
+				globalInputProcessor.RegisterGameControllerJoystickIndex(i)
 
-					GetInternalLogger().Debug("Opened game controller",
-						"index", i,
-						"name", name,
-					)
+				GetInternalLogger().Debug("Opened game controller",
+					"index", i,
+					"name", name,
+				)
 
-					gameControllers = append(gameControllers, controller)
-				} else {
-					GetInternalLogger().Error("Failed to open game controller", "index", i)
-				}
+				gameControllers = append(gameControllers, controller)
 			} else {
-				joystick := sdl.JoystickOpen(i)
-				if joystick != nil {
-					name := joystick.Name()
-					GetInternalLogger().Debug("Opened raw joystick (not a standard game controller)",
-						"index", i,
-						"name", name,
-					)
+				GetInternalLogger().Error("Failed to open game controller", "index", i)
+			}
+		} else {
+			joystick := sdl.JoystickOpen(i)
+			if joystick != nil {
+				name := joystick.Name()
+				GetInternalLogger().Debug("Opened raw joystick (not a standard game controller)",
+					"index", i,
+					"name", name,
+				)
 
-					rawJoysticks = append(rawJoysticks, joystick)
-				} else {
-					GetInternalLogger().Debug("Failed to open raw joystick", "index", i)
-				}
+				rawJoysticks = append(rawJoysticks, joystick)
+			} else {
+				GetInternalLogger().Debug("Failed to open raw joystick", "index", i)
 			}
 		}
+	}
 
-		GetInternalLogger().Debug("Controller detection complete",
-			"game_controllers", len(gameControllers),
-			"raw_joysticks", len(rawJoysticks),
-			"total_joysticks", numJoysticks,
-		)
+	GetInternalLogger().Debug("Controller detection complete",
+		"game_controllers", len(gameControllers),
+		"raw_joysticks", len(rawJoysticks),
+		"total_joysticks", numJoysticks,
+	)
+}
 
-	})
-
+func GetInputProcessor() *Processor {
 	return globalInputProcessor
 }
 
 type Processor struct {
-	mapping                       *InternalInputMapping
+	mapping                       *InputMapping
 	gameControllerJoystickIndices map[int]bool
 }
 
