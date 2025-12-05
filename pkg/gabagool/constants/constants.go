@@ -39,6 +39,55 @@ const (
 	VirtualButtonPower
 )
 
+func (vb VirtualButton) GetName() string {
+	switch vb {
+	case VirtualButtonUnassigned:
+		return "Unassigned"
+	case VirtualButtonUp:
+		return "Up"
+	case VirtualButtonDown:
+		return "Down"
+	case VirtualButtonLeft:
+		return "Left"
+	case VirtualButtonRight:
+		return "Right"
+	case VirtualButtonA:
+		return "A"
+	case VirtualButtonB:
+		return "B"
+	case VirtualButtonX:
+		return "X"
+	case VirtualButtonY:
+		return "Y"
+	case VirtualButtonL1:
+		return "L1"
+	case VirtualButtonL2:
+		return "L2"
+	case VirtualButtonR1:
+		return "R1"
+	case VirtualButtonR2:
+		return "R2"
+	case VirtualButtonStart:
+		return "Start"
+	case VirtualButtonSelect:
+		return "Select"
+	case VirtualButtonMenu:
+		return "Menu"
+	case VirtualButtonF1:
+		return "F1"
+	case VirtualButtonF2:
+		return "F2"
+	case VirtualButtonVolumeUp:
+		return "VolumeUp"
+	case VirtualButtonVolumeDown:
+		return "VolumeDown"
+	case VirtualButtonPower:
+		return "Power"
+	default:
+		return "Unknown"
+	}
+}
+
 type TextAlign int
 
 const (
