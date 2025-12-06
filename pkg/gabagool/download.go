@@ -1,6 +1,7 @@
 package gabagool
 
 import (
+	"crypto/tls"
 	"fmt"
 	"io"
 	"net/http"
@@ -334,8 +335,18 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 		}
 	}
 
+	transport := &http.Transport{
+		TLSClientConfig: &tls.Config{},
+		// Disable HTTP/2... apparently improves download performance
+		TLSNextProto:        make(map[string]func(authority string, c *tls.Conn) http.RoundTripper),
+		MaxIdleConns:        100,
+		IdleConnTimeout:     90 * time.Second,
+		MaxIdleConnsPerHost: 10,
+	}
+
 	client := &http.Client{
-		Timeout: job.timeout,
+		Timeout:   job.timeout,
+		Transport: transport,
 	}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -382,7 +393,7 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 				job.lastSpeedBytes = bytesRead
 			}
 		},
-		lastReported: 1024,
+		reportInterval: 1024,
 	}
 
 	done := make(chan error, 1)
