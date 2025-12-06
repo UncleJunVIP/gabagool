@@ -44,6 +44,10 @@ type downloadJob struct {
 	hasError       bool
 	error          error
 	cancelChan     chan struct{}
+
+	lastSpeedUpdate time.Time
+	lastSpeedBytes  int64
+	currentSpeed    float64
 }
 
 type downloadManager struct {
@@ -67,17 +71,18 @@ type downloadManager struct {
 	headers       map[string]string
 	lastInputTime time.Time
 	inputDelay    time.Duration
+
+	showSpeed bool
 }
 
 func newDownloadManager(downloads []Download, headers map[string]string) *downloadManager {
 	window := internal.GetWindow()
 
-	// Calculate responsive progress bar width
 	responsiveBarWidth := window.GetWidth() * 3 / 4
 	if responsiveBarWidth > 900 {
 		responsiveBarWidth = 900
 	}
-	progressBarHeight := int32(30)
+	progressBarHeight := int32(40)
 	progressBarX := (window.GetWidth() - responsiveBarWidth) / 2
 
 	return &downloadManager{
@@ -97,6 +102,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		scrollOffset:       0,
 		lastInputTime:      time.Now(),
 		inputDelay:         constants.DefaultInputDelay,
+		showSpeed:          false,
 	}
 }
 
@@ -172,6 +178,8 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 				if inputEvent.Button == constants.VirtualButtonY {
 					downloadManager.cancelAllDownloads()
 					cancelled = true
+				} else if inputEvent.Button == constants.VirtualButtonX {
+					downloadManager.showSpeed = !downloadManager.showSpeed
 				}
 			}
 		}
@@ -205,10 +213,8 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 		return nil, ErrCancelled
 	}
 
-	// Populate result
 	result.Completed = downloadManager.completedDownloads
 
-	// Combine failed downloads with their errors
 	result.Failed = make([]DownloadError, len(downloadManager.failedDownloads))
 	for i, download := range downloadManager.failedDownloads {
 		var downloadErr error
@@ -226,6 +232,27 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 func (dm *downloadManager) isInputAllowed() bool {
 	return time.Since(dm.lastInputTime) >= dm.inputDelay
+}
+
+func (dm *downloadManager) getAverageSpeed() float64 {
+	if len(dm.activeJobs) == 0 {
+		return 0
+	}
+
+	var totalSpeed float64
+	activeCount := 0
+	for _, job := range dm.activeJobs {
+		if job.currentSpeed > 0 {
+			totalSpeed += job.currentSpeed
+			activeCount++
+		}
+	}
+
+	if activeCount == 0 {
+		return 0
+	}
+
+	return totalSpeed / float64(activeCount)
 }
 
 func (dm *downloadManager) startNextDownloads() {
@@ -334,6 +361,10 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 	}
 	defer out.Close()
 
+	job.lastSpeedUpdate = time.Now()
+	job.lastSpeedBytes = 0
+	job.currentSpeed = 0
+
 	reader := &progressReader{
 		reader: resp.Body,
 		onProgress: func(bytesRead int64) {
@@ -341,7 +372,17 @@ func (dm *downloadManager) downloadFile(job *downloadJob) {
 			if job.totalSize > 0 {
 				job.progress = float64(bytesRead) / float64(job.totalSize)
 			}
+
+			now := time.Now()
+			elapsed := now.Sub(job.lastSpeedUpdate).Seconds()
+			if elapsed >= 0.5 {
+				bytesDiff := bytesRead - job.lastSpeedBytes
+				job.currentSpeed = float64(bytesDiff) / elapsed
+				job.lastSpeedUpdate = now
+				job.lastSpeedBytes = bytesRead
+			}
 		},
+		lastReported: 1024,
 	}
 
 	done := make(chan error, 1)
@@ -456,6 +497,36 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 		singleDownloadHeight := filenameHeight + spacingBetweenFilenameAndBar + dm.progressBarHeight
 
+		if dm.showSpeed {
+			speedTextHeight := filenameHeight
+			singleDownloadHeight += speedTextHeight + 5
+		}
+
+		averageSpeedHeight := int32(0)
+		if dm.showSpeed && len(dm.activeJobs) > 1 {
+			avgSpeed := dm.getAverageSpeed()
+			if avgSpeed > 0 {
+				avgSpeedMBps := avgSpeed / 1048576.0
+				avgSpeedText := fmt.Sprintf("Average Speed: %.2f MB/s", avgSpeedMBps)
+				avgSpeedSurface, err := font.RenderUTF8Blended(avgSpeedText, sdl.Color{R: 100, G: 200, B: 255, A: 255})
+				if err == nil && avgSpeedSurface != nil {
+					avgSpeedTexture, err := renderer.CreateTextureFromSurface(avgSpeedSurface)
+					if err == nil {
+						avgSpeedRect := &sdl.Rect{
+							X: (windowWidth - avgSpeedSurface.W) / 2,
+							Y: contentAreaStart,
+							W: avgSpeedSurface.W,
+							H: avgSpeedSurface.H,
+						}
+						renderer.Copy(avgSpeedTexture, nil, avgSpeedRect)
+						avgSpeedTexture.Destroy()
+						averageSpeedHeight = avgSpeedSurface.H + 15 // Add spacing
+					}
+					avgSpeedSurface.Free()
+				}
+			}
+		}
+
 		if len(dm.activeJobs) > 0 {
 			// Check if we have no queued downloads and 1-3 active jobs
 			hasNoQueue := len(dm.downloadQueue) == 0
@@ -463,12 +534,12 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			if hasNoQueue && len(dm.activeJobs) <= 3 {
 				// Center 1-3 downloads vertically when no queue
 				footerHeight := int32(80)
-				availableHeight := contentAreaHeight - footerHeight
+				availableHeight := contentAreaHeight - footerHeight - averageSpeedHeight
 
 				totalHeight := int32(len(dm.activeJobs))*singleDownloadHeight + int32(len(dm.activeJobs)-1)*spacingBetweenDownloads
-				startY := contentAreaStart + (availableHeight-totalHeight)/2
-				if startY < contentAreaStart {
-					startY = contentAreaStart + 10
+				startY := contentAreaStart + averageSpeedHeight + (availableHeight-totalHeight)/2
+				if startY < contentAreaStart+averageSpeedHeight {
+					startY = contentAreaStart + averageSpeedHeight + 10
 				}
 
 				for i, job := range dm.activeJobs {
@@ -476,8 +547,7 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 					dm.renderDownloadItem(renderer, job, windowWidth, itemY, filenameHeight, spacingBetweenFilenameAndBar)
 				}
 			} else {
-				// Multiple downloads with queue - use the multi-download layout
-				dm.renderMultipleDownloads(renderer, windowWidth, contentAreaStart, contentAreaHeight, filenameHeight, spacingBetweenFilenameAndBar, spacingBetweenDownloads, singleDownloadHeight)
+				dm.renderMultipleDownloads(renderer, windowWidth, contentAreaStart+averageSpeedHeight, contentAreaHeight-averageSpeedHeight, filenameHeight, spacingBetweenFilenameAndBar, spacingBetweenDownloads, singleDownloadHeight)
 			}
 		}
 	}
@@ -491,6 +561,12 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 			helpText = "Cancel All Downloads"
 		}
 		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "Y", HelpText: helpText})
+
+		speedToggleText := "Show Speed"
+		if dm.showSpeed {
+			speedToggleText = "Hide Speed"
+		}
+		footerHelpItems = append(footerHelpItems, FooterHelpItem{ButtonName: "X", HelpText: speedToggleText})
 	}
 
 	renderFooter(renderer, internal.Fonts.SmallFont, footerHelpItems, 20, true)
@@ -504,7 +580,7 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 	if totalRemaining > 0 {
 		remainingSurface, _ := internal.Fonts.SmallFont.RenderUTF8Blended("Sample", sdl.Color{R: 150, G: 150, B: 150, A: 255})
 		if remainingSurface != nil {
-			remainingTextHeight = remainingSurface.H + 15 // Text height + spacing
+			remainingTextHeight = remainingSurface.H + 15
 			remainingSurface.Free()
 		}
 	}
@@ -530,7 +606,6 @@ func (dm *downloadManager) renderMultipleDownloads(renderer *sdl.Renderer, windo
 		renderCount++
 	}
 
-	// Show remaining downloads info
 	if totalRemaining > 0 {
 		remainingText := fmt.Sprintf("%d Additional Download%s Queued", totalRemaining, func() string {
 			if totalRemaining == 1 {
@@ -638,19 +713,53 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 		}
 		percentSurface.Free()
 	}
+
+	if dm.showSpeed && job.currentSpeed > 0 {
+		speedMBps := job.currentSpeed / 1048576.0
+		speedText := fmt.Sprintf("%.2f MB/s", speedMBps)
+		speedSurface, err := font.RenderUTF8Blended(speedText, sdl.Color{R: 150, G: 200, B: 255, A: 255})
+		if err == nil && speedSurface != nil {
+			speedTexture, err := renderer.CreateTextureFromSurface(speedSurface)
+			if err == nil {
+				speedX := dm.progressBarX + (dm.progressBarWidth-speedSurface.W)/2
+				speedY := progressBarY + dm.progressBarHeight + 5 // 5px below the progress bar
+
+				speedRect := &sdl.Rect{
+					X: speedX,
+					Y: speedY,
+					W: speedSurface.W,
+					H: speedSurface.H,
+				}
+				renderer.Copy(speedTexture, nil, speedRect)
+				speedTexture.Destroy()
+			}
+			speedSurface.Free()
+		}
+	}
 }
 
 type progressReader struct {
-	reader     io.Reader
-	onProgress func(bytesRead int64)
-	bytesRead  int64
+	reader         io.Reader
+	onProgress     func(bytesRead int64)
+	bytesRead      int64
+	lastReported   int64
+	reportInterval int64
 }
 
 func (r *progressReader) Read(p []byte) (n int, err error) {
 	n, err = r.reader.Read(p)
 	r.bytesRead += int64(n)
-	if r.onProgress != nil {
+
+	if r.bytesRead-r.lastReported >= r.reportInterval {
+		if r.onProgress != nil {
+			r.onProgress(r.bytesRead)
+		}
+		r.lastReported = r.bytesRead
+	}
+
+	if err != nil && r.onProgress != nil {
 		r.onProgress(r.bytesRead)
 	}
+
 	return
 }
