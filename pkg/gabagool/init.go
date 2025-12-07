@@ -3,6 +3,7 @@ package gabagool
 import (
 	"log/slog"
 	"os"
+	"time"
 
 	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
 	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/platform/cannoli"
@@ -30,15 +31,23 @@ func Init(options Options) {
 		internal.SetInternalLogLevel(slog.LevelError)
 	}
 
-	config := internal.GetConfig()
+	pbc := internal.PowerButtonConfig{}
 
 	if options.IsNextUI {
 		theme := nextui.InitNextUITheme()
+		pbc = internal.PowerButtonConfig{
+			ButtonCode:      116,
+			DevicePath:      "/dev/input/event1",
+			ShortPressMax:   2 * time.Second,
+			CoolDownTime:    1 * time.Second,
+			SuspendScript:   "/mnt/SDCARD/.system/tg5040/bin/suspend",
+			ShutdownCommand: "/sbin/poweroff",
+		}
 		internal.SetTheme(theme)
 	} else if options.IsCannoli {
-		internal.SetTheme(cannoli.InitCannoliTheme(config.Theme.DefaultFontPath))
+		internal.SetTheme(cannoli.InitCannoliTheme("/mnt/SDCARD/System/fonts/Cannoli.ttf"))
 	} else {
-		internal.SetTheme(cannoli.InitCannoliTheme(config.Theme.DefaultFontPath)) // TODO fix this
+		internal.SetTheme(cannoli.InitCannoliTheme("/mnt/SDCARD/System/fonts/Cannoli.ttf")) // TODO fix this
 	}
 
 	if options.PrimaryThemeColorHex != 0 && !options.IsNextUI {
@@ -47,7 +56,7 @@ func Init(options Options) {
 		internal.SetTheme(theme)
 	}
 
-	internal.Init(options.WindowTitle, options.ShowBackground)
+	internal.Init(options.WindowTitle, options.ShowBackground, pbc)
 
 	if os.Getenv("INPUT_CAPTURE") != "" {
 		mapping := InputLogger()

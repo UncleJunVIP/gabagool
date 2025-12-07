@@ -25,11 +25,3 @@ func SetTheme(theme Theme) {
 func GetTheme() Theme {
 	return currentTheme
 }
-
-func HexToColor(hex uint32) sdl.Color {
-	r := uint8((hex >> 16) & 0xFF)
-	g := uint8((hex >> 8) & 0xFF)
-	b := uint8(hex & 0xFF)
-
-	return sdl.Color{R: r, G: g, B: b, A: 255}
-}

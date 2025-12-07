@@ -18,6 +18,7 @@ type Window struct {
 	Background        *sdl.Texture
 	DisplayBackground bool
 	PowerButtonWG     sync.WaitGroup
+	PowerButtonConfig PowerButtonConfig
 }
 
 func initWindow(title string, displayBackground bool) *Window {
@@ -75,9 +76,10 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	return win
 }
 
-func (window *Window) initPowerButtonHandling() {
+func (window *Window) initPowerButtonHandling(pbc PowerButtonConfig) {
 	window.PowerButtonWG.Add(1)
-	go powerButtonHandler(&window.PowerButtonWG)
+
+	go PowerButtonHandler(&window.PowerButtonWG, pbc)
 }
 
 func (window *Window) loadBackground() {

@@ -7,6 +7,24 @@ import (
 	"github.com/veandco/go-sdl2/ttf"
 )
 
+type FontSizes struct {
+	XLarge int `json:"xlarge" yaml:"xlarge"`
+	Large  int `json:"large" yaml:"large"`
+	Medium int `json:"medium" yaml:"medium"`
+	Small  int `json:"small" yaml:"small"`
+	Tiny   int `json:"tiny" yaml:"tiny"`
+	Micro  int `json:"micro" yaml:"micro"`
+}
+
+var DefaultFontSizes = FontSizes{
+	XLarge: 66,
+	Large:  54,
+	Medium: 48,
+	Small:  36,
+	Tiny:   24,
+	Micro:  18,
+}
+
 var Fonts fontsManager
 
 type fontsManager struct {
@@ -51,17 +69,15 @@ func GetScaleFactor() float32 {
 	return scaleFactor
 }
 
-func initFonts(configuration *Configuration) {
-	fontSizesConfig := configuration.UI.FontSizes
-
+func initFonts(sizes FontSizes) {
 	screenWidth := GetWindow().GetWidth()
 
-	xlSize := CalculateFontSizeForResolution(fontSizesConfig.XLarge, screenWidth)
-	largeSize := CalculateFontSizeForResolution(fontSizesConfig.Large, screenWidth)
-	mediumSize := CalculateFontSizeForResolution(fontSizesConfig.Medium, screenWidth)
-	smallSize := CalculateFontSizeForResolution(fontSizesConfig.Small, screenWidth)
-	tinySize := CalculateFontSizeForResolution(fontSizesConfig.Tiny, screenWidth)
-	microSize := CalculateFontSizeForResolution(fontSizesConfig.Micro, screenWidth)
+	xlSize := CalculateFontSizeForResolution(sizes.XLarge, screenWidth)
+	largeSize := CalculateFontSizeForResolution(sizes.Large, screenWidth)
+	mediumSize := CalculateFontSizeForResolution(sizes.Medium, screenWidth)
+	smallSize := CalculateFontSizeForResolution(sizes.Small, screenWidth)
+	tinySize := CalculateFontSizeForResolution(sizes.Tiny, screenWidth)
+	microSize := CalculateFontSizeForResolution(sizes.Micro, screenWidth)
 
 	xlFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), xlSize)
 	LargeFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), largeSize)
