@@ -9,12 +9,12 @@ import (
 type ExitCode int
 
 const (
-	ExitCodeSuccess  ExitCode = 0
-	ExitCodeBack     ExitCode = 1
-	ExitCodeCancel   ExitCode = 2
-	ExitCodeError    ExitCode = -1
-	ExitCodeSettings ExitCode = 4
-	ExitCodeSearch   ExitCode = 5
+	ExitCodeSuccess ExitCode = 0
+	ExitCodeBack    ExitCode = 1
+	ExitCodeCancel  ExitCode = 2
+	ExitCodeQuit    ExitCode = 3
+	ExitCodeAction  ExitCode = 4
+	ExitCodeError   ExitCode = -1
 	// Custom exit codes can start from 100
 )
 
