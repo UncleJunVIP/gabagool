@@ -2,6 +2,7 @@ package gabagool
 
 import (
 	"fmt"
+	"reflect"
 )
 
 // ExitCode represents the result of a screen draw operation
@@ -17,24 +18,24 @@ const (
 	// Custom exit codes can start from 100
 )
 
-// FSMContext holds shared state between screens during FSM execution
-type FSMContext struct {
-	data map[string]any
+// Context holds shared state between screens during FSM execution
+type Context struct {
+	data map[reflect.Type]any
 }
 
-// NewFSMContext creates a new context
-func NewFSMContext() *FSMContext {
-	return &FSMContext{data: make(map[string]any)}
+// NewContext creates a new context
+func NewContext() *Context {
+	return &Context{data: make(map[reflect.Type]any)}
 }
 
-// Set stores a value in the context
-func (c *FSMContext) Set(key string, value any) {
-	c.data[key] = value
+// Set stores a value in the context by its type
+func Set[T any](c *Context, value T) {
+	c.data[reflect.TypeOf((*T)(nil)).Elem()] = value
 }
 
 // Get retrieves a typed value from the context
-func Get[T any](c *FSMContext, key string) (T, bool) {
-	val, ok := c.data[key]
+func Get[T any](c *Context) (T, bool) {
+	val, ok := c.data[reflect.TypeOf((*T)(nil)).Elem()]
 	if !ok {
 		var zero T
 		return zero, false
@@ -44,121 +45,128 @@ func Get[T any](c *FSMContext, key string) (T, bool) {
 }
 
 // MustGet retrieves a typed value or panics
-func MustGet[T any](c *FSMContext, key string) T {
-	val, ok := Get[T](c, key)
+func MustGet[T any](c *Context) T {
+	val, ok := Get[T](c)
 	if !ok {
-		panic(fmt.Sprintf("key %q not found or wrong type", key))
+		panic(fmt.Sprintf("type %T not found in context", *new(T)))
 	}
 	return val
 }
 
-// Node represents a node in the FSM that can be executed
-type Node interface {
-	execute(ctx *FSMContext) (exitCode ExitCode, err error)
+// node represents an executable state in the FSM
+type node interface {
+	execute(ctx *Context) (ExitCode, error)
 	name() string
 }
 
-// ScreenNode wraps a typed screen in the FSM
-type ScreenNode[I any, O any] struct {
-	nodeName      string
-	screen        Screen[I, O]
-	inputFactory  func(ctx *FSMContext) I
-	outputHandler func(ctx *FSMContext, output O) // Called with the output after Draw
+// stateNode wraps a function that returns a typed value
+type stateNode[T any] struct {
+	nodeName string
+	fn       func(*Context) (T, ExitCode)
 }
 
-func (n *ScreenNode[I, O]) name() string {
+func (n *stateNode[T]) name() string {
 	return n.nodeName
 }
 
-func (n *ScreenNode[I, O]) execute(ctx *FSMContext) (ExitCode, error) {
-	var input I
-	if n.inputFactory != nil {
-		input = n.inputFactory(ctx)
-	}
-
-	result, err := n.screen.Draw(input)
-	if err != nil {
-		return ExitCodeError, err
-	}
-
-	if n.outputHandler != nil {
-		n.outputHandler(ctx, result.Value)
-	}
-
-	return result.ExitCode, nil
+func (n *stateNode[T]) execute(ctx *Context) (ExitCode, error) {
+	value, exitCode := n.fn(ctx)
+	Set(ctx, value) // Auto-store by type
+	return exitCode, nil
 }
 
-// Transition defines a state transition
-type Transition struct {
-	FromNode         string
-	ExitCode         ExitCode
-	ToNode           string
-	BeforeTransition func(ctx *FSMContext) error
+// actionNode wraps a simple function that only returns an exit code
+type actionNode struct {
+	nodeName string
+	fn       func(*Context) ExitCode
+}
+
+func (n *actionNode) name() string {
+	return n.nodeName
+}
+
+func (n *actionNode) execute(ctx *Context) (ExitCode, error) {
+	exitCode := n.fn(ctx)
+	return exitCode, nil
+}
+
+// transition defines a state transition
+type transition struct {
+	from string
+	code ExitCode
+	to   string
+	hook func(*Context) error
 }
 
 // FSM represents the finite state machine
 type FSM struct {
-	nodes       map[string]Node
-	transitions []Transition
+	nodes       map[string]node
+	transitions []transition
 	initialNode string
-	ctx         *FSMContext
+	ctx         *Context
 }
 
 // NewFSM creates a new FSM
 func NewFSM() *FSM {
 	return &FSM{
-		nodes:       make(map[string]Node),
-		transitions: []Transition{},
-		ctx:         NewFSMContext(),
+		nodes:       make(map[string]node),
+		transitions: []transition{},
+		ctx:         NewContext(),
 	}
 }
 
-// AddNodeWithHandler adds a screen node with input factory and output handler
-func AddNodeWithHandler[I any, O any](
-	fsm *FSM,
-	name string,
-	screen Screen[I, O],
-	inputFactory func(ctx *FSMContext) I,
-	outputHandler func(ctx *FSMContext, output O),
-) {
-	fsm.nodes[name] = &ScreenNode[I, O]{
-		nodeName:      name,
-		screen:        screen,
-		inputFactory:  inputFactory,
-		outputHandler: outputHandler,
+// AddState adds a state that returns a typed value (auto-stored in context by type)
+func AddState[T any](fsm *FSM, name string, fn func(*Context) (T, ExitCode)) *StateBuilder {
+	fsm.nodes[name] = &stateNode[T]{
+		nodeName: name,
+		fn:       fn,
 	}
+	return &StateBuilder{fsm: fsm, state: name}
 }
 
-// SetInitial sets the starting node
-func (f *FSM) SetInitial(name string) *FSM {
+// AddAction adds a simple action that only returns an exit code
+func AddAction(fsm *FSM, name string, fn func(*Context) ExitCode) *StateBuilder {
+	fsm.nodes[name] = &actionNode{
+		nodeName: name,
+		fn:       fn,
+	}
+	return &StateBuilder{fsm: fsm, state: name}
+}
+
+// Start sets the initial state
+func (f *FSM) Start(name string) *FSM {
 	f.initialNode = name
 	return f
 }
 
 // Context returns the FSM context
-func (f *FSM) Context() *FSMContext {
+func (f *FSM) Context() *Context {
 	return f.ctx
 }
 
 // Run executes the FSM
 func (f *FSM) Run() error {
+	if f.initialNode == "" {
+		return fmt.Errorf("no initial state set")
+	}
+
 	currentNode := f.initialNode
 
 	for {
 		node, exists := f.nodes[currentNode]
 		if !exists {
-			return fmt.Errorf("node not found: %s", currentNode)
+			return fmt.Errorf("state not found: %s", currentNode)
 		}
 
 		exitCode, err := node.execute(f.ctx)
 		if err != nil {
-			return fmt.Errorf("error in node %s: %w", currentNode, err)
+			return fmt.Errorf("error in state %s: %w", currentNode, err)
 		}
 
-		var matched *Transition
+		var matched *transition
 		for i := range f.transitions {
 			t := &f.transitions[i]
-			if t.FromNode == currentNode && t.ExitCode == exitCode {
+			if t.from == currentNode && t.code == exitCode {
 				matched = t
 				break
 			}
@@ -168,16 +176,48 @@ func (f *FSM) Run() error {
 			return nil
 		}
 
-		if matched.BeforeTransition != nil {
-			if err := matched.BeforeTransition(f.ctx); err != nil {
+		if matched.hook != nil {
+			if err := matched.hook(f.ctx); err != nil {
 				return fmt.Errorf("transition hook error: %w", err)
 			}
 		}
 
-		if matched.ToNode == "" {
+		if matched.to == "" {
 			return nil
 		}
 
-		currentNode = matched.ToNode
+		currentNode = matched.to
 	}
+}
+
+// StateBuilder provides a fluent API for defining transitions
+type StateBuilder struct {
+	fsm   *FSM
+	state string
+}
+
+// On defines a transition for an exit code
+func (b *StateBuilder) On(code ExitCode, to string) *StateBuilder {
+	b.fsm.transitions = append(b.fsm.transitions, transition{
+		from: b.state,
+		code: code,
+		to:   to,
+	})
+	return b
+}
+
+// OnWithHook defines a transition with a pre-transition hook
+func (b *StateBuilder) OnWithHook(code ExitCode, to string, hook func(*Context) error) *StateBuilder {
+	b.fsm.transitions = append(b.fsm.transitions, transition{
+		from: b.state,
+		code: code,
+		to:   to,
+		hook: hook,
+	})
+	return b
+}
+
+// Exit defines a terminal transition
+func (b *StateBuilder) Exit(code ExitCode) *StateBuilder {
+	return b.On(code, "")
 }
