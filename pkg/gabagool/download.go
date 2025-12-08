@@ -35,6 +35,11 @@ type DownloadResult struct {
 	Failed    []DownloadError
 }
 
+type DownloadManagerOptions struct {
+	AutoContinue  bool
+	MaxConcurrent int
+}
+
 type downloadJob struct {
 	download       Download
 	progress       float64
@@ -60,7 +65,7 @@ type downloadManager struct {
 	failedDownloads    []Download
 	errors             []error
 	isAllComplete      bool
-	maxActiveJobs      int
+	maxConcurrent      int
 	cancellationError  error
 
 	progressBarWidth  int32
@@ -95,7 +100,7 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 		failedDownloads:    []Download{},
 		errors:             []error{},
 		isAllComplete:      false,
-		maxActiveJobs:      3,
+		maxConcurrent:      3,
 		headers:            headers,
 		progressBarWidth:   responsiveBarWidth,
 		progressBarHeight:  progressBarHeight,
@@ -109,8 +114,12 @@ func newDownloadManager(downloads []Download, headers map[string]string) *downlo
 
 // DownloadManager manages and displays download progress.
 // Returns ErrCancelled if the user cancels the downloads.
-func DownloadManager(downloads []Download, headers map[string]string, autoContinue bool) (*DownloadResult, error) {
+func DownloadManager(downloads []Download, headers map[string]string, opts DownloadManagerOptions) (*DownloadResult, error) {
 	downloadManager := newDownloadManager(downloads, headers)
+
+	if opts.MaxConcurrent > 0 {
+		downloadManager.maxConcurrent = opts.MaxConcurrent
+	}
 
 	result := DownloadResult{
 		Completed: []Download{},
@@ -187,14 +196,14 @@ func DownloadManager(downloads []Download, headers map[string]string, autoContin
 
 		downloadManager.updateJobStatus()
 
-		if len(downloadManager.activeJobs) < downloadManager.maxActiveJobs && len(downloadManager.downloadQueue) > 0 {
+		if len(downloadManager.activeJobs) < downloadManager.maxConcurrent && len(downloadManager.downloadQueue) > 0 {
 			downloadManager.startNextDownloads()
 		}
 
 		if len(downloadManager.activeJobs) == 0 && len(downloadManager.downloadQueue) == 0 && !downloadManager.isAllComplete {
 			downloadManager.isAllComplete = true
 
-			if autoContinue && len(downloadManager.failedDownloads) == 0 {
+			if opts.AutoContinue && len(downloadManager.failedDownloads) == 0 {
 				running = false
 				continue
 			}
@@ -257,7 +266,7 @@ func (dm *downloadManager) getAverageSpeed() float64 {
 }
 
 func (dm *downloadManager) startNextDownloads() {
-	availableSlots := dm.maxActiveJobs - len(dm.activeJobs)
+	availableSlots := dm.maxConcurrent - len(dm.activeJobs)
 	if availableSlots <= 0 {
 		return
 	}
