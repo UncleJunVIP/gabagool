@@ -49,6 +49,14 @@ type virtualKeyboard struct {
 	EnterPressed     bool
 	InputDelay       time.Duration
 	lastInputTime    time.Time
+
+	heldDirections struct {
+		up, down, left, right bool
+	}
+	lastRepeatTime time.Time
+	repeatDelay    time.Duration
+	repeatInterval time.Duration
+	hasRepeated    bool
 }
 
 var defaultKeyboardHelpLines = []string{
@@ -97,6 +105,9 @@ func createKeyboard(windowWidth, windowHeight int32) *virtualKeyboard {
 		ShowingHelp:      false,
 		InputDelay:       100 * time.Millisecond,
 		lastInputTime:    time.Now(),
+		lastRepeatTime:   time.Now(),
+		repeatDelay:      150 * time.Millisecond,
+		repeatInterval:   50 * time.Millisecond,
 	}
 
 	kb.helpOverlay = newHelpOverlay("Keyboard Help", defaultKeyboardHelpLines)
@@ -276,6 +287,8 @@ func Keyboard(initialText string) (*KeyboardResult, error) {
 			break
 		}
 
+		kb.handleDirectionalRepeats()
+
 		kb.updateCursorBlink()
 		kb.render(renderer, font)
 		sdl.Delay(16)
@@ -301,12 +314,12 @@ func (kb *virtualKeyboard) handleEvents() bool {
 				continue
 			}
 
-			if !inputEvent.Pressed {
-				continue
-			}
-
-			if kb.handleInputEvent(inputEvent) {
-				return true
+			if inputEvent.Pressed {
+				if kb.handleInputEvent(inputEvent) {
+					return true
+				}
+			} else {
+				kb.handleInputEventRelease(inputEvent)
 			}
 		}
 	}
@@ -339,15 +352,27 @@ func (kb *virtualKeyboard) handleInputEvent(inputEvent *internal.Event) bool {
 	switch button {
 	case constants.VirtualButtonUp:
 		kb.navigate(button)
+		kb.heldDirections.up = true
+		kb.heldDirections.down = false
+		kb.lastRepeatTime = time.Now()
 		return false
 	case constants.VirtualButtonDown:
 		kb.navigate(button)
+		kb.heldDirections.down = true
+		kb.heldDirections.up = false
+		kb.lastRepeatTime = time.Now()
 		return false
 	case constants.VirtualButtonLeft:
 		kb.navigate(button)
+		kb.heldDirections.left = true
+		kb.heldDirections.right = false
+		kb.lastRepeatTime = time.Now()
 		return false
 	case constants.VirtualButtonRight:
 		kb.navigate(button)
+		kb.heldDirections.right = true
+		kb.heldDirections.left = false
+		kb.lastRepeatTime = time.Now()
 		return false
 	case constants.VirtualButtonA:
 		kb.processSelection()
@@ -393,6 +418,54 @@ func (kb *virtualKeyboard) handleHelpInputEvent(button constants.VirtualButton) 
 	default:
 		kb.ShowingHelp = false
 		return false
+	}
+}
+
+func (kb *virtualKeyboard) handleInputEventRelease(inputEvent *internal.Event) {
+	switch inputEvent.Button {
+	case constants.VirtualButtonUp:
+		kb.heldDirections.up = false
+		kb.hasRepeated = false
+	case constants.VirtualButtonDown:
+		kb.heldDirections.down = false
+		kb.hasRepeated = false
+	case constants.VirtualButtonLeft:
+		kb.heldDirections.left = false
+		kb.hasRepeated = false
+	case constants.VirtualButtonRight:
+		kb.heldDirections.right = false
+		kb.hasRepeated = false
+	}
+}
+
+func (kb *virtualKeyboard) handleDirectionalRepeats() {
+	if !kb.heldDirections.up && !kb.heldDirections.down && !kb.heldDirections.left && !kb.heldDirections.right {
+		kb.lastRepeatTime = time.Now()
+		kb.hasRepeated = false
+		return
+	}
+
+	timeSince := time.Since(kb.lastRepeatTime)
+
+	// Use repeatDelay for first repeat, then repeatInterval for subsequent repeats
+	threshold := kb.repeatInterval
+	if !kb.hasRepeated {
+		threshold = kb.repeatDelay
+	}
+
+	if timeSince >= threshold {
+		kb.lastRepeatTime = time.Now()
+		kb.hasRepeated = true
+
+		if kb.heldDirections.up {
+			kb.navigate(constants.VirtualButtonUp)
+		} else if kb.heldDirections.down {
+			kb.navigate(constants.VirtualButtonDown)
+		} else if kb.heldDirections.left {
+			kb.navigate(constants.VirtualButtonLeft)
+		} else if kb.heldDirections.right {
+			kb.navigate(constants.VirtualButtonRight)
+		}
 	}
 }
 

@@ -92,6 +92,7 @@ type listController struct {
 	lastRepeatTime time.Time
 	repeatDelay    time.Duration
 	repeatInterval time.Duration
+	hasRepeated    bool
 }
 
 func newListController(options ListOptions) *listController {
@@ -122,7 +123,7 @@ func newListController(options ListOptions) *listController {
 		titleScrollData: &internal.TextScrollData{},
 		lastRepeatTime:  time.Now(),
 		repeatDelay:     150 * time.Millisecond,
-		repeatInterval:  20 * time.Millisecond,
+		repeatInterval:  50 * time.Millisecond,
 	}
 }
 
@@ -195,25 +196,25 @@ func (lc *listController) handleInput(event interface{}, running *bool, result *
 		return
 	}
 
-	if !inputEvent.Pressed {
-		return
-	}
+	if inputEvent.Pressed {
+		if lc.ShowingHelp {
+			lc.handleHelpInput(inputEvent.Button)
+			return
+		}
 
-	if lc.ShowingHelp {
-		lc.handleHelpInput(inputEvent.Button)
-		return
-	}
+		if lc.ReorderMode && !lc.isDirectionalInput(inputEvent.Button) {
+			lc.ReorderMode = false
+			return
+		}
 
-	if lc.ReorderMode && !lc.isDirectionalInput(inputEvent.Button) {
-		lc.ReorderMode = false
-		return
-	}
+		if lc.handleNavigation(inputEvent.Button) {
+			return
+		}
 
-	if lc.handleNavigation(inputEvent.Button) {
-		return
+		lc.handleActionButtons(inputEvent.Button, running, result, cancelled)
+	} else {
+		lc.handleInputEventRelease(inputEvent)
 	}
-
-	lc.handleActionButtons(inputEvent.Button, running, result, cancelled)
 }
 
 func (lc *listController) handleHelpInput(button constants.VirtualButton) {
@@ -233,6 +234,23 @@ func (lc *listController) handleHelpInput(button constants.VirtualButton) {
 	}
 }
 
+func (lc *listController) handleInputEventRelease(inputEvent *internal.Event) {
+	switch inputEvent.Button {
+	case constants.VirtualButtonUp:
+		lc.heldDirections.up = false
+		lc.hasRepeated = false
+	case constants.VirtualButtonDown:
+		lc.heldDirections.down = false
+		lc.hasRepeated = false
+	case constants.VirtualButtonLeft:
+		lc.heldDirections.left = false
+		lc.hasRepeated = false
+	case constants.VirtualButtonRight:
+		lc.heldDirections.right = false
+		lc.hasRepeated = false
+	}
+}
+
 func (lc *listController) isDirectionalInput(button constants.VirtualButton) bool {
 	return button == constants.VirtualButtonUp || button == constants.VirtualButtonDown ||
 		button == constants.VirtualButtonLeft || button == constants.VirtualButtonRight
@@ -247,17 +265,26 @@ func (lc *listController) handleNavigation(button constants.VirtualButton) bool 
 	switch button {
 	case constants.VirtualButtonUp:
 		direction = "up"
+		lc.heldDirections.up = true
+		lc.heldDirections.down = false
 	case constants.VirtualButtonDown:
 		direction = "down"
+		lc.heldDirections.down = true
+		lc.heldDirections.up = false
 	case constants.VirtualButtonLeft:
 		direction = "left"
+		lc.heldDirections.left = true
+		lc.heldDirections.right = false
 	case constants.VirtualButtonRight:
 		direction = "right"
+		lc.heldDirections.right = true
+		lc.heldDirections.left = false
 	default:
 	}
 
 	if direction != "" {
 		lc.navigate(direction)
+		lc.lastRepeatTime = time.Now()
 		return true
 	}
 	return false
@@ -548,15 +575,21 @@ func (lc *listController) scrollTo(index int) {
 func (lc *listController) handleDirectionalRepeats() {
 	if len(lc.Options.Items) == 0 || (!lc.heldDirections.up && !lc.heldDirections.down && !lc.heldDirections.left && !lc.heldDirections.right) {
 		lc.lastRepeatTime = time.Now()
+		lc.hasRepeated = false
 		return
 	}
 
-	if time.Since(lc.lastRepeatTime) < lc.repeatDelay {
-		return
+	timeSince := time.Since(lc.lastRepeatTime)
+
+	// Use repeatDelay for first repeat, then repeatInterval for subsequent repeats
+	threshold := lc.repeatInterval
+	if !lc.hasRepeated {
+		threshold = lc.repeatDelay
 	}
 
-	if time.Since(lc.lastRepeatTime) >= lc.repeatInterval {
+	if timeSince >= threshold {
 		lc.lastRepeatTime = time.Now()
+		lc.hasRepeated = true
 
 		if lc.heldDirections.up {
 			lc.navigate("up")

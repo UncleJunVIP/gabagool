@@ -168,8 +168,8 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		slideshowStates:       make(map[int]slideshowState),
 		textureCache:          internal.NewTextureCache(),
 		metadataLabelTextures: make(map[int][]*sdl.Texture),
-		repeatDelay:           time.Millisecond * 100,
-		repeatInterval:        time.Millisecond * 100,
+		repeatDelay:           time.Millisecond * 150,
+		repeatInterval:        time.Millisecond * 50,
 		result:                DetailScreenResult{Action: DetailActionNone},
 		directionTimeout:      time.Millisecond * 200,
 	}
@@ -429,9 +429,11 @@ func (s *detailScreenState) handleDirectionalRepeats() {
 	if s.heldDirections.up {
 		s.targetScrollY = internal.Max32(0, s.targetScrollY-s.scrollSpeed)
 		s.lastRepeatTime = now
+		s.lastDirectionPressTime = now
 	} else if s.heldDirections.down {
 		s.targetScrollY = internal.Min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 		s.lastRepeatTime = now
+		s.lastDirectionPressTime = now
 	}
 }
 

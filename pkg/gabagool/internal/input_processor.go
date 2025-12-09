@@ -64,12 +64,16 @@ func GetInputProcessor() *Processor {
 type Processor struct {
 	mapping                       *InputMapping
 	gameControllerJoystickIndices map[int]bool
+	axisStates                    map[uint8]int8  // tracks which direction each axis is pressed: -1 (negative), 0 (none), 1 (positive)
+	hatStates                     map[uint8]uint8 // tracks the current hat position
 }
 
 func NewInputProcessor() *Processor {
 	return &Processor{
 		mapping:                       GetInputMapping(),
 		gameControllerJoystickIndices: make(map[int]bool),
+		axisStates:                    make(map[uint8]int8),
+		hatStates:                     make(map[uint8]uint8),
 	}
 }
 
@@ -124,6 +128,26 @@ func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
 		logger.Debug("Controller button not mapped",
 			"button_code", fmt.Sprintf("%s (%d)", buttonName, e.Button))
 	case *sdl.JoyHatEvent:
+		previousValue := ip.hatStates[e.Hat]
+		ip.hatStates[e.Hat] = e.Value
+
+		// If hat moved to center, generate release event for previous direction
+		if e.Value == sdl.HAT_CENTERED && previousValue != sdl.HAT_CENTERED {
+			if button, exists := ip.mapping.JoystickHatMap[previousValue]; exists {
+				hatDirection := getHatDirectionName(previousValue)
+				logger.Debug("Joy hat released",
+					"hat_value", fmt.Sprintf("%s (%d)", hatDirection, previousValue),
+					"virtual_button", button.GetName())
+				return &Event{
+					Button:  button,
+					Pressed: false,
+					Source:  SourceHatSwitch,
+					RawCode: int(previousValue),
+				}
+			}
+		}
+
+		// If hat moved to a new direction, generate press event
 		if e.Value != sdl.HAT_CENTERED {
 			hatDirection := getHatDirectionName(e.Value)
 			if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
@@ -143,30 +167,70 @@ func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
 	case *sdl.ControllerAxisEvent:
 		axisName := sdl.GameControllerGetStringForAxis(sdl.GameControllerAxis(e.Axis))
 		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
+			previousState := ip.axisStates[e.Axis]
+			var newState int8 = 0
+
+			// Determine new state
 			if e.Value > axisConfig.Threshold {
-				logger.Debug("Controller axis positive threshold exceeded",
-					"axis_code", fmt.Sprintf("%s+ (%d)", axisName, e.Axis),
-					"value", e.Value,
-					"threshold", axisConfig.Threshold,
-					"virtual_button", axisConfig.PositiveButton.GetName())
-				return &Event{
-					Button:  axisConfig.PositiveButton,
-					Pressed: true,
-					Source:  SourceController,
-					RawCode: int(e.Axis),
-				}
+				newState = 1
+			} else if e.Value < -axisConfig.Threshold {
+				newState = -1
 			}
-			if e.Value < -axisConfig.Threshold {
-				logger.Debug("Controller axis negative threshold exceeded",
-					"axis_code", fmt.Sprintf("%s- (%d)", axisName, e.Axis),
-					"value", e.Value,
-					"threshold", axisConfig.Threshold,
-					"virtual_button", axisConfig.NegativeButton.GetName())
-				return &Event{
-					Button:  axisConfig.NegativeButton,
-					Pressed: true,
-					Source:  SourceController,
-					RawCode: int(e.Axis),
+
+			// If state changed, generate appropriate event
+			if newState != previousState {
+				ip.axisStates[e.Axis] = newState
+
+				// Generate release event for previous state
+				if previousState == 1 {
+					logger.Debug("Controller axis positive released",
+						"axis_code", fmt.Sprintf("%s+ (%d)", axisName, e.Axis),
+						"value", e.Value,
+						"virtual_button", axisConfig.PositiveButton.GetName())
+					return &Event{
+						Button:  axisConfig.PositiveButton,
+						Pressed: false,
+						Source:  SourceController,
+						RawCode: int(e.Axis),
+					}
+				} else if previousState == -1 {
+					logger.Debug("Controller axis negative released",
+						"axis_code", fmt.Sprintf("%s- (%d)", axisName, e.Axis),
+						"value", e.Value,
+						"virtual_button", axisConfig.NegativeButton.GetName())
+					return &Event{
+						Button:  axisConfig.NegativeButton,
+						Pressed: false,
+						Source:  SourceController,
+						RawCode: int(e.Axis),
+					}
+				}
+
+				// Generate press event for new state
+				if newState == 1 {
+					logger.Debug("Controller axis positive threshold exceeded",
+						"axis_code", fmt.Sprintf("%s+ (%d)", axisName, e.Axis),
+						"value", e.Value,
+						"threshold", axisConfig.Threshold,
+						"virtual_button", axisConfig.PositiveButton.GetName())
+					return &Event{
+						Button:  axisConfig.PositiveButton,
+						Pressed: true,
+						Source:  SourceController,
+						RawCode: int(e.Axis),
+					}
+				} else if newState == -1 {
+					logger.Debug("Controller axis negative threshold exceeded",
+						"axis_code", fmt.Sprintf("%s- (%d)", axisName, e.Axis),
+						"value", e.Value,
+						"threshold", axisConfig.Threshold,
+						"virtual_button", axisConfig.NegativeButton.GetName())
+					return &Event{
+						Button:  axisConfig.NegativeButton,
+						Pressed: true,
+						Source:  SourceController,
+						RawCode: int(e.Axis),
+					}
 				}
 			}
 		}
@@ -191,30 +255,70 @@ func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
 	case *sdl.JoyAxisEvent:
 		joyAxisName := getJoyAxisName(e.Axis)
 		if axisConfig, exists := ip.mapping.JoystickAxisMap[e.Axis]; exists {
+			previousState := ip.axisStates[e.Axis]
+			var newState int8 = 0
+
+			// Determine new state
 			if e.Value > axisConfig.Threshold {
-				logger.Debug("Joy axis positive threshold exceeded",
-					"axis_code", fmt.Sprintf("%s+ (%d)", joyAxisName, e.Axis),
-					"value", e.Value,
-					"threshold", axisConfig.Threshold,
-					"virtual_button", axisConfig.PositiveButton.GetName())
-				return &Event{
-					Button:  axisConfig.PositiveButton,
-					Pressed: true,
-					Source:  SourceJoystick,
-					RawCode: int(e.Axis),
-				}
+				newState = 1
+			} else if e.Value < -axisConfig.Threshold {
+				newState = -1
 			}
-			if e.Value < -axisConfig.Threshold {
-				logger.Debug("Joy axis negative threshold exceeded",
-					"axis_code", fmt.Sprintf("%s- (%d)", joyAxisName, e.Axis),
-					"value", e.Value,
-					"threshold", axisConfig.Threshold,
-					"virtual_button", axisConfig.NegativeButton.GetName())
-				return &Event{
-					Button:  axisConfig.NegativeButton,
-					Pressed: true,
-					Source:  SourceJoystick,
-					RawCode: int(e.Axis),
+
+			// If state changed, generate appropriate event
+			if newState != previousState {
+				ip.axisStates[e.Axis] = newState
+
+				// Generate release event for previous state
+				if previousState == 1 {
+					logger.Debug("Joy axis positive released",
+						"axis_code", fmt.Sprintf("%s+ (%d)", joyAxisName, e.Axis),
+						"value", e.Value,
+						"virtual_button", axisConfig.PositiveButton.GetName())
+					return &Event{
+						Button:  axisConfig.PositiveButton,
+						Pressed: false,
+						Source:  SourceJoystick,
+						RawCode: int(e.Axis),
+					}
+				} else if previousState == -1 {
+					logger.Debug("Joy axis negative released",
+						"axis_code", fmt.Sprintf("%s- (%d)", joyAxisName, e.Axis),
+						"value", e.Value,
+						"virtual_button", axisConfig.NegativeButton.GetName())
+					return &Event{
+						Button:  axisConfig.NegativeButton,
+						Pressed: false,
+						Source:  SourceJoystick,
+						RawCode: int(e.Axis),
+					}
+				}
+
+				// Generate press event for new state
+				if newState == 1 {
+					logger.Debug("Joy axis positive threshold exceeded",
+						"axis_code", fmt.Sprintf("%s+ (%d)", joyAxisName, e.Axis),
+						"value", e.Value,
+						"threshold", axisConfig.Threshold,
+						"virtual_button", axisConfig.PositiveButton.GetName())
+					return &Event{
+						Button:  axisConfig.PositiveButton,
+						Pressed: true,
+						Source:  SourceJoystick,
+						RawCode: int(e.Axis),
+					}
+				} else if newState == -1 {
+					logger.Debug("Joy axis negative threshold exceeded",
+						"axis_code", fmt.Sprintf("%s- (%d)", joyAxisName, e.Axis),
+						"value", e.Value,
+						"threshold", axisConfig.Threshold,
+						"virtual_button", axisConfig.NegativeButton.GetName())
+					return &Event{
+						Button:  axisConfig.NegativeButton,
+						Pressed: true,
+						Source:  SourceJoystick,
+						RawCode: int(e.Axis),
+					}
 				}
 			}
 		}
