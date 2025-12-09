@@ -54,28 +54,30 @@ type DetailScreenResult struct {
 }
 
 type detailScreenState struct {
-	window                *internal.Window
-	renderer              *sdl.Renderer
-	options               DetailScreenOptions
-	footerHelpItems       []FooterHelpItem
-	scrollY               int32
-	targetScrollY         int32
-	maxScrollY            int32
-	scrollSpeed           int32
-	scrollAnimationSpeed  float32
-	lastInputTime         time.Time
-	inputDelay            time.Duration
-	slideshowStates       map[int]slideshowState
-	textureCache          *internal.TextureCache
-	titleTexture          *sdl.Texture
-	sectionTitleTextures  []*sdl.Texture
-	metadataLabelTextures map[int][]*sdl.Texture
-	heldDirections        struct{ up, down bool }
-	lastRepeatTime        time.Time
-	repeatDelay           time.Duration
-	repeatInterval        time.Duration
-	result                DetailScreenResult
-	activeSlideshow       int
+	window                 *internal.Window
+	renderer               *sdl.Renderer
+	options                DetailScreenOptions
+	footerHelpItems        []FooterHelpItem
+	scrollY                int32
+	targetScrollY          int32
+	maxScrollY             int32
+	scrollSpeed            int32
+	scrollAnimationSpeed   float32
+	lastInputTime          time.Time
+	inputDelay             time.Duration
+	slideshowStates        map[int]slideshowState
+	textureCache           *internal.TextureCache
+	titleTexture           *sdl.Texture
+	sectionTitleTextures   []*sdl.Texture
+	metadataLabelTextures  map[int][]*sdl.Texture
+	heldDirections         struct{ up, down bool }
+	lastRepeatTime         time.Time
+	repeatDelay            time.Duration
+	repeatInterval         time.Duration
+	result                 DetailScreenResult
+	activeSlideshow        int
+	lastDirectionPressTime time.Time
+	directionTimeout       time.Duration
 }
 
 type slideshowState struct {
@@ -169,6 +171,7 @@ func initializeDetailScreenState(title string, options DetailScreenOptions, foot
 		repeatDelay:           time.Millisecond * 100,
 		repeatInterval:        time.Millisecond * 100,
 		result:                DetailScreenResult{Action: DetailActionNone},
+		directionTimeout:      time.Millisecond * 200,
 	}
 
 	state.initializeImageDefaults()
@@ -370,12 +373,15 @@ func (s *detailScreenState) isInputAllowed() bool {
 func (s *detailScreenState) startScrolling(up bool) {
 	if up {
 		s.heldDirections.up = true
+		s.heldDirections.down = false
 		s.targetScrollY = internal.Max32(0, s.targetScrollY-s.scrollSpeed)
 	} else {
 		s.heldDirections.down = true
+		s.heldDirections.up = false
 		s.targetScrollY = internal.Min32(s.maxScrollY, s.targetScrollY+s.scrollSpeed)
 	}
 	s.lastRepeatTime = time.Now()
+	s.lastDirectionPressTime = time.Now()
 }
 
 func (s *detailScreenState) handleSlideshowNavigation(isLeft bool) {
@@ -403,6 +409,14 @@ func (s *detailScreenState) update() {
 
 func (s *detailScreenState) handleDirectionalRepeats() {
 	now := time.Now()
+
+	// Reset held directions if no input received recently (handles missing release events)
+	if now.Sub(s.lastDirectionPressTime) > s.directionTimeout {
+		s.heldDirections.up = false
+		s.heldDirections.down = false
+		return
+	}
+
 	timeSinceLastRepeat := now.Sub(s.lastRepeatTime)
 
 	if timeSinceLastRepeat < s.repeatDelay {
