@@ -687,26 +687,23 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 
 	progressBarY := startY + filenameHeight + spacingBetweenFilenameAndBar
 
-	renderer.SetDrawColor(50, 50, 50, 255)
 	progressBarBg := sdl.Rect{
 		X: dm.progressBarX,
 		Y: progressBarY,
 		W: dm.progressBarWidth,
 		H: dm.progressBarHeight,
 	}
-	renderer.FillRect(&progressBarBg)
 
 	progressWidth := int32(float64(dm.progressBarWidth) * job.progress)
-	if progressWidth > 0 {
-		renderer.SetDrawColor(100, 150, 255, 255)
-		progressBarFill := sdl.Rect{
-			X: dm.progressBarX,
-			Y: progressBarY,
-			W: progressWidth,
-			H: dm.progressBarHeight,
-		}
-		renderer.FillRect(&progressBarFill)
-	}
+
+	// Use smooth progress bar with anti-aliased rounded edges
+	internal.DrawSmoothProgressBar(
+		renderer,
+		&progressBarBg,
+		progressWidth,
+		sdl.Color{R: 50, G: 50, B: 50, A: 255},
+		sdl.Color{R: 100, G: 150, B: 255, A: 255},
+	)
 
 	percentText := fmt.Sprintf("%.0f%%", job.progress*100)
 	if job.totalSize > 0 {

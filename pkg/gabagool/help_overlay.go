@@ -118,15 +118,18 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 		scrollbarY := contentY
 		scrollbarHeight := contentHeight
 
-		scrollbarBgRect := &sdl.Rect{
-			X: scrollbarX,
-			Y: scrollbarY,
-			W: h.ScrollbarWidth,
-			H: scrollbarHeight,
-		}
-		scrollbarBgColor := sdl.Color{R: 50, G: 50, B: 50, A: 100}
-		renderer.SetDrawColor(scrollbarBgColor.R, scrollbarBgColor.G, scrollbarBgColor.B, scrollbarBgColor.A)
-		renderer.FillRect(scrollbarBgRect)
+		// Clear the scrollbar area first to prevent anti-aliasing artifacts
+		renderer.SetDrawColor(h.BackgroundColor.R, h.BackgroundColor.G, h.BackgroundColor.B, 255)
+		renderer.FillRect(&sdl.Rect{
+			X: scrollbarX - 2,
+			Y: scrollbarY - 2,
+			W: h.ScrollbarWidth + 4,
+			H: scrollbarHeight + 4,
+		})
+
+		// Draw scrollbar background with smooth edges (using full opacity to avoid blending artifacts)
+		scrollbarBgColor := sdl.Color{R: 50, G: 50, B: 50, A: 255}
+		internal.DrawSmoothScrollbar(renderer, scrollbarX, scrollbarY, h.ScrollbarWidth, scrollbarHeight, scrollbarBgColor)
 
 		totalContentHeight := int32(len(h.Lines)) * h.LineHeight
 		handleRatio := float64(contentHeight) / float64(totalContentHeight)
@@ -146,14 +149,8 @@ func (h *helpOverlay) render(renderer *sdl.Renderer, font *ttf.Font) {
 
 		handleY := scrollbarY + int32(float64(scrollbarHeight-handleHeight)*scrollRatio)
 
-		scrollbarHandleRect := &sdl.Rect{
-			X: scrollbarX,
-			Y: handleY,
-			W: h.ScrollbarWidth,
-			H: handleHeight,
-		}
-		renderer.SetDrawColor(h.ScrollbarColor.R, h.ScrollbarColor.G, h.ScrollbarColor.B, h.ScrollbarColor.A)
-		renderer.FillRect(scrollbarHandleRect)
+		// Draw scrollbar handle with smooth edges (using full opacity to avoid blending artifacts)
+		internal.DrawSmoothScrollbar(renderer, scrollbarX, handleY, h.ScrollbarWidth, handleHeight, sdl.Color{R: 150, G: 150, B: 150, A: 255})
 	}
 
 	exitText := "Press any button to close help"

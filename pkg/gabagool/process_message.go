@@ -178,27 +178,23 @@ func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
 	barX := (windowWidth - barWidth) / 2
 	barY := (windowHeight - barHeight + (int32(internal.Fonts.SmallFont.Height()) * 2)) / 2
 
-	renderer.SetDrawColor(50, 50, 50, 255)
 	progressBarBg := sdl.Rect{
 		X: barX,
 		Y: barY,
 		W: barWidth,
 		H: barHeight,
 	}
-	renderer.FillRect(&progressBarBg)
 
 	progressWidth := int32(float64(barWidth) * p.progress.Load())
 
-	if progressWidth > 0 {
-		renderer.SetDrawColor(100, 150, 255, 255)
-		progressBarFill := sdl.Rect{
-			X: barX,
-			Y: barY,
-			W: progressWidth,
-			H: barHeight,
-		}
-		renderer.FillRect(&progressBarFill)
-	}
+	// Use smooth progress bar with anti-aliased rounded edges
+	internal.DrawSmoothProgressBar(
+		renderer,
+		&progressBarBg,
+		progressWidth,
+		sdl.Color{R: 50, G: 50, B: 50, A: 255},
+		sdl.Color{R: 100, G: 150, B: 255, A: 255},
+	)
 
 	percentText := fmt.Sprintf("%.0f%%", p.progress.Load()*100)
 

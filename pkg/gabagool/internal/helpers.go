@@ -289,34 +289,73 @@ func DrawRoundedRect(renderer *sdl.Renderer, rect *sdl.Rect, radius int32, color
 		color,
 	)
 
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+radius,
-		rect.Y+radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+rect.W-radius,
-		rect.Y+radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+radius,
-		rect.Y+rect.H-radius,
-		radius,
-		color,
-	)
-	gfx.FilledCircleColor(
-		renderer,
-		rect.X+rect.W-radius,
-		rect.Y+rect.H-radius,
-		radius,
-		color,
-	)
+	// Top-left corner
+	drawRoundedCorner(renderer, rect.X+radius, rect.Y+radius, radius, color)
+	// Top-right corner
+	drawRoundedCorner(renderer, rect.X+rect.W-radius, rect.Y+radius, radius, color)
+	// Bottom-left corner
+	drawRoundedCorner(renderer, rect.X+radius, rect.Y+rect.H-radius, radius, color)
+	// Bottom-right corner
+	drawRoundedCorner(renderer, rect.X+rect.W-radius, rect.Y+rect.H-radius, radius, color)
+}
+
+func drawRoundedCorner(renderer *sdl.Renderer, centerX, centerY, radius int32, color sdl.Color) {
+	// Fill the corner
+	gfx.FilledCircleColor(renderer, centerX, centerY, radius, color)
+
+	// Add anti-aliased edge for smooth appearance
+	gfx.AACircleColor(renderer, centerX, centerY, radius, color)
+
+	// Add additional anti-aliased circles based on radius size for extra smoothness
+	// Larger radii benefit from multiple AA layers to eliminate jaggedness
+	if radius > 15 {
+		// Large pills (like list items) - add 3 layers of AA
+		gfx.AACircleColor(renderer, centerX, centerY, radius-1, color)
+		gfx.AACircleColor(renderer, centerX, centerY, radius-2, color)
+	} else if radius > 5 {
+		// Medium pills (like footer buttons) - add 2 layers of AA
+		gfx.AACircleColor(renderer, centerX, centerY, radius-1, color)
+	} else if radius > 2 {
+		// Small pills - add 1 layer of AA
+		gfx.AACircleColor(renderer, centerX, centerY, radius-1, color)
+	}
+}
+
+// DrawSmoothScrollbar renders a scrollbar with anti-aliased rounded ends
+func DrawSmoothScrollbar(renderer *sdl.Renderer, x, y, width, height int32, color sdl.Color) {
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	// For narrow scrollbars, use fully rounded ends
+	radius := width / 2
+	if height < width {
+		radius = height / 2
+	}
+
+	DrawRoundedRect(renderer, &sdl.Rect{X: x, Y: y, W: width, H: height}, radius, color)
+}
+
+// DrawSmoothProgressBar renders a progress bar with smooth rounded edges
+func DrawSmoothProgressBar(renderer *sdl.Renderer, bgRect *sdl.Rect, fillWidth int32, bgColor, fillColor sdl.Color) {
+	if bgRect == nil {
+		return
+	}
+
+	// Draw background with rounded corners
+	radius := bgRect.H / 2
+	DrawRoundedRect(renderer, bgRect, radius, bgColor)
+
+	// Draw fill with rounded corners if there's progress
+	if fillWidth > 0 && fillWidth <= bgRect.W {
+		fillRect := &sdl.Rect{
+			X: bgRect.X,
+			Y: bgRect.Y,
+			W: Min32(fillWidth, bgRect.W),
+			H: bgRect.H,
+		}
+		DrawRoundedRect(renderer, fillRect, radius, fillColor)
+	}
 }
 
 func Abs(x int) int {

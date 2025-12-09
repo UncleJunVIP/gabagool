@@ -135,7 +135,6 @@ func NewImageSection(title string, imagePath string, maxWidth, maxHeight int32, 
 }
 
 // DetailScreen displays a scrollable detail screen with sections.
-// Returns ErrCancelled if the user presses the back button.
 func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []FooterHelpItem) (*DetailScreenResult, error) {
 	state := initializeDetailScreenState(title, options, footerHelpItems)
 	defer state.cleanup()
@@ -147,8 +146,7 @@ func DetailScreen(title string, options DetailScreenOptions, footerHelpItems []F
 		sdl.Delay(16)
 	}
 
-	// Return error if cancelled
-	if state.result.Action == DetailActionNone {
+	if state.result.Action == DetailActionCancelled {
 		return nil, ErrCancelled
 	}
 	return &state.result, nil
@@ -315,7 +313,7 @@ func (s *detailScreenState) handleEvents() {
 	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
 		switch event.(type) {
 		case *sdl.QuitEvent:
-			s.result.Action = DetailActionNone
+			s.result.Action = DetailActionCancelled
 			return
 		case *sdl.KeyboardEvent, *sdl.ControllerButtonEvent, *sdl.ControllerAxisEvent, *sdl.JoyButtonEvent, *sdl.JoyAxisEvent, *sdl.JoyHatEvent:
 			inputEvent := processor.ProcessSDLEvent(event.(sdl.Event))
@@ -346,10 +344,10 @@ func (s *detailScreenState) handleInputEvent(inputEvent *internal.Event) {
 	case constants.VirtualButtonLeft, constants.VirtualButtonRight:
 		s.handleSlideshowNavigation(inputEvent.Button == constants.VirtualButtonLeft)
 	case constants.VirtualButtonB:
-		s.result.Action = DetailActionNone
-	case s.options.ActionButton, constants.VirtualButtonA, constants.VirtualButtonStart:
+		s.result.Action = DetailActionCancelled
+	case constants.VirtualButtonA, constants.VirtualButtonStart:
 		s.result.Action = DetailActionConfirmed
-	case constants.VirtualButtonX:
+	case s.options.ActionButton:
 		if s.options.EnableAction {
 			s.result.Action = DetailActionTriggered
 		}
@@ -441,15 +439,15 @@ func (s *detailScreenState) render() {
 }
 
 func (s *detailScreenState) clearScreen() {
+	s.renderer.SetDrawColor(
+		s.options.BackgroundColor.R,
+		s.options.BackgroundColor.G,
+		s.options.BackgroundColor.B,
+		s.options.BackgroundColor.A)
+	s.renderer.Clear()
+
 	if s.options.ShowThemeBackground {
 		s.window.RenderBackground()
-	} else {
-		s.renderer.SetDrawColor(
-			s.options.BackgroundColor.R,
-			s.options.BackgroundColor.G,
-			s.options.BackgroundColor.B,
-			s.options.BackgroundColor.A)
-		s.renderer.Clear()
 	}
 }
 
@@ -480,6 +478,14 @@ func (s *detailScreenState) renderTitle(margins internal.Padding) int32 {
 func (s *detailScreenState) renderSections(margins internal.Padding, startY int32, safeAreaHeight int32) (int32, int32) {
 	currentY := startY
 	contentWidth := s.window.GetWidth() - (margins.Left + margins.Right)
+
+	// Reserve space for scrollbar to prevent text overlap
+	if s.options.ShowScrollbar {
+		scrollbarWidth := int32(10)
+		scrollbarMargin := int32(5)
+		scrollbarPadding := int32(10) // Extra padding between content and scrollbar
+		contentWidth -= (scrollbarWidth + scrollbarMargin + scrollbarPadding)
+	}
 
 	s.activeSlideshow = -1
 
@@ -671,14 +677,19 @@ func (s *detailScreenState) renderDescription(section Section, margins internal.
 		return currentY
 	}
 
-	descHeight := calculateMultilineTextHeight(section.Description, internal.Fonts.SmallFont, contentWidth)
-	if descHeight > 0 && isRectVisible(sdl.Rect{X: margins.Left, Y: currentY, W: contentWidth, H: descHeight}, safeAreaHeight) {
+	// Add extra padding for description text to prevent overlap with scrollbar
+	descriptionPadding := int32(15)
+	descriptionX := margins.Left + descriptionPadding
+	descriptionWidth := contentWidth - (descriptionPadding * 2)
+
+	descHeight := calculateMultilineTextHeight(section.Description, internal.Fonts.SmallFont, descriptionWidth)
+	if descHeight > 0 && isRectVisible(sdl.Rect{X: descriptionX, Y: currentY, W: descriptionWidth, H: descHeight}, safeAreaHeight) {
 		internal.RenderMultilineTextWithCache(
 			s.renderer,
 			section.Description,
 			internal.Fonts.SmallFont,
-			contentWidth,
-			margins.Left,
+			descriptionWidth,
+			descriptionX,
 			currentY,
 			s.options.DescriptionColor,
 			constants.TextAlignLeft,
@@ -703,22 +714,26 @@ func (s *detailScreenState) renderScrollbar(safeAreaHeight int32) {
 
 	scrollbarY := int32(float64(s.scrollY) * float64(safeAreaHeight-scrollbarHeight) / float64(s.maxScrollY))
 
-	s.renderer.SetDrawColor(50, 50, 50, 120)
+	scrollbarX := s.window.GetWidth() - scrollbarWidth - 5
+
+	// Clear the scrollbar area first to prevent anti-aliasing artifacts
+	s.renderer.SetDrawColor(
+		s.options.BackgroundColor.R,
+		s.options.BackgroundColor.G,
+		s.options.BackgroundColor.B,
+		255)
 	s.renderer.FillRect(&sdl.Rect{
-		X: s.window.GetWidth() - scrollbarWidth - 5,
-		Y: 5,
-		W: scrollbarWidth,
-		H: safeAreaHeight - 10,
+		X: scrollbarX - 2,
+		Y: 3,
+		W: scrollbarWidth + 4,
+		H: safeAreaHeight - 6,
 	})
 
-	s.renderer.SetDrawColor(180, 180, 180, 200)
-	scrollbarRect := &sdl.Rect{
-		X: s.window.GetWidth() - scrollbarWidth - 5,
-		Y: 5 + scrollbarY,
-		W: scrollbarWidth,
-		H: scrollbarHeight,
-	}
-	internal.DrawRoundedRect(s.renderer, scrollbarRect, 4, sdl.Color{R: 100, G: 100, B: 100, A: 200})
+	// Draw scrollbar background with smooth edges (using full opacity to avoid blending artifacts)
+	internal.DrawSmoothScrollbar(s.renderer, scrollbarX, 5, scrollbarWidth, safeAreaHeight-10, sdl.Color{R: 50, G: 50, B: 50, A: 255})
+
+	// Draw scrollbar handle with smooth edges (using full opacity to avoid blending artifacts)
+	internal.DrawSmoothScrollbar(s.renderer, scrollbarX, 5+scrollbarY, scrollbarWidth, scrollbarHeight, sdl.Color{R: 100, G: 100, B: 100, A: 255})
 }
 
 func (s *detailScreenState) renderFooter(margins internal.Padding) {
