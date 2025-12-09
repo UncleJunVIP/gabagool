@@ -66,6 +66,7 @@ type Processor struct {
 	gameControllerJoystickIndices map[int]bool
 	axisStates                    map[uint8]int8  // tracks which direction each axis is pressed: -1 (negative), 0 (none), 1 (positive)
 	hatStates                     map[uint8]uint8 // tracks the current hat position
+	eventQueue                    []*Event        // queue for events that need to be processed
 }
 
 func NewInputProcessor() *Processor {
@@ -86,6 +87,13 @@ func (ip *Processor) IsGameControllerJoystick(joystickIndex int) bool {
 }
 
 func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
+	// If there are queued events, return those first
+	if len(ip.eventQueue) > 0 {
+		evt := ip.eventQueue[0]
+		ip.eventQueue = ip.eventQueue[1:]
+		return evt
+	}
+
 	logger := GetInternalLogger()
 
 	switch e := event.(type) {
@@ -131,23 +139,41 @@ func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
 		previousValue := ip.hatStates[e.Hat]
 		ip.hatStates[e.Hat] = e.Value
 
-		// If hat moved to center, generate release event for previous direction
-		if e.Value == sdl.HAT_CENTERED && previousValue != sdl.HAT_CENTERED {
+		// If previous direction was set and different from new value, generate release event
+		if previousValue != sdl.HAT_CENTERED && previousValue != e.Value {
 			if button, exists := ip.mapping.JoystickHatMap[previousValue]; exists {
 				hatDirection := getHatDirectionName(previousValue)
-				logger.Debug("Joy hat released",
+				logger.Debug("Joy hat released (direction change)",
 					"hat_value", fmt.Sprintf("%s (%d)", hatDirection, previousValue),
 					"virtual_button", button.GetName())
-				return &Event{
+				releaseEvent := &Event{
 					Button:  button,
 					Pressed: false,
 					Source:  SourceHatSwitch,
 					RawCode: int(previousValue),
 				}
+
+				// If new direction is also mapped, queue the press event
+				if e.Value != sdl.HAT_CENTERED {
+					if newButton, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
+						newHatDirection := getHatDirectionName(e.Value)
+						logger.Debug("Joy hat pressed (queued)",
+							"hat_value", fmt.Sprintf("%s (%d)", newHatDirection, e.Value),
+							"virtual_button", newButton.GetName())
+						ip.eventQueue = append(ip.eventQueue, &Event{
+							Button:  newButton,
+							Pressed: true,
+							Source:  SourceHatSwitch,
+							RawCode: int(e.Value),
+						})
+					}
+				}
+
+				return releaseEvent
 			}
 		}
 
-		// If hat moved to a new direction, generate press event
+		// If hat moved to a new direction (and previous was centered), generate press event
 		if e.Value != sdl.HAT_CENTERED {
 			hatDirection := getHatDirectionName(e.Value)
 			if button, exists := ip.mapping.JoystickHatMap[e.Value]; exists {
@@ -163,6 +189,22 @@ func (ip *Processor) ProcessSDLEvent(event sdl.Event) *Event {
 			}
 			logger.Debug("Joy hat not mapped",
 				"hat_value", fmt.Sprintf("%s (%d)", hatDirection, e.Value))
+		}
+
+		// If hat returned to center from a direction
+		if e.Value == sdl.HAT_CENTERED && previousValue != sdl.HAT_CENTERED {
+			if button, exists := ip.mapping.JoystickHatMap[previousValue]; exists {
+				hatDirection := getHatDirectionName(previousValue)
+				logger.Debug("Joy hat released (centered)",
+					"hat_value", fmt.Sprintf("%s (%d)", hatDirection, previousValue),
+					"virtual_button", button.GetName())
+				return &Event{
+					Button:  button,
+					Pressed: false,
+					Source:  SourceHatSwitch,
+					RawCode: int(previousValue),
+				}
+			}
 		}
 	case *sdl.ControllerAxisEvent:
 		axisName := sdl.GameControllerGetStringForAxis(sdl.GameControllerAxis(e.Axis))
