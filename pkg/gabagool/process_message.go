@@ -176,7 +176,7 @@ func (p *processMessage) renderProgressBar(renderer *sdl.Renderer) {
 	}
 	barHeight := int32(40)
 	barX := (windowWidth - barWidth) / 2
-	barY := (windowHeight - barHeight + (int32(internal.Fonts.SmallFont.Height()) * 2)) / 2
+	barY := ((windowHeight - barHeight + (int32(internal.Fonts.SmallFont.Height()) * 2)) / 2) + 10
 
 	progressBarBg := sdl.Rect{
 		X: barX,
