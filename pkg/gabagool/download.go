@@ -517,7 +517,8 @@ func (dm *downloadManager) render(renderer *sdl.Renderer) {
 
 		singleDownloadHeight := filenameHeight + spacingBetweenFilenameAndBar + dm.progressBarHeight
 
-		if dm.showSpeed {
+		// Only add space for individual speed display when there's a single download
+		if dm.showSpeed && len(dm.activeJobs) == 1 {
 			speedTextHeight := filenameHeight
 			singleDownloadHeight += speedTextHeight + 5
 		}
@@ -731,7 +732,8 @@ func (dm *downloadManager) renderDownloadItem(renderer *sdl.Renderer, job *downl
 		percentSurface.Free()
 	}
 
-	if dm.showSpeed && job.currentSpeed > 0 {
+	// Only show individual speed for single downloads; use average speed for multiple
+	if dm.showSpeed && job.currentSpeed > 0 && len(dm.activeJobs) == 1 {
 		speedMBps := job.currentSpeed / 1048576.0
 		speedText := fmt.Sprintf("%.2f MB/s", speedMBps)
 		speedSurface, err := font.RenderUTF8Blended(speedText, sdl.Color{R: 150, G: 200, B: 255, A: 255})

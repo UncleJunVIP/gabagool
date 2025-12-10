@@ -354,7 +354,13 @@ func DrawSmoothProgressBar(renderer *sdl.Renderer, bgRect *sdl.Rect, fillWidth i
 			W: Min32(fillWidth, bgRect.W),
 			H: bgRect.H,
 		}
-		DrawRoundedRect(renderer, fillRect, radius, fillColor)
+		// Cap the fill radius to prevent it from being wider than the fill width
+		fillRadius := radius
+		if fillWidth < bgRect.H {
+			// When fill is narrower than the bar height, use half the fill width as radius
+			fillRadius = fillWidth / 2
+		}
+		DrawRoundedRect(renderer, fillRect, fillRadius, fillColor)
 	}
 }
 
