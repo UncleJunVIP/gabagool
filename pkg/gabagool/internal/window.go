@@ -47,6 +47,8 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 		windowFlags = windowFlags | sdl.WINDOW_BORDERLESS
 	}
 
+	GetInternalLogger().Debug("Initializing SDL Window", "width", width, "height", height)
+
 	window, err := sdl.CreateWindow(title, x, y, width, height, windowFlags)
 	if err != nil {
 		panic(err)

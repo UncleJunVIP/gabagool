@@ -108,16 +108,39 @@ func initFonts(sizes FontSizes) {
 }
 
 func loadFont(path string, fallback string, size int) *ttf.Font {
-	font, err := ttf.OpenFont(path, size)
-	if err != nil && fallback == "" {
-		GetInternalLogger().Error("Failed to load font!", "error", err)
-		os.Exit(1)
-	} else if err != nil {
-		GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", "error", err)
+	GetInternalLogger().Info("Loading font", "path", path, "size", size)
+
+	var font *ttf.Font
+	var err error
+
+	// If path is empty, skip directly to fallback
+	if path == "" {
+		if fallback == "" {
+			GetInternalLogger().Error("Both font path and fallback are empty!", "size", size)
+			os.Exit(1)
+		}
+		GetInternalLogger().Info("Font path is empty, using fallback", "fallback", fallback, "size", size)
 		font, err = ttf.OpenFont(fallback, size)
 		if err != nil {
-			GetInternalLogger().Error("Failed to fallback font! Exiting...", "error", err)
+			GetInternalLogger().Error("Failed to load fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
 			os.Exit(1)
+		}
+		GetInternalLogger().Info("Successfully loaded fallback font", "fallback", fallback, "size", size)
+	} else {
+		font, err = ttf.OpenFont(path, size)
+		if err != nil && fallback == "" {
+			GetInternalLogger().Error("Failed to load font!", "path", path, "size", size, "error", err)
+			os.Exit(1)
+		} else if err != nil {
+			GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", "path", path, "fallback", fallback, "size", size, "error", err)
+			font, err = ttf.OpenFont(fallback, size)
+			if err != nil {
+				GetInternalLogger().Error("Failed to fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
+				os.Exit(1)
+			}
+			GetInternalLogger().Info("Successfully loaded fallback font", "fallback", fallback, "size", size)
+		} else {
+			GetInternalLogger().Info("Successfully loaded font", "path", path, "size", size)
 		}
 	}
 

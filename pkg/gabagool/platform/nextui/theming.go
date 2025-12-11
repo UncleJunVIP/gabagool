@@ -21,6 +21,8 @@ var defaultTheme = internal.Theme{
 	ListTextColor:         internal.HexToColor(0xFFFFFF),
 	ListTextSelectedColor: internal.HexToColor(0x000000),
 	BGColor:               internal.HexToColor(0x000000),
+	FontPath:              "",
+	BackgroundImagePath:   "/mnt/SDCARD/bg.png",
 }
 
 func InitNextUITheme() internal.Theme {
