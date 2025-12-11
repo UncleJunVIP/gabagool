@@ -1,7 +1,6 @@
 package internal
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/veandco/go-sdl2/ttf"
@@ -111,13 +110,13 @@ func initFonts(sizes FontSizes) {
 func loadFont(path string, fallback string, size int) *ttf.Font {
 	font, err := ttf.OpenFont(path, size)
 	if err != nil && fallback == "" {
-		GetInternalLogger().Error("Failed to load font!", err)
+		GetInternalLogger().Error("Failed to load font!", "error", err)
 		os.Exit(1)
 	} else if err != nil {
-		GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", err)
+		GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", "error", err)
 		font, err = ttf.OpenFont(fallback, size)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to fallback font: %s\n", err)
+			GetInternalLogger().Error("Failed to fallback font! Exiting...", "error", err)
 			os.Exit(1)
 		}
 	}

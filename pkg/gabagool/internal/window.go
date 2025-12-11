@@ -36,8 +36,8 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	x, y := int32(0), int32(0)
 
 	if constants.IsDevMode() {
-		width = 1024
-		height = 768
+		width = 640
+		height = 480
 	}
 
 	var windowFlags uint32
