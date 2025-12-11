@@ -111,9 +111,10 @@ func initFonts(sizes FontSizes) {
 func loadFont(path string, fallback string, size int) *ttf.Font {
 	font, err := ttf.OpenFont(path, size)
 	if err != nil && fallback == "" {
-		fmt.Fprintf(os.Stderr, "Failed to load font: %s\n", err)
+		GetInternalLogger().Error("Failed to load font!", err)
 		os.Exit(1)
 	} else if err != nil {
+		GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", err)
 		font, err = ttf.OpenFont(fallback, size)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Failed to fallback font: %s\n", err)
