@@ -2,6 +2,7 @@ package internal
 
 import (
 	"os"
+	"strconv"
 	"sync"
 
 	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
@@ -36,8 +37,27 @@ func initWindowWithSize(title string, width, height int32, displayBackground boo
 	x, y := int32(0), int32(0)
 
 	if constants.IsDevMode() {
-		width = 640
-		height = 480
+		if v := os.Getenv("WINDOW_WIDTH"); v != "" {
+			if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+				width = int32(n)
+			} else {
+				GetInternalLogger().Warn("Invalid WINDOW_WIDTH; using default", "value", v, "error", err)
+				width = 1024
+			}
+		} else {
+			width = 1024
+		}
+
+		if v := os.Getenv("WINDOW_HEIGHT"); v != "" {
+			if n, err := strconv.ParseInt(v, 10, 32); err == nil {
+				height = int32(n)
+			} else {
+				GetInternalLogger().Warn("Invalid WINDOW_HEIGHT; using default", "value", v, "error", err)
+				height = 768
+			}
+		} else {
+			height = 768
+		}
 	}
 
 	var windowFlags uint32
