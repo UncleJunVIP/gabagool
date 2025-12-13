@@ -40,8 +40,9 @@ type Option struct {
 }
 
 type OptionListSettings struct {
-	DisableBackButton bool
-	FooterHelpItems   []FooterHelpItem
+	InitialSelectedIndex int
+	DisableBackButton    bool
+	FooterHelpItems      []FooterHelpItem
 }
 
 // ItemWithOptions represents a menu item with multiple choices.
@@ -212,6 +213,15 @@ func OptionsList(title string, listOptions OptionListSettings, items []ItemWithO
 	optionsListController.MaxVisibleItems = int(optionsListController.calculateMaxVisibleItems(window))
 	optionsListController.Settings.FooterHelpItems = listOptions.FooterHelpItems
 	optionsListController.Settings.DisableBackButton = listOptions.DisableBackButton
+
+	if listOptions.InitialSelectedIndex > 0 && listOptions.InitialSelectedIndex < len(items) {
+		if optionsListController.SelectedIndex >= 0 && optionsListController.SelectedIndex < len(items) {
+			optionsListController.Items[optionsListController.SelectedIndex].Item.Selected = false
+		}
+		optionsListController.SelectedIndex = listOptions.InitialSelectedIndex
+		optionsListController.Items[listOptions.InitialSelectedIndex].Item.Selected = true
+		optionsListController.scrollTo(listOptions.InitialSelectedIndex)
+	}
 
 	running := true
 	cancelled := false

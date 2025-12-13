@@ -18,6 +18,8 @@ const (
 	// Custom exit codes can start from 100
 )
 
+type StateName string
+
 // Context holds shared state between screens during FSM execution
 type Context struct {
 	data map[reflect.Type]any
@@ -56,16 +58,16 @@ func MustGet[T any](c *Context) T {
 // node represents an executable state in the FSM
 type node interface {
 	execute(ctx *Context) (ExitCode, error)
-	name() string
+	name() StateName
 }
 
 // stateNode wraps a function that returns a typed value
 type stateNode[T any] struct {
-	nodeName string
+	nodeName StateName
 	fn       func(*Context) (T, ExitCode)
 }
 
-func (n *stateNode[T]) name() string {
+func (n *stateNode[T]) name() StateName {
 	return n.nodeName
 }
 
@@ -77,11 +79,11 @@ func (n *stateNode[T]) execute(ctx *Context) (ExitCode, error) {
 
 // actionNode wraps a simple function that only returns an exit code
 type actionNode struct {
-	nodeName string
+	nodeName StateName
 	fn       func(*Context) ExitCode
 }
 
-func (n *actionNode) name() string {
+func (n *actionNode) name() StateName {
 	return n.nodeName
 }
 
@@ -92,31 +94,31 @@ func (n *actionNode) execute(ctx *Context) (ExitCode, error) {
 
 // transition defines a state transition
 type transition struct {
-	from string
+	from StateName
 	code ExitCode
-	to   string
+	to   StateName
 	hook func(*Context) error
 }
 
 // FSM represents the finite state machine
 type FSM struct {
-	nodes       map[string]node
+	nodes       map[StateName]node
 	transitions []transition
-	initialNode string
+	initialNode StateName
 	ctx         *Context
 }
 
 // NewFSM creates a new FSM
 func NewFSM() *FSM {
 	return &FSM{
-		nodes:       make(map[string]node),
+		nodes:       make(map[StateName]node),
 		transitions: []transition{},
 		ctx:         NewContext(),
 	}
 }
 
 // AddState adds a state that returns a typed value (auto-stored in context by type)
-func AddState[T any](fsm *FSM, name string, fn func(*Context) (T, ExitCode)) *StateBuilder {
+func AddState[T any](fsm *FSM, name StateName, fn func(*Context) (T, ExitCode)) *StateBuilder {
 	fsm.nodes[name] = &stateNode[T]{
 		nodeName: name,
 		fn:       fn,
@@ -125,7 +127,7 @@ func AddState[T any](fsm *FSM, name string, fn func(*Context) (T, ExitCode)) *St
 }
 
 // AddAction adds a simple action that only returns an exit code
-func AddAction(fsm *FSM, name string, fn func(*Context) ExitCode) *StateBuilder {
+func AddAction(fsm *FSM, name StateName, fn func(*Context) ExitCode) *StateBuilder {
 	fsm.nodes[name] = &actionNode{
 		nodeName: name,
 		fn:       fn,
@@ -134,7 +136,7 @@ func AddAction(fsm *FSM, name string, fn func(*Context) ExitCode) *StateBuilder 
 }
 
 // Start sets the initial state
-func (f *FSM) Start(name string) *FSM {
+func (f *FSM) Start(name StateName) *FSM {
 	f.initialNode = name
 	return f
 }
@@ -193,11 +195,11 @@ func (f *FSM) Run() error {
 // StateBuilder provides a fluent API for defining transitions
 type StateBuilder struct {
 	fsm   *FSM
-	state string
+	state StateName
 }
 
 // On defines a transition for an exit code
-func (b *StateBuilder) On(code ExitCode, to string) *StateBuilder {
+func (b *StateBuilder) On(code ExitCode, to StateName) *StateBuilder {
 	b.fsm.transitions = append(b.fsm.transitions, transition{
 		from: b.state,
 		code: code,
@@ -207,7 +209,7 @@ func (b *StateBuilder) On(code ExitCode, to string) *StateBuilder {
 }
 
 // OnWithHook defines a transition with a pre-transition hook
-func (b *StateBuilder) OnWithHook(code ExitCode, to string, hook func(*Context) error) *StateBuilder {
+func (b *StateBuilder) OnWithHook(code ExitCode, to StateName, hook func(*Context) error) *StateBuilder {
 	b.fsm.transitions = append(b.fsm.transitions, transition{
 		from: b.state,
 		code: code,

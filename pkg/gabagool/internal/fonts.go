@@ -18,8 +18,8 @@ type FontSizes struct {
 var DefaultFontSizes = FontSizes{
 	XLarge: 60,
 	Large:  50,
-	Medium: 42,
-	Small:  30,
+	Medium: 44,
+	Small:  34,
 	Tiny:   24,
 	Micro:  18,
 }
@@ -70,72 +70,56 @@ func GetScaleFactor() float32 {
 
 func initFonts(sizes FontSizes) {
 	screenWidth := GetWindow().GetWidth()
+	fontPath := GetTheme().FontPath
+	fallback := os.Getenv("FALLBACK_FONT")
+	symbolPath := "/mnt/SDCARD/.system/res/font1.ttf"
 
-	xlSize := CalculateFontSizeForResolution(sizes.XLarge, screenWidth)
-	largeSize := CalculateFontSizeForResolution(sizes.Large, screenWidth)
-	mediumSize := CalculateFontSizeForResolution(sizes.Medium, screenWidth)
-	smallSize := CalculateFontSizeForResolution(sizes.Small, screenWidth)
-	tinySize := CalculateFontSizeForResolution(sizes.Tiny, screenWidth)
-	microSize := CalculateFontSizeForResolution(sizes.Micro, screenWidth)
-
-	xlFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), xlSize)
-	LargeFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), largeSize)
-	MediumFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), mediumSize)
-	SmallFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), smallSize)
-	tinyFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), tinySize)
-	microFont := loadFont(GetTheme().FontPath, os.Getenv("FALLBACK_FONT"), microSize)
-
-	LargeSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), largeSize)
-	mediumSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), mediumSize)
-	smallSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), smallSize)
-	tinySymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), tinySize)
-	microSymbolFont := loadFont("/mnt/SDCARD/.system/res/font1.ttf", os.Getenv("FALLBACK_FONT"), microSize)
+	// Calculate all sizes
+	calcSize := func(base int) int {
+		return CalculateFontSizeForResolution(base, screenWidth)
+	}
 
 	Fonts = fontsManager{
-		ExtraLargeFont: xlFont,
-		LargeFont:      LargeFont,
-		MediumFont:     MediumFont,
-		SmallFont:      SmallFont,
-		TinyFont:       tinyFont,
-		MicroFont:      microFont,
-
-		LargeSymbolFont:  LargeSymbolFont,
-		mediumSymbolFont: mediumSymbolFont,
-		smallSymbolFont:  smallSymbolFont,
-		tinySymbolFont:   tinySymbolFont,
-		microSymbolFont:  microSymbolFont,
+		ExtraLargeFont:   loadFont(fontPath, fallback, calcSize(sizes.XLarge)),
+		LargeFont:        loadFont(fontPath, fallback, calcSize(sizes.Large)),
+		MediumFont:       loadFont(fontPath, fallback, calcSize(sizes.Medium)),
+		SmallFont:        loadFont(fontPath, fallback, calcSize(sizes.Small)),
+		TinyFont:         loadFont(fontPath, fallback, calcSize(sizes.Tiny)),
+		MicroFont:        loadFont(fontPath, fallback, calcSize(sizes.Micro)),
+		LargeSymbolFont:  loadFont(symbolPath, fallback, calcSize(sizes.Large)),
+		mediumSymbolFont: loadFont(symbolPath, fallback, calcSize(sizes.Medium)),
+		smallSymbolFont:  loadFont(symbolPath, fallback, calcSize(sizes.Small)),
+		tinySymbolFont:   loadFont(symbolPath, fallback, calcSize(sizes.Tiny)),
+		microSymbolFont:  loadFont(symbolPath, fallback, calcSize(sizes.Micro)),
 	}
 }
 
 func loadFont(path string, fallback string, size int) *ttf.Font {
-	GetInternalLogger().Info("Loading font", "path", path, "size", size)
-
 	var font *ttf.Font
 	var err error
 
-	// If path is empty, skip directly to fallback
 	if path == "" {
 		if fallback == "" {
-			GetInternalLogger().Error("Both font path and fallback are empty!", "size", size)
+			GetInternalLogger().Error("Both font path and fallback are empty", "size", size)
 			os.Exit(1)
 		}
-		font, err = ttf.OpenFont(fallback, size)
-		if err != nil {
-			GetInternalLogger().Error("Failed to load fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
-			os.Exit(1)
-		}
-	} else {
-		font, err = ttf.OpenFont(path, size)
-		if err != nil && fallback == "" {
-			GetInternalLogger().Error("Failed to load font!", "path", path, "size", size, "error", err)
-			os.Exit(1)
-		} else if err != nil {
-			font, err = ttf.OpenFont(fallback, size)
-			if err != nil {
-				GetInternalLogger().Error("Failed to fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
-				os.Exit(1)
-			}
-		}
+		path = fallback
+	}
+
+	font, err = ttf.OpenFont(path, size)
+	if err == nil {
+		return font
+	}
+
+	if fallback == "" || fallback == path {
+		GetInternalLogger().Error("Failed to load font", "path", path, "size", size, "error", err)
+		os.Exit(1)
+	}
+
+	font, err = ttf.OpenFont(fallback, size)
+	if err != nil {
+		GetInternalLogger().Error("Failed to load font and fallback", "path", path, "fallback", fallback, "size", size, "error", err)
+		os.Exit(1)
 	}
 
 	return font

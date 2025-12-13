@@ -317,9 +317,6 @@ func (lc *listController) handleActionButtons(button constants.VirtualButton, ru
 		if lc.Options.EnableAction {
 			*running = false
 			result.Action = ListActionTriggered
-			// New logic to handle returning the value(s) selected when X is pressed, if the app wants to use them
-			// If not multi select, returns a single value like A button
-			// if multi select, returns selected values like start button
 			if len(lc.Options.Items) > 0 {
 				if lc.MultiSelect {
 					if indices := lc.getSelectedItems(); len(indices) > 0 {
@@ -519,7 +516,6 @@ func (lc *listController) toggleMultiSelect() {
 	lc.MultiSelect = !lc.MultiSelect
 
 	if !lc.MultiSelect {
-		// Clear all selections
 		for i := range lc.Options.Items {
 			lc.Options.Items[i].Selected = false
 		}
@@ -549,8 +545,6 @@ func (lc *listController) updateSelectionState() {
 		}
 		lc.SelectedItems = map[int]bool{lc.Options.SelectedIndex: true}
 	}
-	// In multi-select mode, don't automatically select items during navigation
-	// Selection should only happen when 'A' button is explicitly pressed via toggleSelection()
 }
 
 func (lc *listController) getSelectedItems() []int {
@@ -606,17 +600,14 @@ func (lc *listController) handleDirectionalRepeats() {
 func (lc *listController) render(window *internal.Window) {
 	lc.updateScrolling()
 
-	// Update focus states
 	for i := range lc.Options.Items {
 		lc.Options.Items[i].Focused = i == lc.Options.SelectedIndex
 	}
 
-	// Prepare visible items
 	endIndex := min(lc.Options.VisibleStartIndex+lc.Options.MaxVisibleItems, len(lc.Options.Items))
 	visibleItems := make([]MenuItem, endIndex-lc.Options.VisibleStartIndex)
 	copy(visibleItems, lc.Options.Items[lc.Options.VisibleStartIndex:endIndex])
 
-	// Add the reorder indicator
 	if lc.ReorderMode {
 		selectedIdx := lc.Options.SelectedIndex - lc.Options.VisibleStartIndex
 		if selectedIdx >= 0 && selectedIdx < len(visibleItems) {
