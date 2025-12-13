@@ -16,10 +16,10 @@ type FontSizes struct {
 }
 
 var DefaultFontSizes = FontSizes{
-	XLarge: 66,
-	Large:  54,
-	Medium: 48,
-	Small:  36,
+	XLarge: 60,
+	Large:  50,
+	Medium: 42,
+	Small:  30,
 	Tiny:   24,
 	Micro:  18,
 }
@@ -31,8 +31,8 @@ type fontsManager struct {
 	LargeFont      *ttf.Font
 	MediumFont     *ttf.Font
 	SmallFont      *ttf.Font
-	tinyFont       *ttf.Font
-	microFont      *ttf.Font
+	TinyFont       *ttf.Font
+	MicroFont      *ttf.Font
 
 	LargeSymbolFont  *ttf.Font
 	mediumSymbolFont *ttf.Font
@@ -96,8 +96,8 @@ func initFonts(sizes FontSizes) {
 		LargeFont:      LargeFont,
 		MediumFont:     MediumFont,
 		SmallFont:      SmallFont,
-		tinyFont:       tinyFont,
-		microFont:      microFont,
+		TinyFont:       tinyFont,
+		MicroFont:      microFont,
 
 		LargeSymbolFont:  LargeSymbolFont,
 		mediumSymbolFont: mediumSymbolFont,
@@ -119,28 +119,22 @@ func loadFont(path string, fallback string, size int) *ttf.Font {
 			GetInternalLogger().Error("Both font path and fallback are empty!", "size", size)
 			os.Exit(1)
 		}
-		GetInternalLogger().Info("Font path is empty, using fallback", "fallback", fallback, "size", size)
 		font, err = ttf.OpenFont(fallback, size)
 		if err != nil {
 			GetInternalLogger().Error("Failed to load fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
 			os.Exit(1)
 		}
-		GetInternalLogger().Info("Successfully loaded fallback font", "fallback", fallback, "size", size)
 	} else {
 		font, err = ttf.OpenFont(path, size)
 		if err != nil && fallback == "" {
 			GetInternalLogger().Error("Failed to load font!", "path", path, "size", size, "error", err)
 			os.Exit(1)
 		} else if err != nil {
-			GetInternalLogger().Error("Failed to load font! Attempting to use fallback...", "path", path, "fallback", fallback, "size", size, "error", err)
 			font, err = ttf.OpenFont(fallback, size)
 			if err != nil {
 				GetInternalLogger().Error("Failed to fallback font! Exiting...", "fallback", fallback, "size", size, "error", err)
 				os.Exit(1)
 			}
-			GetInternalLogger().Info("Successfully loaded fallback font", "fallback", fallback, "size", size)
-		} else {
-			GetInternalLogger().Info("Successfully loaded font", "path", path, "size", size)
 		}
 	}
 
@@ -151,8 +145,8 @@ func closeFonts() {
 	Fonts.LargeFont.Close()
 	Fonts.MediumFont.Close()
 	Fonts.SmallFont.Close()
-	Fonts.tinyFont.Close()
-	Fonts.microFont.Close()
+	Fonts.TinyFont.Close()
+	Fonts.MicroFont.Close()
 
 	Fonts.LargeSymbolFont.Close()
 	Fonts.mediumSymbolFont.Close()

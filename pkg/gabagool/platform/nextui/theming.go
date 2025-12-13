@@ -36,7 +36,6 @@ func InitNextUITheme() internal.Theme {
 	}
 
 	if err != nil {
-		internal.GetInternalLogger().Error("Error loading theme. using default NextUI styling...", "error", err)
 		return defaultTheme
 	}
 
