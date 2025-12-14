@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
+	"github.com/BrandonKowalski/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 	"go.uber.org/atomic"

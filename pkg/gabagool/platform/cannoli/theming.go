@@ -1,7 +1,7 @@
 package cannoli
 
 import (
-	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
+	"github.com/BrandonKowalski/gabagool/v2/pkg/gabagool/internal"
 )
 
 func InitCannoliTheme(fontPath string) internal.Theme {

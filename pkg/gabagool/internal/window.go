@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/constants"
+	"github.com/BrandonKowalski/gabagool/v2/pkg/gabagool/constants"
 	"github.com/veandco/go-sdl2/img"
 	"github.com/veandco/go-sdl2/sdl"
 )

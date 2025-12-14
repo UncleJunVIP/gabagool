@@ -1,7 +1,7 @@
 package gabagool
 
 import (
-	"github.com/UncleJunVIP/gabagool/v2/pkg/gabagool/internal"
+	"github.com/BrandonKowalski/gabagool/v2/pkg/gabagool/internal"
 	"github.com/veandco/go-sdl2/gfx"
 	"github.com/veandco/go-sdl2/sdl"
 	"github.com/veandco/go-sdl2/ttf"
